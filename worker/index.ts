@@ -1,9 +1,11 @@
 import apiApp from '../api/src/index';
+import { buildBriefing, writeBriefing } from '../api/src/lib/briefing-builder';
 
 export interface Env {
   ASSETS: { fetch: (req: Request) => Promise<Response> };
   KV_CACHE?: KVNamespace;
   KV_SHARES?: KVNamespace;
+  BRIEFINGS?: KVNamespace;
   R2_FILES?: R2Bucket;
   VT_API_KEY?: string;
   ABUSEIPDB_API_KEY?: string;
@@ -54,5 +56,36 @@ export default {
       ? await apiApp.fetch(request, env as never, ctx)
       : await env.ASSETS.fetch(request);
     return withSecurityHeaders(response);
+  },
+
+  /**
+   * Cron-triggered briefing generation.
+   * - "5 0 * * *"   → daily briefing for the prior calendar day
+   * - "15 0 * * 1"  → weekly briefing for the prior ISO week (Monday → Sunday)
+   *
+   * Both registered together; we dispatch on cron string.
+   */
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (!env.BRIEFINGS) {
+      console.warn('scheduled: BRIEFINGS KV not bound, skipping');
+      return;
+    }
+    const cron = event.cron;
+    const isWeekly = cron === '15 0 * * 1';
+    const type = isWeekly ? 'weekly' : 'daily';
+
+    ctx.waitUntil(
+      (async () => {
+        try {
+          const briefing = await buildBriefing(type);
+          await writeBriefing(env.BRIEFINGS as KVNamespace, briefing);
+          console.log(
+            `scheduled: wrote ${briefing.slug} (findings=${briefing.stats.findings}, iocs=${briefing.stats.iocs})`
+          );
+        } catch (err) {
+          console.error('scheduled: briefing build failed', err);
+        }
+      })()
+    );
   },
 };

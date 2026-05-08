@@ -1,6 +1,7 @@
 export interface Env {
   KV_CACHE?: KVNamespace;
   KV_SHARES?: KVNamespace;
+  BRIEFINGS?: KVNamespace;
   R2_FILES?: R2Bucket;
   VT_API_KEY: string;
   ABUSEIPDB_API_KEY: string;

@@ -14,6 +14,12 @@ import { mitreTechniqueHandler } from './routes/mitre';
 import { asnLookupHandler } from './routes/asn';
 import { breachRangeHandler, breachEmailHandler, breachDomainHandler } from './routes/breach';
 import { urlPreviewHandler } from './routes/url-preview';
+import {
+  listBriefingsHandler,
+  getBriefingHandler,
+  todayBriefingHandler,
+  buildBriefingHandler,
+} from './routes/briefings';
 import { rateLimit } from './lib/ratelimit';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -38,6 +44,10 @@ app.get('/api/v1/breach/range', breachRangeHandler);
 app.get('/api/v1/breach/email', breachEmailHandler);
 app.get('/api/v1/breach/domain', breachDomainHandler);
 app.get('/api/v1/url-preview', urlPreviewHandler);
+app.get('/api/v1/briefings/list', listBriefingsHandler);
+app.get('/api/v1/briefings/today', todayBriefingHandler);
+app.post('/api/v1/briefings/build', buildBriefingHandler);
+app.get('/api/v1/briefings/:slug', getBriefingHandler);
 app.notFound((c) => c.json({ error: 'not_found' }, 404));
 
 export default app;

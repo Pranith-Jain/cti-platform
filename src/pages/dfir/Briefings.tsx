@@ -1,28 +1,69 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Rss } from 'lucide-react';
+import { ArrowLeft, Rss, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { briefings, type BriefingType } from '../../data/dfir/briefings';
-import { BriefingCard } from '../../components/dfir/BriefingCard';
 import { IocFeedStream } from '../../components/dfir/IocFeedStream';
 
-type Filter = 'all' | BriefingType;
+type Filter = 'all' | 'daily' | 'weekly';
+
 const FILTERS: Array<{ id: Filter; label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'daily', label: 'Daily' },
   { id: 'weekly', label: 'Weekly' },
 ];
 
+interface BriefingMeta {
+  type: 'daily' | 'weekly';
+  title: string;
+  date: string;
+  date_range: string;
+  stats: {
+    findings: number;
+    sections: number;
+    cves: number;
+    kevs: number;
+    iocs: number;
+    critical: number;
+    high: number;
+  };
+  sources: string[];
+}
+
+interface ListItem {
+  slug: string;
+  metadata: BriefingMeta;
+}
+
 export default function Briefings(): JSX.Element {
   const [filter, setFilter] = useState<Filter>('all');
+  const [items, setItems] = useState<ListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filtered = briefings
-    .filter((b) => filter === 'all' || b.type === filter)
-    .sort((a, b) => b.date.localeCompare(a.date));
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/v1/briefings/list?limit=60')
+      .then(async (r) => {
+        if (!r.ok) {
+          const body = (await r.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? `${r.status}`);
+        }
+        return (await r.json()) as { items: ListItem[] };
+      })
+      .then((d) => setItems(d.items))
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = useMemo(() => {
+    return items
+      .filter((b) => filter === 'all' || b.metadata.type === filter)
+      .slice()
+      .sort((a, b) => (b.metadata.date ?? '').localeCompare(a.metadata.date ?? ''));
+  }, [items, filter]);
 
   return (
     <div className="max-w-5xl mx-auto px-8 py-16 text-slate-900 dark:text-slate-100">
-      {/* Back link */}
       <Link
         to="/dfir"
         className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:text-brand-400 mb-10 font-mono transition-colors"
@@ -30,7 +71,6 @@ export default function Briefings(): JSX.Element {
         <ArrowLeft size={14} /> /dfir
       </Link>
 
-      {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -40,12 +80,11 @@ export default function Briefings(): JSX.Element {
         <span className="inline-block text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 mb-3">
           Intel Briefings
         </span>
-        <h1 className="text-4xl sm:text-5xl font-display font-bold text-slate-900 dark:text-slate-100 mb-4 leading-tight">
-          Threat Intel Briefings
-        </h1>
+        <h1 className="text-4xl sm:text-5xl font-display font-bold mb-4 leading-tight">Threat Intel Briefings</h1>
         <p className="text-base text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
-          Curated daily and weekly summaries of threat intelligence activity, drawn from live IOC feeds including CISA
-          KEV, Abuse.ch, and OpenPhish. Reference only — verify all indicators in your own environment.
+          Auto-generated daily and weekly summaries of threat intelligence activity, drawn from CISA KEV, NVD, and
+          abuse.ch / OpenPhish feeds. Daily briefings publish at 00:05 UTC; weekly at 00:15 UTC Monday. Reference only —
+          verify all indicators in your own environment.
         </p>
       </motion.header>
 
@@ -58,13 +97,13 @@ export default function Briefings(): JSX.Element {
         className="mb-14"
       >
         <div className="flex items-baseline justify-between mb-4">
-          <h2 className="font-display font-bold text-xl text-slate-900 dark:text-slate-100">Live IOC Streams</h2>
+          <h2 className="font-display font-bold text-xl">Live IOC Streams</h2>
           <span className="text-xs font-mono text-slate-400">6 sources · capped at 100 entries · 30 min cache</span>
         </div>
         <IocFeedStream />
       </motion.section>
 
-      {/* Briefings section */}
+      {/* Briefings list */}
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -72,10 +111,9 @@ export default function Briefings(): JSX.Element {
         transition={{ duration: 0.4 }}
       >
         <div className="flex items-baseline justify-between mb-6">
-          <h2 className="font-display font-bold text-xl text-slate-900 dark:text-slate-100">Briefings</h2>
+          <h2 className="font-display font-bold text-xl">Briefings</h2>
         </div>
 
-        {/* Filter tabs */}
         <div className="flex flex-wrap gap-2 mb-8">
           {FILTERS.map(({ id, label }) => {
             const isActive = id === filter;
@@ -96,19 +134,69 @@ export default function Briefings(): JSX.Element {
           })}
         </div>
 
-        {/* Briefings list */}
-        {filtered.length === 0 ? (
-          <p className="text-sm font-mono text-slate-400 py-10 text-center">No briefings found.</p>
-        ) : (
-          <div className="space-y-4">
-            {filtered.map((briefing) => (
-              <BriefingCard key={briefing.slug} briefing={briefing} />
-            ))}
-          </div>
+        {loading && <p className="text-sm font-mono text-slate-400 py-10 text-center">Loading briefings…</p>}
+        {error && (
+          <p className="text-sm font-mono text-rose-600 dark:text-rose-400 py-10 text-center">error: {error}</p>
         )}
+        {!loading && !error && filtered.length === 0 && (
+          <p className="text-sm font-mono text-slate-400 py-10 text-center">
+            No briefings yet — the first daily briefing publishes at 00:05 UTC tomorrow.
+          </p>
+        )}
+
+        <div className="space-y-4">
+          {filtered.map((item) => (
+            <Link
+              key={item.slug}
+              to={`/dfir/briefings/${item.slug}`}
+              className="block rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 hover:border-brand-500/40 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-4 mb-2">
+                <div className="min-w-0">
+                  <h3 className="font-display font-bold text-lg leading-snug">{item.metadata.title}</h3>
+                  <p className="text-xs font-mono text-slate-500 mt-0.5">{item.metadata.date_range}</p>
+                </div>
+                <span
+                  className={`text-xs font-mono px-2 py-0.5 rounded border shrink-0 ${
+                    item.metadata.type === 'daily'
+                      ? 'bg-brand-500/15 dark:bg-brand-400/15 text-brand-600 dark:text-brand-400 border-brand-500/40'
+                      : 'bg-violet-500/15 dark:bg-violet-400/15 text-violet-600 dark:text-violet-400 border-violet-500/40'
+                  }`}
+                >
+                  {item.metadata.type}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-slate-500 mt-3">
+                <span>
+                  <span className="text-slate-800 dark:text-slate-200 font-semibold">
+                    {item.metadata.stats.findings}
+                  </span>{' '}
+                  findings
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>
+                  <span className="text-slate-800 dark:text-slate-200 font-semibold">{item.metadata.stats.cves}</span>{' '}
+                  CVEs
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>
+                  <span className="text-rose-600 dark:text-rose-400 font-semibold">{item.metadata.stats.critical}</span>{' '}
+                  critical
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>
+                  <span className="text-orange-600 dark:text-orange-400 font-semibold">{item.metadata.stats.high}</span>{' '}
+                  high
+                </span>
+                <span aria-hidden="true">·</span>
+                <span className="text-slate-400">{(item.metadata.sources ?? []).join(', ')}</span>
+                <ChevronRight size={14} className="ml-auto text-slate-400" />
+              </div>
+            </Link>
+          ))}
+        </div>
       </motion.section>
 
-      {/* RSS CTA placeholder */}
       <div className="mt-16 flex items-center gap-3 p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
         <Rss size={16} className="text-slate-400 shrink-0" />
         <p className="text-sm font-mono text-slate-500">

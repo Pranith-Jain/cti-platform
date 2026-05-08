@@ -21,6 +21,7 @@ const Actors = lazy(() => import('./pages/dfir/Actors'));
 const ActorDetail = lazy(() => import('./pages/dfir/ActorDetail'));
 const Privacy = lazy(() => import('./pages/dfir/Privacy'));
 const Briefings = lazy(() => import('./pages/dfir/Briefings'));
+const BriefingDetail = lazy(() => import('./pages/dfir/BriefingDetail'));
 const Cve = lazy(() => import('./pages/dfir/Cve'));
 const Decode = lazy(() => import('./pages/dfir/Decode'));
 const Technique = lazy(() => import('./pages/dfir/Technique'));
@@ -193,6 +194,14 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <Briefings />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/briefings/:slug"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <BriefingDetail />
                 </Suspense>
               }
             />

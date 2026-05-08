@@ -11,7 +11,15 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "html_handling": "drop-trailing-slash"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "BRIEFINGS",
+      "id": "d7a0a96be0ef452087baef1172bbbe34"
+    }
+  ],
+  "triggers": {
+    // Daily briefing at 00:05 UTC (covers prior 24h window). Weekly at 00:15 UTC Monday (covers prior week).
+    "crons": ["5 0 * * *", "15 0 * * 1"]
   }
-  // KV/R2 bindings will be added when Plan 1 Task 5 (deferred CF provisioning) ships.
-  // For now, the Worker code that touches KV is gated behind feature checks.
 }
