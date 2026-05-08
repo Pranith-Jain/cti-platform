@@ -73,6 +73,53 @@ export async function buildBriefingHandler(c: Context<{ Bindings: Env & { BRIEFI
   return c.json({ ok: true, slug: briefing.slug, stats: briefing.stats }, 200);
 }
 
+/**
+ * Admin backfill — generate the past N daily briefings + last M weekly briefings.
+ * Useful on first deploy to populate the list page.
+ *
+ * POST /api/v1/briefings/backfill?days=14&weeks=3&token=...
+ */
+export async function backfillBriefingsHandler(c: Context<{ Bindings: Env & { BRIEFINGS_ADMIN_TOKEN?: string } }>) {
+  const kv = kvOrError(c);
+  if (!kv) return c.json({ error: 'briefings KV not bound' }, 503);
+  const required = (c.env as { BRIEFINGS_ADMIN_TOKEN?: string }).BRIEFINGS_ADMIN_TOKEN;
+  if (!required) return c.json({ error: 'admin endpoint disabled' }, 403);
+  const token = c.req.query('token');
+  if (token !== required) return c.json({ error: 'unauthorized' }, 401);
+
+  const days = Math.min(Math.max(parseInt(c.req.query('days') ?? '14', 10) || 14, 0), 21);
+  const weeks = Math.min(Math.max(parseInt(c.req.query('weeks') ?? '3', 10) || 3, 0), 4);
+
+  const writtenDaily: string[] = [];
+  const writtenWeekly: string[] = [];
+
+  // Walk back day-by-day from today (anchor = today; builder produces previous-day briefing)
+  for (let i = 0; i < days; i += 1) {
+    const anchor = new Date(Date.now() - i * 86400_000);
+    try {
+      const briefing = await buildBriefing('daily', anchor);
+      await writeBriefing(kv, briefing);
+      writtenDaily.push(briefing.slug);
+    } catch {
+      /* skip and continue */
+    }
+  }
+
+  // Walk back week-by-week (anchor = today; builder produces prior ISO week)
+  for (let i = 0; i < weeks; i += 1) {
+    const anchor = new Date(Date.now() - i * 7 * 86400_000);
+    try {
+      const briefing = await buildBriefing('weekly', anchor);
+      await writeBriefing(kv, briefing);
+      writtenWeekly.push(briefing.slug);
+    } catch {
+      /* skip */
+    }
+  }
+
+  return c.json({ ok: true, daily: writtenDaily, weekly: writtenWeekly }, 200);
+}
+
 /** Admin sweep — delete briefings older than maxAgeDays (default 21). */
 export async function sweepBriefingsHandler(c: Context<{ Bindings: Env & { BRIEFINGS_ADMIN_TOKEN?: string } }>) {
   const kv = kvOrError(c);

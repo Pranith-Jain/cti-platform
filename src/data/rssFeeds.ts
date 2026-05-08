@@ -218,45 +218,6 @@ export const rssFeeds: RSSFeed[] = [
     source: 'AlienVault',
     language: 'en-US',
   },
-  // abuse.ch deprecated their /rss/ endpoints; we synthesise RSS from their
-  // CSV "recent" downloads via /api/v1/feeds/abuse-rss?source=...
-  {
-    id: 'threatfox',
-    name: 'Abuse.ch ThreatFox',
-    url: '/api/v1/feeds/abuse-rss?source=threatfox',
-    description: 'Malware indicators and threat intelligence from Abuse.ch',
-    category: 'threat-intel',
-    source: 'Abuse.ch',
-    language: 'en-US',
-  },
-  {
-    id: 'malwarebazaar',
-    name: 'Abuse.ch MalwareBazaar',
-    url: '/api/v1/feeds/abuse-rss?source=malwarebazaar',
-    description: 'Malware samples database and analysis',
-    category: 'threat-intel',
-    source: 'Abuse.ch',
-    language: 'en-US',
-  },
-  {
-    id: 'urlhaus',
-    name: 'Abuse.ch URLhaus',
-    url: '/api/v1/feeds/abuse-rss?source=urlhaus',
-    description: 'Malware distribution URLs database',
-    category: 'threat-intel',
-    source: 'Abuse.ch',
-    language: 'en-US',
-  },
-  {
-    id: 'feodo',
-    name: 'Abuse.ch Feodo Tracker',
-    url: '/api/v1/feeds/abuse-rss?source=feodo',
-    description: 'Active C2 infrastructure for Dridex, Emotet, Heodo, TrickBot',
-    category: 'threat-intel',
-    source: 'Abuse.ch',
-    language: 'en-US',
-  },
-
   // ============================================================================
   // SECURITY NEWS
   // ============================================================================

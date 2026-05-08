@@ -16,6 +16,10 @@
     {
       "binding": "BRIEFINGS",
       "id": "d7a0a96be0ef452087baef1172bbbe34"
+    },
+    {
+      "binding": "KV_CACHE",
+      "id": "5125e769e49f4a1586f81d1935f9856a"
     }
   ],
   "triggers": {

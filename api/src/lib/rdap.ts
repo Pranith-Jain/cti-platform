@@ -126,8 +126,17 @@ export async function rdapLookup(domain: string): Promise<RdapResult> {
       lastError = err instanceof Error ? err.message : String(err);
     }
   }
-  // Identity Digital (.ai/.capital/.io/.tech) and a few others rate-limit shared
-  // CF Worker IPs. Surface a friendlier message so users know to retry.
+  // RDAP failed across all candidates — try raw TCP/43 WHOIS as a last resort.
+  // Critical for Identity Digital TLDs (.ai/.capital/.io/.tech) which 429 the
+  // CF Worker IP pool on RDAP but answer port-43 from the same IPs.
+  try {
+    const { whoisTcpLookup } = await import('./whois-tcp');
+    const tcp = await whoisTcpLookup(lower);
+    if (tcp) return tcp;
+  } catch {
+    /* fall through to surface the original error */
+  }
+
   if (rateLimited) {
     return { ...empty, error: 'registry rate-limited — try again in a few minutes' };
   }
