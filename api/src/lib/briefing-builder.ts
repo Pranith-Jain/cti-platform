@@ -27,6 +27,7 @@ export interface BriefingFinding {
   description: string;
   severity: Severity;
   cvss?: number;
+  cwes?: string[];
   source: string;
   source_url?: string;
   mitre_techniques: string[];
@@ -108,6 +109,9 @@ interface NvdCve {
     cvssMetricV30?: NvdCvssMetric[];
     cvssMetricV2?: NvdCvssMetric[];
   };
+  weaknesses?: Array<{
+    description?: Array<{ lang: string; value: string }>;
+  }>;
 }
 
 interface NvdResponse {
@@ -116,72 +120,224 @@ interface NvdResponse {
 
 // ---- categorisation -----------------------------------------------------
 
-const CATEGORY_RULES: Array<{ id: string; title: string; blurb: string; match: RegExp }> = [
+interface CategoryRule {
+  id: string;
+  title: string;
+  blurb: string;
+  cwes?: string[]; // matched first (deterministic from NVD)
+  match?: RegExp; // fallback keyword match in title/description
+}
+
+// Order matters — first match wins. CWE matches take precedence over keyword matches per rule.
+const CATEGORY_RULES: CategoryRule[] = [
   {
     id: 'rce',
     title: 'Critical Remote Code Execution Vulnerabilities',
     blurb: 'Vulnerabilities allowing arbitrary code execution on affected systems — patch immediately.',
+    cwes: ['CWE-94', 'CWE-913', 'CWE-1336'],
     match:
-      /\b(remote code execution|\bRCE\b|arbitrary code execution|unauthenticated code execution|pre-?auth(?:entication)? rce)\b/i,
+      /\b(remote code execution|\bRCE\b|arbitrary code execution|unauthenticated code execution|pre-?auth(?:entication)? rce|code injection|template injection|expression language injection)\b/i,
   },
   {
     id: 'command-injection',
     title: 'Command Injection',
     blurb: 'OS / shell command injection enabling attacker-controlled execution.',
-    match: /\b(command injection|os command|shell injection|argument injection)\b/i,
+    cwes: ['CWE-77', 'CWE-78', 'CWE-88'],
+    match: /\b(command injection|os command|shell injection|argument injection|special elements used in a command)\b/i,
   },
   {
     id: 'auth-bypass',
     title: 'Authentication & Authorization Bypass',
     blurb: 'Missing or broken authentication / authorisation enabling unauthorised actions.',
+    cwes: [
+      'CWE-287',
+      'CWE-288',
+      'CWE-289',
+      'CWE-290',
+      'CWE-294',
+      'CWE-303',
+      'CWE-304',
+      'CWE-305',
+      'CWE-306',
+      'CWE-862',
+      'CWE-863',
+      'CWE-639',
+    ],
     match:
-      /\b(authentication bypass|auth(?:orisation| bypass)|missing authorization|missing authentication|improper access control)\b/i,
+      /\b(authentication bypass|auth(?:orisation| bypass)|missing authorization|missing authentication|improper access control|insecure direct object reference|broken access control|IDOR)\b/i,
   },
   {
     id: 'privesc',
     title: 'Privilege Escalation',
     blurb: 'Vulnerabilities enabling escalation to higher privileges.',
-    match: /\b(privilege escalation|priv(?:ilege)? esc|elevation of privilege|escalate privileges)\b/i,
+    cwes: ['CWE-269', 'CWE-250', 'CWE-272', 'CWE-273'],
+    match:
+      /\b(privilege escalation|priv(?:ilege)? esc|elevation of privilege|escalate privileges|incorrect privilege assignment)\b/i,
   },
   {
     id: 'sql-injection',
     title: 'SQL & NoSQL Injection',
     blurb: 'Database injection vulnerabilities exposing or modifying stored data.',
-    match: /\b(sql injection|sqli|nosql injection|blind sql)\b/i,
+    cwes: ['CWE-89', 'CWE-943'],
+    match: /\b(sql injection|sqli|nosql injection|blind sql|database injection)\b/i,
   },
   {
     id: 'xss',
     title: 'Cross-Site Scripting',
     blurb: 'Reflected, stored, or DOM-based XSS in web applications.',
-    match: /\b(cross-?site scripting|\bXSS\b|stored xss|reflected xss)\b/i,
+    cwes: ['CWE-79', 'CWE-80', 'CWE-83', 'CWE-87'],
+    match: /\b(cross-?site scripting|\bXSS\b|stored xss|reflected xss|html injection)\b/i,
   },
   {
     id: 'memory-corruption',
     title: 'Memory Corruption',
     blurb: 'Buffer overflows, use-after-free, type confusion enabling crashes or RCE.',
+    cwes: [
+      'CWE-119',
+      'CWE-120',
+      'CWE-121',
+      'CWE-122',
+      'CWE-125',
+      'CWE-787',
+      'CWE-415',
+      'CWE-416',
+      'CWE-476',
+      'CWE-843',
+      'CWE-190',
+      'CWE-191',
+      'CWE-200',
+      'CWE-787',
+    ],
     match:
-      /\b(buffer overflow|heap overflow|stack overflow|use-after-free|type confusion|out-of-bounds (read|write)|double free)\b/i,
+      /\b(buffer overflow|heap overflow|stack overflow|use-after-free|use after free|type confusion|out-of-bounds (read|write)|double free|integer overflow|null pointer dereference)\b/i,
   },
   {
     id: 'deserialization',
     title: 'Insecure Deserialization',
     blurb: 'Unsafe deserialization of attacker-controlled data leading to RCE.',
-    match: /\b(deserialization|deserialisation|insecure (un|de)?serialization)\b/i,
+    cwes: ['CWE-502'],
+    match: /\b(deserialization|deserialisation|insecure (un|de)?serialization|unsafe object creation)\b/i,
   },
   {
     id: 'path-traversal',
     title: 'Path Traversal & File Disclosure',
     blurb: 'Directory traversal and arbitrary file read/write vulnerabilities.',
+    cwes: [
+      'CWE-22',
+      'CWE-23',
+      'CWE-24',
+      'CWE-25',
+      'CWE-26',
+      'CWE-27',
+      'CWE-28',
+      'CWE-29',
+      'CWE-30',
+      'CWE-31',
+      'CWE-32',
+      'CWE-33',
+      'CWE-34',
+      'CWE-35',
+      'CWE-36',
+      'CWE-37',
+      'CWE-38',
+      'CWE-39',
+      'CWE-40',
+      'CWE-41',
+      'CWE-73',
+      'CWE-98',
+    ],
     match:
-      /\b(path traversal|directory traversal|arbitrary file (read|write|disclosure)|local file inclusion|\bLFI\b)\b/i,
+      /\b(path traversal|directory traversal|arbitrary file (read|write|disclosure|upload|delete)|local file inclusion|remote file inclusion|\bLFI\b|\bRFI\b)\b/i,
+  },
+  {
+    id: 'ssrf-csrf',
+    title: 'SSRF, CSRF & Open Redirect',
+    blurb: 'Server-side request forgery, cross-site request forgery, and redirect issues.',
+    cwes: ['CWE-352', 'CWE-918', 'CWE-601'],
+    match:
+      /\b(server-?side request forgery|\bSSRF\b|cross-?site request forgery|\bCSRF\b|open redirect|url redirect)\b/i,
+  },
+  {
+    id: 'crypto',
+    title: 'Cryptographic Weaknesses',
+    blurb: 'Broken cryptography, weak hashes, or insecure key management.',
+    cwes: [
+      'CWE-310',
+      'CWE-326',
+      'CWE-327',
+      'CWE-328',
+      'CWE-329',
+      'CWE-330',
+      'CWE-331',
+      'CWE-335',
+      'CWE-340',
+      'CWE-916',
+      'CWE-321',
+    ],
+    match:
+      /\b(weak (cryptography|cipher|hash)|broken (cryptography|encryption)|insecure (random|prng)|hardcoded (key|password|credentials)|use of (hard-?coded )?credentials)\b/i,
+  },
+  {
+    id: 'info-disclosure',
+    title: 'Information Disclosure',
+    blurb: 'Exposure of sensitive information through error messages, logs, or responses.',
+    cwes: ['CWE-200', 'CWE-201', 'CWE-209', 'CWE-532', 'CWE-538', 'CWE-548'],
+    match: /\b(information (disclosure|exposure|leak)|sensitive data exposure|verbose error|debug (output|info))\b/i,
+  },
+  {
+    id: 'dos',
+    title: 'Denial of Service',
+    blurb: 'Vulnerabilities causing service disruption, resource exhaustion, or crashes.',
+    cwes: ['CWE-400', 'CWE-401', 'CWE-770', 'CWE-834', 'CWE-835', 'CWE-674', 'CWE-1325'],
+    match:
+      /\b(denial of service|\bDoS\b|resource exhaustion|infinite loop|stack overflow loop|uncontrolled recursion)\b/i,
   },
   {
     id: 'iot-network',
     title: 'Network Infrastructure & IoT Device Vulnerabilities',
     blurb: 'Vulnerabilities in routers, firewalls, and IoT devices on the network edge.',
-    match: /\b(router|firewall|edge|VPN|gateway|D-Link|TP-Link|Netgear|Tenda|IoT|firmware)\b/i,
+    match:
+      /\b(router|firewall|edge gateway|VPN gateway|gateway appliance|D-Link|TP-Link|Netgear|Tenda|Cisco|Juniper|Fortinet|Palo Alto|SonicWall|MikroTik|IoT|embedded device|firmware)\b/i,
+  },
+  {
+    id: 'browser',
+    title: 'Browser & Application Memory Corruption',
+    blurb: 'Memory-corruption vulnerabilities specific to browsers and rendering engines.',
+    match:
+      /\b(Chrome|Chromium|Firefox|Safari|WebKit|Blink|Gecko|V8|JavaScriptCore|browser)\b.*\b(memory|corruption|use-after-free|type confusion)\b/i,
+  },
+  {
+    id: 'social-eng',
+    title: 'Social Engineering & Phishing',
+    blurb: 'Active phishing campaigns, lures, and social-engineering tradecraft.',
+    match: /\b(phish(ing)?|social engineering|impersonation lure|smishing|quishing)\b/i,
   },
 ];
+
+// Severity-only fallbacks — used when no specific category matches but we still want a meaningful bucket.
+const SEVERITY_CATEGORIES: Record<Severity, { id: string; title: string; blurb: string } | null> = {
+  critical: {
+    id: 'critical-other',
+    title: 'Critical-Severity Vulnerabilities',
+    blurb: 'Critical-severity issues that did not fit a more specific category — review urgently.',
+  },
+  high: {
+    id: 'high-other',
+    title: 'High-Severity Vulnerabilities',
+    blurb: 'High-severity vulnerabilities across miscellaneous products and services.',
+  },
+  medium: {
+    id: 'medium-other',
+    title: 'Medium-Severity Vulnerabilities',
+    blurb: 'Medium-severity issues across miscellaneous products and services.',
+  },
+  low: {
+    id: 'low-other',
+    title: 'Low-Severity Vulnerabilities',
+    blurb: 'Low-severity issues across miscellaneous products and services.',
+  },
+  unknown: null,
+};
 
 const FALLBACK_CATEGORY = {
   id: 'other',
@@ -211,11 +367,34 @@ function severityFromCvss(score: number | undefined): Severity {
   return 'low';
 }
 
-function categorizeFinding(title: string, description: string) {
-  const haystack = `${title} ${description}`.toLowerCase();
-  for (const rule of CATEGORY_RULES) {
-    if (rule.match.test(haystack)) return rule;
+function extractCwes(nvd: NvdCve | undefined): string[] {
+  if (!nvd?.weaknesses) return [];
+  const out = new Set<string>();
+  for (const w of nvd.weaknesses) {
+    for (const d of w.description ?? []) {
+      const m = /CWE-\d+/i.exec(d.value);
+      if (m) out.add(m[0].toUpperCase());
+    }
   }
+  return Array.from(out);
+}
+
+function categorizeFinding(args: { title: string; description: string; severity: Severity; cwes: string[] }) {
+  const haystack = `${args.title} ${args.description}`;
+  // 1. CWE-based match (deterministic from NVD)
+  if (args.cwes.length > 0) {
+    for (const rule of CATEGORY_RULES) {
+      if (!rule.cwes) continue;
+      if (rule.cwes.some((c) => args.cwes.includes(c))) return rule;
+    }
+  }
+  // 2. Keyword-based match (broader keyword regex coverage)
+  for (const rule of CATEGORY_RULES) {
+    if (rule.match && rule.match.test(haystack)) return rule;
+  }
+  // 3. Severity-only fallback (so Critical/High/Medium CVEs don't end up in "Other")
+  const sevBucket = SEVERITY_CATEGORIES[args.severity];
+  if (sevBucket) return sevBucket;
   return FALLBACK_CATEGORY;
 }
 
@@ -322,12 +501,14 @@ function findingFromKev(kev: KevEntry, nvd: NvdCve | undefined): BriefingFinding
     `${kev.cveID}: ${kev.vendorProject ?? ''} ${kev.product ?? ''} — ${kev.vulnerabilityName ?? 'Vulnerability'}`
       .replace(/\s+/g, ' ')
       .trim();
+  const cwes = extractCwes(nvd);
   return {
     id: kev.cveID,
     title,
     description,
     severity: severityFromCvss(cvss),
     cvss,
+    cwes,
     source: 'CISA KEV',
     source_url: `https://nvd.nist.gov/vuln/detail/${kev.cveID}`,
     mitre_techniques: deriveMitreTechniques(`${title} ${description}`),
@@ -340,14 +521,27 @@ function findingFromKev(kev: KevEntry, nvd: NvdCve | undefined): BriefingFinding
 function buildSections(findings: BriefingFinding[]): BriefingSection[] {
   const groups = new Map<string, { rule: { id: string; title: string; blurb: string }; findings: BriefingFinding[] }>();
   for (const f of findings) {
-    const cat = categorizeFinding(f.title, f.description);
+    const cat = categorizeFinding({
+      title: f.title,
+      description: f.description,
+      severity: f.severity,
+      cwes: f.cwes ?? [],
+    });
     const slot = groups.get(cat.id) ?? { rule: cat, findings: [] };
     slot.findings.push(f);
     groups.set(cat.id, slot);
   }
   // Severity priority for ordering findings within a section
   const sevRank: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3, unknown: 4 };
-  const sectionOrder = [...CATEGORY_RULES.map((r) => r.id), FALLBACK_CATEGORY.id];
+  // Section ordering: specific categories first, then severity-only buckets, then catch-all
+  const sectionOrder = [
+    ...CATEGORY_RULES.map((r) => r.id),
+    'critical-other',
+    'high-other',
+    'medium-other',
+    'low-other',
+    FALLBACK_CATEGORY.id,
+  ];
   return sectionOrder
     .map((id) => groups.get(id))
     .filter((s): s is NonNullable<typeof s> => !!s && s.findings.length > 0)
@@ -534,8 +728,12 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
   };
 }
 
+/** How long briefings live in KV. 21 days = 3 weeks of history. */
+export const BRIEFING_TTL_SECONDS = 21 * 86400;
+
 export async function writeBriefing(kv: KVNamespace, briefing: Briefing): Promise<void> {
   await kv.put(`briefing:${briefing.slug}`, JSON.stringify(briefing), {
+    expirationTtl: BRIEFING_TTL_SECONDS,
     metadata: {
       type: briefing.type,
       title: briefing.title,
@@ -545,6 +743,43 @@ export async function writeBriefing(kv: KVNamespace, briefing: Briefing): Promis
       sources: briefing.sources,
     },
   });
+}
+
+/**
+ * Delete briefings whose `date` metadata is older than `maxAgeDays`.
+ * Belt-and-braces alongside KV's expirationTtl: handles entries that pre-date
+ * the TTL change (which lack expiration) and any other stragglers.
+ */
+export async function sweepOldBriefings(
+  kv: KVNamespace,
+  maxAgeDays = 21,
+  now: Date = new Date()
+): Promise<{ deleted: string[]; kept: number }> {
+  const cutoffMs = now.getTime() - maxAgeDays * 86400_000;
+  const list = await kv.list({ prefix: 'briefing:', limit: 1000 });
+  const deleted: string[] = [];
+  let kept = 0;
+  for (const k of list.keys) {
+    const meta = k.metadata as { date?: string } | undefined;
+    const dateStr = meta?.date;
+    if (!dateStr) {
+      // No date metadata — be conservative, keep it.
+      kept += 1;
+      continue;
+    }
+    const t = Date.parse(`${dateStr}T00:00:00Z`);
+    if (Number.isNaN(t)) {
+      kept += 1;
+      continue;
+    }
+    if (t < cutoffMs) {
+      await kv.delete(k.name);
+      deleted.push(k.name.replace(/^briefing:/, ''));
+    } else {
+      kept += 1;
+    }
+  }
+  return { deleted, kept };
 }
 
 export async function listBriefings(

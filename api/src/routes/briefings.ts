@@ -1,6 +1,13 @@
 import type { Context } from 'hono';
 import type { Env } from '../env';
-import { buildBriefing, listBriefings, readBriefing, writeBriefing, type BriefingType } from '../lib/briefing-builder';
+import {
+  buildBriefing,
+  listBriefings,
+  readBriefing,
+  sweepOldBriefings,
+  writeBriefing,
+  type BriefingType,
+} from '../lib/briefing-builder';
 
 function kvOrError(c: Context<{ Bindings: Env }>): KVNamespace | null {
   const kv = c.env.BRIEFINGS;
@@ -64,4 +71,19 @@ export async function buildBriefingHandler(c: Context<{ Bindings: Env & { BRIEFI
   const briefing = await buildBriefing(typeRaw as BriefingType);
   await writeBriefing(kv, briefing);
   return c.json({ ok: true, slug: briefing.slug, stats: briefing.stats }, 200);
+}
+
+/** Admin sweep — delete briefings older than maxAgeDays (default 21). */
+export async function sweepBriefingsHandler(c: Context<{ Bindings: Env & { BRIEFINGS_ADMIN_TOKEN?: string } }>) {
+  const kv = kvOrError(c);
+  if (!kv) return c.json({ error: 'briefings KV not bound' }, 503);
+  const required = (c.env as { BRIEFINGS_ADMIN_TOKEN?: string }).BRIEFINGS_ADMIN_TOKEN;
+  if (!required) return c.json({ error: 'admin endpoint disabled' }, 403);
+  const token = c.req.query('token');
+  if (token !== required) return c.json({ error: 'unauthorized' }, 401);
+
+  const maxAgeRaw = c.req.query('max_age_days');
+  const maxAge = maxAgeRaw ? Math.max(parseInt(maxAgeRaw, 10) || 21, 1) : 21;
+  const result = await sweepOldBriefings(kv, maxAge);
+  return c.json({ ok: true, max_age_days: maxAge, ...result }, 200);
 }

@@ -1,5 +1,5 @@
 import apiApp from '../api/src/index';
-import { buildBriefing, writeBriefing } from '../api/src/lib/briefing-builder';
+import { buildBriefing, writeBriefing, sweepOldBriefings } from '../api/src/lib/briefing-builder';
 
 export interface Env {
   ASSETS: { fetch: (req: Request) => Promise<Response> };
@@ -76,14 +76,26 @@ export default {
 
     ctx.waitUntil(
       (async () => {
+        const kv = env.BRIEFINGS as KVNamespace;
         try {
           const briefing = await buildBriefing(type);
-          await writeBriefing(env.BRIEFINGS as KVNamespace, briefing);
+          await writeBriefing(kv, briefing);
           console.log(
             `scheduled: wrote ${briefing.slug} (findings=${briefing.stats.findings}, iocs=${briefing.stats.iocs})`
           );
         } catch (err) {
           console.error('scheduled: briefing build failed', err);
+        }
+        // Always run the sweep, even if the build failed — keeps KV tidy.
+        try {
+          const result = await sweepOldBriefings(kv, 21);
+          if (result.deleted.length > 0) {
+            console.log(
+              `scheduled: swept ${result.deleted.length} old briefings (${result.deleted.join(', ')}); kept ${result.kept}`
+            );
+          }
+        } catch (err) {
+          console.error('scheduled: sweep failed', err);
         }
       })()
     );

@@ -19,6 +19,7 @@ import {
   getBriefingHandler,
   todayBriefingHandler,
   buildBriefingHandler,
+  sweepBriefingsHandler,
 } from './routes/briefings';
 import { rateLimit } from './lib/ratelimit';
 
@@ -47,6 +48,7 @@ app.get('/api/v1/url-preview', urlPreviewHandler);
 app.get('/api/v1/briefings/list', listBriefingsHandler);
 app.get('/api/v1/briefings/today', todayBriefingHandler);
 app.post('/api/v1/briefings/build', buildBriefingHandler);
+app.post('/api/v1/briefings/sweep', sweepBriefingsHandler);
 app.get('/api/v1/briefings/:slug', getBriefingHandler);
 app.notFound((c) => c.json({ error: 'not_found' }, 404));
 
