@@ -163,10 +163,13 @@ export async function cveSearchHandler(c: Context<{ Bindings: Env }>) {
   try {
     nvdBody = (await nvdRes.json()) as typeof nvdBody;
   } catch (err) {
-    return c.json({ error: 'parse_error', message: safeErrorMessage(err) }, 502);
+    return c.json(
+      { error: 'parse_error', message: safeErrorMessage(c.env as unknown as Record<string, unknown>, err) },
+      502
+    );
   }
 
-  if (!nvdBody.totalResults || !nvdBody.vulnerabilities?.length) {
+  if (!nvdBody.totalResults || !nvdBody.vulnerabilities?.length || !nvdBody.vulnerabilities[0]) {
     return c.json({ error: 'not_found', message: `${cveId} not found in NVD` }, 404);
   }
 

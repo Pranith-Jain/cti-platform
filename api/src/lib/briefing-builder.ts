@@ -738,6 +738,10 @@ export async function writeBriefing(kv: KVNamespace, briefing: Briefing): Promis
       type: briefing.type,
       title: briefing.title,
       date: briefing.date,
+      // range_end is the last day the briefing covers (inclusive). For dailies
+      // it equals `date`; for weeklies it's the Sunday of the week. Sorting by
+      // range_end gives a coherent newest-first ordering across both types.
+      range_end: briefing.range_end,
       date_range: briefing.date_range,
       stats: briefing.stats,
       sources: briefing.sources,
@@ -796,9 +800,13 @@ export async function listBriefings(
     })
     .slice()
     .sort((a, b) => {
-      const am = a.metadata as { date?: string } | undefined;
-      const bm = b.metadata as { date?: string } | undefined;
-      return (bm?.date ?? '').localeCompare(am?.date ?? '');
+      // Sort by range_end (newest first) so weeklies and dailies interleave
+      // by the actual end-of-period rather than weekly's Monday-as-date.
+      const am = a.metadata as { range_end?: string; date?: string } | undefined;
+      const bm = b.metadata as { range_end?: string; date?: string } | undefined;
+      const aKey = am?.range_end ?? am?.date ?? '';
+      const bKey = bm?.range_end ?? bm?.date ?? '';
+      return bKey.localeCompare(aKey);
     })
     .slice(0, limit);
   return items;

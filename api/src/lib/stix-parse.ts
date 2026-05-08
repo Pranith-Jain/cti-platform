@@ -43,13 +43,14 @@ export function parseStixPattern(pattern: string): { type: StixIndicator['type']
   const m = pattern.trim().match(PATTERN_RE);
   if (!m || !m.groups) return { type: 'unknown', value: '' };
   const { obj, prop, val } = m.groups;
-  if (obj === 'ipv4-addr') return { type: 'ipv4', value: val };
-  if (obj === 'ipv6-addr') return { type: 'ipv6', value: val };
-  if (obj === 'domain-name') return { type: 'domain', value: val };
-  if (obj === 'url') return { type: 'url', value: val };
-  if (obj === 'email-addr') return { type: 'email', value: val };
-  if (obj === 'file' && prop?.startsWith('hashes')) return { type: 'hash', value: val };
-  return { type: 'unknown', value: val };
+  const value = val ?? '';
+  if (obj === 'ipv4-addr') return { type: 'ipv4', value };
+  if (obj === 'ipv6-addr') return { type: 'ipv6', value };
+  if (obj === 'domain-name') return { type: 'domain', value };
+  if (obj === 'url') return { type: 'url', value };
+  if (obj === 'email-addr') return { type: 'email', value };
+  if (obj === 'file' && prop?.startsWith('hashes')) return { type: 'hash', value };
+  return { type: 'unknown', value };
 }
 
 interface StixObject {

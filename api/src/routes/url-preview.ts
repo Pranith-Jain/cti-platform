@@ -119,7 +119,7 @@ export async function urlPreviewHandler(c: Context<{ Bindings: Env }>) {
     let bytesRead = 0;
     let chunks = '';
     if (reader) {
-      const decoder = new TextDecoder('utf-8', { fatal: false });
+      const decoder = new TextDecoder('utf-8');
       while (bytesRead < MAX_BYTES) {
         const { value, done } = await reader.read();
         if (done) break;

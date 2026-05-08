@@ -74,7 +74,7 @@ export async function domainLookupHandler(c: Context<{ Bindings: Env }>) {
     });
   }
 
-  const spf = parseSpf(dns.TXT.records);
+  const spf = parseSpf(dns.TXT?.records ?? []);
   const dmarc = parseDmarc(dmarcTxt.records);
   const bimi = parseBimi(bimiTxt.records);
   const tlsRpt = parseTlsRpt(tlsRptTxt.records);

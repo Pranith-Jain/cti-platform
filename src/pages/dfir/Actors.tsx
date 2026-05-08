@@ -61,8 +61,9 @@ export default function Actors(): JSX.Element {
       )}
 
       <p className="mt-12 text-xs font-mono text-slate-500">
-        Showing {filtered.length} of {threatActors.length} actors. Have a STIX 2.1 bundle to ingest? Use the parse API
-        at <code>/api/v1/cti/parse</code>.
+        Showing {filtered.length} of {threatActors.length} actors. Have a STIX 2.1 bundle to ingest? POST it (raw JSON
+        body, max 1MB) to <code>/api/v1/cti/parse</code> — top-level shape:{' '}
+        <code>{'{ "type": "bundle", "objects": [ ... ] }'}</code>.
       </p>
     </div>
   );

@@ -80,7 +80,7 @@ export function parseUrlhaus(body: string): IocEntry[] {
   const entries: IocEntry[] = [];
   for (const cols of csvLines(body)) {
     if (cols.length < 3) continue;
-    const value = unquote(cols[2]);
+    const value = unquote(cols[2] ?? '');
     if (!value) continue;
     const threat = unquote(cols[5] ?? '');
     const tags = unquote(cols[6] ?? '');
@@ -102,7 +102,7 @@ export function parseMalwarebazaar(body: string): IocEntry[] {
   const entries: IocEntry[] = [];
   for (const cols of csvLines(body)) {
     if (cols.length < 2) continue;
-    const value = unquote(cols[1]);
+    const value = unquote(cols[1] ?? '');
     if (!value) continue;
     const signature = unquote(cols[8] ?? '');
     const fileType = unquote(cols[6] ?? '');
@@ -138,10 +138,10 @@ export function parseThreatfox(body: string): IocEntry[] {
   const entries: IocEntry[] = [];
   for (const cols of csvLines(body)) {
     if (cols.length < 4) continue;
-    const rawType = unquote(cols[3]);
+    const rawType = unquote(cols[3] ?? '');
     const type = threatfoxIocType(rawType);
     if (!type) continue;
-    let value = unquote(cols[2]);
+    let value = unquote(cols[2] ?? '');
     if (!value) continue;
     // For ip:port, strip the port part
     if (type === 'ipv4') {
@@ -169,7 +169,7 @@ export function parseFeodo(body: string): IocEntry[] {
   const entries: IocEntry[] = [];
   for (const cols of csvLines(body)) {
     if (cols.length < 2) continue;
-    const value = unquote(cols[1]);
+    const value = unquote(cols[1] ?? '');
     if (!value) continue;
     const context = unquote(cols[3] ?? '') || undefined;
     const timestamp = unquote(cols[0] ?? '') || undefined;
@@ -220,15 +220,14 @@ export function parseCisaKev(body: string): { entries: IocEntry[]; total: number
   // Sort by dateAdded DESC so newest entries come first, then take CAP
   const sorted = [...vulns].sort((a, b) => (b.dateAdded ?? '').localeCompare(a.dateAdded ?? ''));
   const slice = sorted.slice(0, CAP);
-  const entries: IocEntry[] = slice
-    .map((v) => {
-      const value = v.cveID ?? '';
-      if (!value) return null;
-      const context = [v.vendorProject, v.product, v.vulnerabilityName].filter(Boolean).join(' | ') || undefined;
-      const timestamp = v.dateAdded || undefined;
-      return { type: 'cve' as IocType, value, context, timestamp };
-    })
-    .filter((e): e is IocEntry => e !== null);
+  const entries: IocEntry[] = [];
+  for (const v of slice) {
+    const value = v.cveID ?? '';
+    if (!value) continue;
+    const context = [v.vendorProject, v.product, v.vulnerabilityName].filter(Boolean).join(' | ') || undefined;
+    const timestamp = v.dateAdded || undefined;
+    entries.push({ type: 'cve', value, context, timestamp });
+  }
   return { entries, total };
 }
 

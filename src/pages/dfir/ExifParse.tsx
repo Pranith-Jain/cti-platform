@@ -84,7 +84,7 @@ export default function ExifParse(): JSX.Element {
         exif: true,
         ifd0: true,
         iptc: true,
-      })) as ExifData | null;
+      } as Parameters<typeof exifr.parse>[1])) as ExifData | null;
 
       if (!data || Object.keys(data).length === 0) {
         setError('No EXIF metadata found in this file. Try a JPEG taken by a camera or phone.');

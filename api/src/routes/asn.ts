@@ -48,7 +48,7 @@ export async function asnLookupHandler(c: Context<{ Bindings: Env }>) {
   const raw = c.req.query('asn');
   if (!raw) return c.json({ error: 'missing asn' }, 400);
   const m = raw.match(ASN_RE);
-  if (!m) return c.json({ error: 'invalid asn (expected AS15169 or 15169)' }, 400);
+  if (!m || !m[1]) return c.json({ error: 'invalid asn (expected AS15169 or 15169)' }, 400);
   const num = parseInt(m[1], 10);
 
   try {
