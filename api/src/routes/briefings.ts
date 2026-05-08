@@ -89,35 +89,48 @@ export async function backfillBriefingsHandler(c: Context<{ Bindings: Env & { BR
 
   const days = Math.min(Math.max(parseInt(c.req.query('days') ?? '14', 10) || 14, 0), 21);
   const weeks = Math.min(Math.max(parseInt(c.req.query('weeks') ?? '3', 10) || 3, 0), 4);
+  // Default: skip if a briefing already exists (preserve fresh cron-generated
+  // ones). Pass ?force=1 to overwrite — useful after a builder change.
+  const force = c.req.query('force') === '1';
 
   const writtenDaily: string[] = [];
+  const skippedDaily: string[] = [];
   const writtenWeekly: string[] = [];
+  const skippedWeekly: string[] = [];
 
-  // Walk back day-by-day from today (anchor = today; builder produces previous-day briefing)
   for (let i = 0; i < days; i += 1) {
     const anchor = new Date(Date.now() - i * 86400_000);
     try {
       const briefing = await buildBriefing('daily', anchor);
-      await writeBriefing(kv, briefing);
-      writtenDaily.push(briefing.slug);
+      const result = await writeBriefing(kv, briefing, { skipIfExists: !force });
+      (result.written ? writtenDaily : skippedDaily).push(briefing.slug);
     } catch {
       /* skip and continue */
     }
   }
 
-  // Walk back week-by-week (anchor = today; builder produces prior ISO week)
   for (let i = 0; i < weeks; i += 1) {
     const anchor = new Date(Date.now() - i * 7 * 86400_000);
     try {
       const briefing = await buildBriefing('weekly', anchor);
-      await writeBriefing(kv, briefing);
-      writtenWeekly.push(briefing.slug);
+      const result = await writeBriefing(kv, briefing, { skipIfExists: !force });
+      (result.written ? writtenWeekly : skippedWeekly).push(briefing.slug);
     } catch {
       /* skip */
     }
   }
 
-  return c.json({ ok: true, daily: writtenDaily, weekly: writtenWeekly }, 200);
+  return c.json(
+    {
+      ok: true,
+      force,
+      daily: writtenDaily,
+      daily_skipped: skippedDaily,
+      weekly: writtenWeekly,
+      weekly_skipped: skippedWeekly,
+    },
+    200
+  );
 }
 
 /** Admin sweep — delete briefings older than maxAgeDays (default 21). */

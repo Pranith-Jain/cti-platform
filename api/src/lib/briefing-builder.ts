@@ -10,7 +10,7 @@
  * we format and group, we don't invent.
  */
 
-import { FEED_SOURCES, buildSummary, type IocEntry, type SourceId } from './ioc-feed-parsers';
+import { FEED_SOURCES, UNCAPPED, buildSummary, type IocEntry, type SourceId } from './ioc-feed-parsers';
 
 const NVD_UA = 'Mozilla/5.0 (compatible; pranithjain-dfir/1.0; +https://pranithjain.qzz.io)';
 const NVD_API = 'https://services.nvd.nist.gov/rest/json/cves/2.0';
@@ -474,7 +474,12 @@ async function fetchAbuseFeed(source: SourceId, timeoutMs = 15_000): Promise<Ioc
     } as RequestInit);
     if (!res.ok) return [];
     const body = await res.text();
-    const summary = buildSummary(source, body);
+    // Pass UNCAPPED — the briefing-builder needs the full feed so it can filter
+    // by the briefing's date window before display-capping (display cap is applied
+    // in bucketIocs at 30 per type). Without this, the default cap-100 would only
+    // ever return the most recent 100 entries — fine for "live IOC stream" but
+    // disastrous for backfilled briefings that need yesterday's IOCs.
+    const summary = buildSummary(source, body, UNCAPPED);
     return summary.entries;
   } catch {
     return [];
@@ -731,7 +736,17 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
 /** How long briefings live in KV. 21 days = 3 weeks of history. */
 export const BRIEFING_TTL_SECONDS = 21 * 86400;
 
-export async function writeBriefing(kv: KVNamespace, briefing: Briefing): Promise<void> {
+export async function writeBriefing(
+  kv: KVNamespace,
+  briefing: Briefing,
+  options?: { skipIfExists?: boolean }
+): Promise<{ written: boolean; reason?: string }> {
+  if (options?.skipIfExists) {
+    const existing = await kv.get(`briefing:${briefing.slug}`);
+    if (existing) {
+      return { written: false, reason: 'already_exists' };
+    }
+  }
   await kv.put(`briefing:${briefing.slug}`, JSON.stringify(briefing), {
     expirationTtl: BRIEFING_TTL_SECONDS,
     metadata: {
@@ -747,6 +762,7 @@ export async function writeBriefing(kv: KVNamespace, briefing: Briefing): Promis
       sources: briefing.sources,
     },
   });
+  return { written: true };
 }
 
 /**

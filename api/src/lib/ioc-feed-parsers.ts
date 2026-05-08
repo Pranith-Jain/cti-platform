@@ -26,6 +26,9 @@ export interface IocFeedSummary {
 const CAP = 100;
 const CACHE_TTL = 1800;
 
+/** Cap that effectively means "no cap" — used by briefing-builder which needs the full feed for date-window filtering. */
+export const UNCAPPED = Number.MAX_SAFE_INTEGER;
+
 /** Strip surrounding double-quotes from a CSV field value */
 function unquote(s: string): string {
   const t = s.trim();
@@ -76,7 +79,7 @@ function csvLines(body: string): string[][] {
 // Columns: id, dateadded, url, url_status, last_online, threat, tags, urlhaus_link, reporter
 // Feed is newest-first → take first CAP rows.
 
-export function parseUrlhaus(body: string): IocEntry[] {
+export function parseUrlhaus(body: string, cap: number = CAP): IocEntry[] {
   const entries: IocEntry[] = [];
   for (const cols of csvLines(body)) {
     if (cols.length < 3) continue;
@@ -87,7 +90,7 @@ export function parseUrlhaus(body: string): IocEntry[] {
     const context = [threat, tags].filter(Boolean).join(' | ') || undefined;
     const timestamp = unquote(cols[1] ?? '') || undefined;
     entries.push({ type: 'url', value, context, timestamp });
-    if (entries.length >= CAP) break;
+    if (entries.length >= cap) break;
   }
   return entries;
 }
@@ -98,7 +101,7 @@ export function parseUrlhaus(body: string): IocEntry[] {
 //          signature(8), clamav(9), vtpercent(10), imphash(11), ssdeep(12), tlsh(13)
 // Feed is newest-first → take first CAP rows.
 
-export function parseMalwarebazaar(body: string): IocEntry[] {
+export function parseMalwarebazaar(body: string, cap: number = CAP): IocEntry[] {
   const entries: IocEntry[] = [];
   for (const cols of csvLines(body)) {
     if (cols.length < 2) continue;
@@ -109,7 +112,7 @@ export function parseMalwarebazaar(body: string): IocEntry[] {
     const context = [signature, fileType].filter(Boolean).join(' | ') || undefined;
     const timestamp = unquote(cols[0] ?? '') || undefined;
     entries.push({ type: 'hash', value, context, timestamp });
-    if (entries.length >= CAP) break;
+    if (entries.length >= cap) break;
   }
   return entries;
 }
@@ -134,7 +137,7 @@ function threatfoxIocType(raw: string): IocType | null {
   return null;
 }
 
-export function parseThreatfox(body: string): IocEntry[] {
+export function parseThreatfox(body: string, cap: number = CAP): IocEntry[] {
   const entries: IocEntry[] = [];
   for (const cols of csvLines(body)) {
     if (cols.length < 4) continue;
@@ -156,7 +159,7 @@ export function parseThreatfox(body: string): IocEntry[] {
     const context = unquote(cols[7] ?? '') || undefined;
     const timestamp = unquote(cols[0] ?? '') || undefined;
     entries.push({ type, value, context, timestamp });
-    if (entries.length >= CAP) break;
+    if (entries.length >= cap) break;
   }
   return entries;
 }
@@ -165,7 +168,7 @@ export function parseThreatfox(body: string): IocEntry[] {
 // Columns: first_seen(0), ip(1), port(2), malware(3), last_online(4)
 // Feed is newest-first → take first CAP rows.
 
-export function parseFeodo(body: string): IocEntry[] {
+export function parseFeodo(body: string, cap: number = CAP): IocEntry[] {
   const entries: IocEntry[] = [];
   for (const cols of csvLines(body)) {
     if (cols.length < 2) continue;
@@ -174,7 +177,7 @@ export function parseFeodo(body: string): IocEntry[] {
     const context = unquote(cols[3] ?? '') || undefined;
     const timestamp = unquote(cols[0] ?? '') || undefined;
     entries.push({ type: 'ipv4', value, context, timestamp });
-    if (entries.length >= CAP) break;
+    if (entries.length >= cap) break;
   }
   return entries;
 }
@@ -182,12 +185,12 @@ export function parseFeodo(body: string): IocEntry[] {
 // ─── OpenPhish ───────────────────────────────────────────────────────────────
 // Plain text, one URL per line.
 
-export function parseOpenPhish(body: string): IocEntry[] {
+export function parseOpenPhish(body: string, cap: number = CAP): IocEntry[] {
   return body
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => l.length > 0 && (l.startsWith('http://') || l.startsWith('https://')))
-    .slice(0, CAP)
+    .slice(0, cap)
     .map((value) => ({ type: 'url' as IocType, value }));
 }
 
@@ -277,7 +280,16 @@ export const FEED_SOURCES: Record<SourceId, FeedSource> = {
 /**
  * Build a normalized IocFeedSummary from raw upstream text + source id.
  */
-export function buildSummary(sourceId: SourceId, rawBody: string): IocFeedSummary {
+/**
+ * Parse a feed body into IOC entries.
+ *
+ * @param sourceId — abuse.ch / OpenPhish / KEV source identifier
+ * @param rawBody — raw CSV / TXT / JSON body
+ * @param cap — max entries to return; defaults to CAP (100). Pass UNCAPPED to
+ *   get the full feed, used by briefing-builder which needs to date-filter
+ *   across the full window before display-capping.
+ */
+export function buildSummary(sourceId: SourceId, rawBody: string, cap: number = CAP): IocFeedSummary {
   const meta = FEED_SOURCES[sourceId];
   const fetchedAt = new Date().toISOString();
 
@@ -286,19 +298,19 @@ export function buildSummary(sourceId: SourceId, rawBody: string): IocFeedSummar
 
   switch (sourceId) {
     case 'urlhaus':
-      entries = parseUrlhaus(rawBody);
+      entries = parseUrlhaus(rawBody, cap);
       break;
     case 'malwarebazaar':
-      entries = parseMalwarebazaar(rawBody);
+      entries = parseMalwarebazaar(rawBody, cap);
       break;
     case 'threatfox':
-      entries = parseThreatfox(rawBody);
+      entries = parseThreatfox(rawBody, cap);
       break;
     case 'feodo':
-      entries = parseFeodo(rawBody);
+      entries = parseFeodo(rawBody, cap);
       break;
     case 'openphish':
-      entries = parseOpenPhish(rawBody);
+      entries = parseOpenPhish(rawBody, cap);
       break;
     case 'cisa-kev': {
       const r = parseCisaKev(rawBody);
