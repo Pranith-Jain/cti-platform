@@ -125,8 +125,10 @@ async function fetchFeedWithProxy(feed: RSSFeed): Promise<FeedResult> {
   }
 
   try {
-    const proxyUrl = `/api/v1/feeds/proxy?url=${encodeURIComponent(feed.url)}`;
-    const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
+    // Same-origin URLs (synthesised feeds like /api/v1/feeds/abuse-rss?source=urlhaus)
+    // are fetched directly. Cross-origin URLs go through the SSRF-safe proxy.
+    const url = feed.url.startsWith('/') ? feed.url : `/api/v1/feeds/proxy?url=${encodeURIComponent(feed.url)}`;
+    const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!response.ok) {
       result.error = `proxy returned ${response.status}`;
       return result;

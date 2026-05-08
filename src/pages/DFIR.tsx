@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ToolGrid } from '../components/dfir/ToolGrid';
 import { ThreatIntelFeed } from '../components/dfir/ThreatIntelFeed';
+import { TechNewsFeed } from '../components/dfir/TechNewsFeed';
 
 const PROVIDERS = ['VirusTotal', 'AbuseIPDB', 'Shodan', 'GreyNoise', 'OTX', 'URLScan', 'Hybrid Analysis', 'Pulsedive'];
 
@@ -64,9 +65,19 @@ export default function DFIRPage(): JSX.Element {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.4 }}
-        className="mb-16"
+        className="mb-8"
       >
         <ThreatIntelFeed />
+      </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.4 }}
+        className="mb-16"
+      >
+        <TechNewsFeed />
       </motion.section>
 
       <footer className="mt-20 pt-10 border-t border-slate-200 dark:border-slate-800">

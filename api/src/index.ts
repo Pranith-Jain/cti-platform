@@ -14,6 +14,7 @@ import { mitreTechniqueHandler } from './routes/mitre';
 import { asnLookupHandler } from './routes/asn';
 import { breachRangeHandler, breachEmailHandler, breachDomainHandler } from './routes/breach';
 import { urlPreviewHandler } from './routes/url-preview';
+import { abuseRssHandler } from './routes/abuse-rss';
 import {
   listBriefingsHandler,
   getBriefingHandler,
@@ -34,6 +35,7 @@ app.post('/api/v1/phishing/analyze', phishingAnalyzeHandler);
 app.get('/api/v1/exposure/scan', exposureScanHandler);
 app.post('/api/v1/file/analyze', fileAnalyzeHandler);
 app.get('/api/v1/feeds/proxy', feedProxyHandler);
+app.get('/api/v1/feeds/abuse-rss', abuseRssHandler);
 app.get('/api/v1/feeds/ioc-summary', iocFeedSummaryHandler);
 app.post('/api/v1/cti/parse', ctiParseHandler);
 app.get('/api/v1/privacy/inspect', privacyInspectHandler);

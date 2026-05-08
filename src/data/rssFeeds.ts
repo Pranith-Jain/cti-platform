@@ -3,7 +3,7 @@ export interface RSSFeed {
   name: string;
   url: string;
   description: string;
-  category: 'vulnerability' | 'advisory' | 'threat-intel' | 'news' | 'general' | 'ics-cert';
+  category: 'vulnerability' | 'advisory' | 'threat-intel' | 'news' | 'general' | 'ics-cert' | 'tech';
   icon?: string;
   source?: string;
   language?: string;
@@ -218,10 +218,12 @@ export const rssFeeds: RSSFeed[] = [
     source: 'AlienVault',
     language: 'en-US',
   },
+  // abuse.ch deprecated their /rss/ endpoints; we synthesise RSS from their
+  // CSV "recent" downloads via /api/v1/feeds/abuse-rss?source=...
   {
     id: 'threatfox',
     name: 'Abuse.ch ThreatFox',
-    url: 'https://threatfox.abuse.ch/rss/',
+    url: '/api/v1/feeds/abuse-rss?source=threatfox',
     description: 'Malware indicators and threat intelligence from Abuse.ch',
     category: 'threat-intel',
     source: 'Abuse.ch',
@@ -230,7 +232,7 @@ export const rssFeeds: RSSFeed[] = [
   {
     id: 'malwarebazaar',
     name: 'Abuse.ch MalwareBazaar',
-    url: 'https://mb-api.abuse.ch/rss/',
+    url: '/api/v1/feeds/abuse-rss?source=malwarebazaar',
     description: 'Malware samples database and analysis',
     category: 'threat-intel',
     source: 'Abuse.ch',
@@ -239,8 +241,17 @@ export const rssFeeds: RSSFeed[] = [
   {
     id: 'urlhaus',
     name: 'Abuse.ch URLhaus',
-    url: 'https://urlhaus.abuse.ch/rss/',
+    url: '/api/v1/feeds/abuse-rss?source=urlhaus',
     description: 'Malware distribution URLs database',
+    category: 'threat-intel',
+    source: 'Abuse.ch',
+    language: 'en-US',
+  },
+  {
+    id: 'feodo',
+    name: 'Abuse.ch Feodo Tracker',
+    url: '/api/v1/feeds/abuse-rss?source=feodo',
+    description: 'Active C2 infrastructure for Dridex, Emotet, Heodo, TrickBot',
     category: 'threat-intel',
     source: 'Abuse.ch',
     language: 'en-US',
@@ -393,7 +404,7 @@ export const rssFeeds: RSSFeed[] = [
     name: 'Hacker News',
     url: 'https://hnrss.org/frontpage',
     description: 'Hacker News front page - top tech, AI, and security stories',
-    category: 'news',
+    category: 'tech',
     source: 'Hacker News',
     language: 'en-US',
   },
@@ -402,7 +413,7 @@ export const rssFeeds: RSSFeed[] = [
     name: 'Ask HN',
     url: 'https://hnrss.org/ask',
     description: 'Ask Hacker News - questions and discussions from the community',
-    category: 'news',
+    category: 'tech',
     source: 'Hacker News',
     language: 'en-US',
   },
@@ -411,7 +422,7 @@ export const rssFeeds: RSSFeed[] = [
     name: 'Show HN',
     url: 'https://hnrss.org/show',
     description: 'Show Hacker News - new projects, products, and demos',
-    category: 'news',
+    category: 'tech',
     source: 'Hacker News',
     language: 'en-US',
   },
@@ -420,7 +431,7 @@ export const rssFeeds: RSSFeed[] = [
     name: 'HN — AI',
     url: 'https://hnrss.org/newest?q=AI',
     description: 'Newest Hacker News stories matching "AI"',
-    category: 'news',
+    category: 'tech',
     source: 'Hacker News',
     language: 'en-US',
   },
@@ -429,7 +440,7 @@ export const rssFeeds: RSSFeed[] = [
     name: 'HN — Cybersecurity',
     url: 'https://hnrss.org/newest?q=cybersecurity',
     description: 'Newest Hacker News stories matching "cybersecurity"',
-    category: 'news',
+    category: 'tech',
     source: 'Hacker News',
     language: 'en-US',
   },
@@ -438,7 +449,7 @@ export const rssFeeds: RSSFeed[] = [
     name: 'Y Combinator Blog',
     url: 'https://www.ycombinator.com/blog/rss',
     description: 'Y Combinator blog - startup essays, announcements, and YC news',
-    category: 'general',
+    category: 'tech',
     source: 'Y Combinator',
     language: 'en-US',
   },
@@ -519,7 +530,8 @@ export const rssFeeds: RSSFeed[] = [
   },
 ];
 
-// Default feeds to display (curated selection of high-value sources)
+// Default *threat-intel* feeds for the ThreatIntelFeed surface on /dfir.
+// Tech / startup news (HN, YC) lives in `defaultTechFeeds` and renders separately.
 export const defaultFeeds = [
   'cisa-current',
   'cisa-alerts',
@@ -529,8 +541,10 @@ export const defaultFeeds = [
   'krebsonsecurity',
   'hackernews',
   'bleepingcomputer',
+  'urlhaus',
   'threatfox',
   'malwarebazaar',
+  'feodo',
   'securityweek',
   'darkreading',
   'dfir-lab',
@@ -543,6 +557,9 @@ export const defaultFeeds = [
   'crowdstrike',
 ];
 
+// Tech / AI / startup news — rendered in TechNewsFeed on /dfir, separate from the threat feed.
+export const defaultTechFeeds = ['hn-frontpage', 'hn-ask', 'hn-show', 'hn-ai', 'yc-blog'];
+
 // Feed categories for filtering
 export const feedCategories = [
   { id: 'all', label: 'All Feeds' },
@@ -551,6 +568,7 @@ export const feedCategories = [
   { id: 'ics-cert', label: 'ICS-CERT' },
   { id: 'threat-intel', label: 'Threat Intel' },
   { id: 'news', label: 'News' },
+  { id: 'tech', label: 'Tech & AI' },
   { id: 'general', label: 'General' },
 ];
 
