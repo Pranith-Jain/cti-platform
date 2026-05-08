@@ -1,9 +1,33 @@
-import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Search } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, ExternalLink, Search, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { mitreMatrix } from '../../data/dfir/mitre-matrix';
 import { threatActors } from '../../data/dfir/threat-actors';
+
+interface ApiTechnique {
+  id: string;
+  name: string;
+  description: string;
+  tactic: string | null;
+  platforms: string[];
+  dataSources: string[];
+  detection: string;
+  mitreUrl: string;
+}
+
+interface ApiActor {
+  id: string;
+  name: string;
+  aliases: string[];
+}
+
+interface TechniqueResponse {
+  technique: ApiTechnique | null;
+  actors: ApiActor[];
+  relatedTechniques: string[];
+  error?: string;
+}
 
 // Build a Set of all technique IDs used by any actor (including subtechniques)
 const usedByActors = new Set<string>();
@@ -15,14 +39,81 @@ function actorsByTechnique(id: string): typeof threatActors {
   return threatActors.filter((a) => a.techniques.includes(id));
 }
 
-function techniqueUrl(id: string): string {
-  // Convert T1566.001 → T1566/001 for MITRE URLs
-  const normalized = id.replace('.', '/');
-  return `https://attack.mitre.org/techniques/${normalized}/`;
-}
-
 export default function MitreMatrix(): JSX.Element {
   const [query, setQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<TechniqueResponse | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const openTechnique = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('id', id);
+        return next;
+      });
+    },
+    [setSearchParams]
+  );
+
+  const closeDrawer = useCallback(() => {
+    setSelectedId(null);
+    setDetail(null);
+    setDetailError(null);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('id');
+      return next;
+    });
+  }, [setSearchParams]);
+
+  // Open technique from URL on mount + react to ?id=... changes (e.g. legacy /dfir/technique deep links)
+  useEffect(() => {
+    const id = searchParams.get('id');
+    if (id && id !== selectedId) setSelectedId(id);
+  }, [searchParams, selectedId]);
+
+  // Fetch detail on selection
+  useEffect(() => {
+    if (!selectedId) return;
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetailError(null);
+    setDetail(null);
+    fetch(`/api/v1/mitre/technique?technique=${encodeURIComponent(selectedId)}`)
+      .then(async (r) => {
+        if (!r.ok) {
+          const body = (await r.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? `${r.status}`);
+        }
+        return (await r.json()) as TechniqueResponse;
+      })
+      .then((d) => {
+        if (!cancelled) setDetail(d);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setDetailError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId]);
+
+  // Close drawer on Escape
+  useEffect(() => {
+    if (!selectedId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeDrawer();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedId, closeDrawer]);
 
   const filteredMatrix = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -55,10 +146,11 @@ export default function MitreMatrix(): JSX.Element {
         </Link>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          <h1 className="text-4xl font-display font-bold mb-2">MITRE ATT&amp;CK Matrix</h1>
+          <h1 className="text-4xl font-display font-bold mb-2">MITRE ATT&amp;CK</h1>
           <p className="text-slate-600 dark:text-slate-400 mb-2 max-w-3xl">
-            Enterprise tactics and techniques from the MITRE ATT&amp;CK framework. Click any technique to open the
-            official ATT&amp;CK reference. Highlighted tiles indicate techniques used by tracked threat actors.
+            Enterprise tactics and techniques. Click any technique tile to open a side drawer with description, tactics,
+            platforms, data sources, detection guidance, related techniques, and tracked actors that use it. Highlighted
+            tiles indicate techniques observed in actor tradecraft.
           </p>
           <div className="flex items-center gap-4 text-sm font-mono text-slate-500 mb-8">
             <span>
@@ -120,37 +212,39 @@ export default function MitreMatrix(): JSX.Element {
                   {tactic.techniques.map((technique) => {
                     const actors = actorsByTechnique(technique.id);
                     const isUsed = actors.length > 0;
+                    const isSelected = selectedId === technique.id;
 
                     return (
-                      <div key={technique.id}>
-                        <a
-                          href={techniqueUrl(technique.id)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={[
-                            'group block rounded-md border px-2.5 py-2 text-left transition-all hover:shadow-sm',
-                            isUsed
-                              ? 'bg-brand-500/10 border-brand-500/40 hover:bg-brand-500/20 dark:bg-brand-400/10 dark:border-brand-400/40 dark:hover:bg-brand-400/20'
-                              : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700',
-                          ].join(' ')}
-                          title={technique.description ?? technique.name}
-                        >
-                          <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">{technique.id}</div>
-                          <div className="text-xs font-medium text-slate-800 dark:text-slate-200 leading-tight line-clamp-2 mt-0.5">
-                            {technique.name}
+                      <button
+                        key={technique.id}
+                        type="button"
+                        onClick={() => openTechnique(technique.id)}
+                        className={[
+                          'group block w-full rounded-md border px-2.5 py-2 text-left transition-all hover:shadow-sm',
+                          isSelected ? 'ring-2 ring-brand-500/60 dark:ring-brand-400/60' : '',
+                          isUsed
+                            ? 'bg-brand-500/10 border-brand-500/40 hover:bg-brand-500/20 dark:bg-brand-400/10 dark:border-brand-400/40 dark:hover:bg-brand-400/20'
+                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700',
+                        ].join(' ')}
+                        title={technique.description ?? technique.name}
+                      >
+                        <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">{technique.id}</div>
+                        <div className="text-xs font-medium text-slate-800 dark:text-slate-200 leading-tight line-clamp-2 mt-0.5">
+                          {technique.name}
+                        </div>
+                        {isUsed && (
+                          <div className="mt-1 text-[10px] font-mono text-brand-700 dark:text-brand-300 font-semibold">
+                            {actors.length === 1 && actors[0]
+                              ? `Used by ${actors[0].name}`
+                              : `Used by ${actors.length} actors`}
                           </div>
-                          {isUsed && (
-                            <div className="mt-1 text-[10px] font-mono text-brand-700 dark:text-brand-300 font-semibold">
-                              {actors.length === 1 ? `Used by ${actors[0].name}` : `Used by ${actors.length} actors`}
-                            </div>
-                          )}
-                          {technique.subtechniques && technique.subtechniques.length > 0 && (
-                            <div className="mt-1 text-[10px] font-mono text-slate-400 dark:text-slate-500">
-                              +{technique.subtechniques.length} sub-techniques
-                            </div>
-                          )}
-                        </a>
-                      </div>
+                        )}
+                        {technique.subtechniques && technique.subtechniques.length > 0 && (
+                          <div className="mt-1 text-[10px] font-mono text-slate-400 dark:text-slate-500">
+                            +{technique.subtechniques.length} sub-techniques
+                          </div>
+                        )}
+                      </button>
                     );
                   })}
                 </div>
@@ -171,6 +265,159 @@ export default function MitreMatrix(): JSX.Element {
           </div>
         </div>
       </div>
+
+      {/* Technique detail drawer */}
+      {selectedId && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-sm"
+            onClick={closeDrawer}
+            aria-hidden="true"
+          />
+          {/* Drawer */}
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mitre-detail-title"
+            className="fixed right-0 top-0 z-50 h-full w-full max-w-xl overflow-y-auto bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl"
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 bg-white/95 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 backdrop-blur">
+              <div className="min-w-0">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                  {selectedId}
+                </span>
+                <h2
+                  id="mitre-detail-title"
+                  className="font-display font-bold text-lg text-slate-900 dark:text-slate-100 truncate"
+                >
+                  {detail?.technique?.name ?? (detailLoading ? 'Loading…' : selectedId)}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeDrawer}
+                aria-label="close"
+                className="shrink-0 rounded p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-6">
+              {detailLoading && <p className="font-mono text-sm text-slate-500">Fetching…</p>}
+              {detailError && (
+                <p className="font-mono text-sm text-rose-600 dark:text-rose-400">error: {detailError}</p>
+              )}
+              {detail?.technique && (
+                <>
+                  {detail.technique.tactic && (
+                    <div className="text-xs font-mono text-slate-500">
+                      Tactic: <span className="text-slate-900 dark:text-slate-100">{detail.technique.tactic}</span>
+                    </div>
+                  )}
+                  {detail.technique.description && (
+                    <div>
+                      <h3 className="text-xs font-mono uppercase tracking-wider text-slate-500 mb-1.5">Description</h3>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                        {detail.technique.description}
+                      </p>
+                    </div>
+                  )}
+                  {detail.technique.platforms?.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-mono uppercase tracking-wider text-slate-500 mb-1.5">Platforms</h3>
+                      <div className="flex flex-wrap gap-1.5">
+                        {detail.technique.platforms.map((p) => (
+                          <span
+                            key={p}
+                            className="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                          >
+                            {p}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {detail.technique.dataSources?.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-mono uppercase tracking-wider text-slate-500 mb-1.5">Data sources</h3>
+                      <div className="flex flex-wrap gap-1.5">
+                        {detail.technique.dataSources.map((d) => (
+                          <span
+                            key={d}
+                            className="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                          >
+                            {d}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {detail.technique.detection && (
+                    <div>
+                      <h3 className="text-xs font-mono uppercase tracking-wider text-slate-500 mb-1.5">Detection</h3>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                        {detail.technique.detection}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+              {detail && detail.actors.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-mono uppercase tracking-wider text-slate-500 mb-2">
+                    Tracked actors using this technique ({detail.actors.length})
+                  </h3>
+                  <div className="space-y-1.5">
+                    {detail.actors.map((a) => (
+                      <Link
+                        key={a.id}
+                        to={`/dfir/actors/${a.id}`}
+                        className="block px-3 py-2 rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:border-brand-500/40 transition-colors"
+                      >
+                        <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{a.name}</div>
+                        {a.aliases.length > 0 && (
+                          <div className="text-xs font-mono text-slate-500 mt-0.5">
+                            aka {a.aliases.slice(0, 4).join(', ')}
+                          </div>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {detail && detail.relatedTechniques.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-mono uppercase tracking-wider text-slate-500 mb-2">Related techniques</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {detail.relatedTechniques.map((rid) => (
+                      <button
+                        key={rid}
+                        type="button"
+                        onClick={() => openTechnique(rid)}
+                        className="text-xs font-mono px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-600 dark:text-brand-400 hover:border-brand-500/40 transition-colors"
+                      >
+                        {rid}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {detail?.technique?.mitreUrl && (
+                <a
+                  href={detail.technique.mitreUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:border-brand-500/40 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                >
+                  Open on attack.mitre.org <ExternalLink size={12} />
+                </a>
+              )}
+            </div>
+          </aside>
+        </>
+      )}
     </div>
   );
 }

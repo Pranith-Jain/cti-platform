@@ -24,12 +24,18 @@ const Briefings = lazy(() => import('./pages/dfir/Briefings'));
 const BriefingDetail = lazy(() => import('./pages/dfir/BriefingDetail'));
 const Cve = lazy(() => import('./pages/dfir/Cve'));
 const Decode = lazy(() => import('./pages/dfir/Decode'));
-const Technique = lazy(() => import('./pages/dfir/Technique'));
 const AsnLookup = lazy(() => import('./pages/dfir/AsnLookup'));
 const Breach = lazy(() => import('./pages/dfir/Breach'));
 const ExifParse = lazy(() => import('./pages/dfir/ExifParse'));
 const MitreMatrix = lazy(() => import('./pages/dfir/MitreMatrix'));
 const UrlPreview = lazy(() => import('./pages/dfir/UrlPreview'));
+
+function TechniqueRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('technique') || params.get('t') || params.get('q') || '';
+  const target = id ? `/dfir/mitre?id=${encodeURIComponent(id)}` : '/dfir/mitre';
+  return <Navigate to={target} replace />;
+}
 
 function SectionLoader() {
   return (
@@ -221,14 +227,8 @@ export function AppContent() {
                 </Suspense>
               }
             />
-            <Route
-              path="/dfir/technique"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <Technique />
-                </Suspense>
-              }
-            />
+            {/* Legacy route — merged into /dfir/mitre. Forward the technique param as ?id= */}
+            <Route path="/dfir/technique" element={<TechniqueRedirect />} />
             <Route
               path="/dfir/asn"
               element={

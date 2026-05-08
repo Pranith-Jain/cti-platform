@@ -11,12 +11,13 @@ import {
   Lock,
   Newspaper,
   Search,
-  Target,
   Shield,
   Grid3x3,
   Eye,
   Network,
   Code2,
+  Compass,
+  ExternalLink,
   Image as ImageIcon,
   type LucideIcon,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ interface Tool {
   label: string;
   desc: string;
   icon: LucideIcon;
+  external?: boolean;
 }
 
 const TOOLS: Tool[] = [
@@ -35,8 +37,7 @@ const TOOLS: Tool[] = [
   { path: '/dfir/exposure', label: 'Exposure Scanner', desc: 'Subdomains + open ports', icon: Radar },
   { path: '/dfir/file', label: 'File Analyzer', desc: 'Hash-based lookups', icon: FileSearch },
   { path: '/dfir/cve', label: 'CVE Lookup', desc: 'NVD · EPSS · KEV · Exploit-DB', icon: Search },
-  { path: '/dfir/technique', label: 'MITRE Technique', desc: 'T-id · tactics · actors', icon: Target },
-  { path: '/dfir/mitre', label: 'MITRE ATT&CK Matrix', desc: 'Full tactics · technique grid', icon: Grid3x3 },
+  { path: '/dfir/mitre', label: 'MITRE ATT&CK', desc: 'Matrix · technique deep-dive · actors', icon: Grid3x3 },
   { path: '/dfir/url-preview', label: 'URL Preview', desc: 'Server-side metadata · safe fetch', icon: Eye },
   { path: '/dfir/asn', label: 'ASN Lookup', desc: 'BGP · prefixes · abuse contacts', icon: Network },
   { path: '/dfir/breach', label: 'Breach Checker', desc: 'Pwned password · k-anonymity', icon: Shield },
@@ -47,26 +48,54 @@ const TOOLS: Tool[] = [
   { path: '/dfir/actors', label: 'Threat Actors', desc: 'APT catalog · STIX-aware', icon: Users },
   { path: '/dfir/privacy', label: 'Privacy Check', desc: 'IP · WebRTC · fingerprint', icon: Lock },
   { path: '/dfir/briefings', label: 'Intel Briefings', desc: 'IOC feeds · daily summaries', icon: Newspaper },
+  // External OSINT resources — open in a new tab
+  {
+    path: 'https://osinttools.io/tools',
+    label: 'OSINT Tools',
+    desc: 'Curated OSINT tool directory · external',
+    icon: Compass,
+    external: true,
+  },
+  {
+    path: 'https://osintrack.com/',
+    label: 'OSINTrack',
+    desc: 'OSINT investigation tracker · external',
+    icon: Compass,
+    external: true,
+  },
 ];
 
 export function ToolGrid(): JSX.Element {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {TOOLS.map(({ path, label, desc, icon: Icon }) => (
-        <Link
-          key={path}
-          to={path}
-          className="group block rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 hover:border-brand-500/40 hover:bg-slate-50 dark:bg-slate-800 transition-colors"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <Icon size={18} className="text-brand-600 dark:text-brand-400" aria-hidden="true" />
-            <span className="font-display font-semibold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:text-brand-400 transition-colors">
-              {label}
-            </span>
-          </div>
-          <p className="text-sm font-mono text-slate-600 dark:text-slate-400 leading-relaxed">{desc}</p>
-        </Link>
-      ))}
+      {TOOLS.map(({ path, label, desc, icon: Icon, external }) => {
+        const className =
+          'group block rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 hover:border-brand-500/40 hover:bg-slate-50 dark:bg-slate-800 transition-colors';
+        const inner = (
+          <>
+            <div className="flex items-center gap-3 mb-2">
+              <Icon size={18} className="text-brand-600 dark:text-brand-400" aria-hidden="true" />
+              <span className="font-display font-semibold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:text-brand-400 transition-colors flex items-center gap-1">
+                {label}
+                {external && <ExternalLink size={12} className="opacity-60" aria-hidden="true" />}
+              </span>
+            </div>
+            <p className="text-sm font-mono text-slate-600 dark:text-slate-400 leading-relaxed">{desc}</p>
+          </>
+        );
+        if (external) {
+          return (
+            <a key={path} href={path} target="_blank" rel="noopener noreferrer" className={className}>
+              {inner}
+            </a>
+          );
+        }
+        return (
+          <Link key={path} to={path} className={className}>
+            {inner}
+          </Link>
+        );
+      })}
     </div>
   );
 }
