@@ -1,43 +1,57 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, RefreshCw, Plus, X, Eye, Bell } from 'lucide-react';
+import { ArrowLeft, ExternalLink, RefreshCw, Plus, X, Eye, Bell, Search, Filter } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { fetchFeedsProgressive, formatRelativeTime, type FeedItem } from '../../services/rssService';
 
 /**
- * Curated dark-web monitoring sources. These are the highest-signal feeds we
- * already proxy that publish leak-site, ransomware, and breach activity.
- * The set is intentionally narrower than the general ThreatIntelFeed.
+ * Curated dark-web monitoring sources. Higher-signal subset of the general
+ * ThreatIntelFeed — leak sites, ransomware, breach reports, and IR writeups
+ * that surface dark-web activity.
  */
-const DARKWEB_FEED_IDS = [
-  'darkwebinformer',
-  'ransomware-live',
-  'databreaches',
-  'dfir-report',
-  'the-record',
-  'curated-intel',
+const DARKWEB_FEEDS: { id: string; label: string }[] = [
+  { id: 'darkwebinformer', label: 'Dark Web Informer' },
+  { id: 'ransomware-live', label: 'Ransomware.live' },
+  { id: 'databreaches', label: 'DataBreaches.net' },
+  { id: 'dfir-report', label: 'The DFIR Report' },
+  { id: 'the-record', label: 'The Record' },
+  { id: 'curated-intel', label: 'Curated Intelligence' },
+  // Added round 2: more breadth, all verified live
+  { id: 'reddit-malware', label: 'r/Malware' },
+  { id: 'reddit-blueteamsec', label: 'r/blueteamsec' },
+  { id: 'reddit-threatintel', label: 'r/threatintel' },
+  { id: 'reddit-netsec', label: 'r/netsec' },
+  { id: 'bleepingcomputer', label: 'BleepingComputer' },
+  { id: 'krebsonsecurity', label: 'Krebs on Security' },
+  { id: 'malware-traffic-analysis', label: 'Malware Traffic Analysis' },
+  { id: 'doublepulsar', label: 'DoublePulsar' },
+  { id: 'sophos-xops', label: 'Sophos X-Ops' },
 ];
 
-const STORAGE_KEY = 'dfir.darkweb.watchlist';
-const MAX_PER_SOURCE = 20;
-const MAX_ITEMS = 100;
+const ALL_FEED_IDS = DARKWEB_FEEDS.map((f) => f.id);
 
-function loadWatchlist(): string[] {
-  if (typeof window === 'undefined') return [];
+const STORAGE_KEY_WATCH = 'dfir.darkweb.watchlist';
+const STORAGE_KEY_SOURCES = 'dfir.darkweb.activeSources';
+const MAX_PER_SOURCE = 12;
+const MAX_ITEMS = 200;
+
+type DateWindow = 'all' | '24h' | '7d' | '30d';
+
+function loadJson<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === 'string') : [];
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-function saveWatchlist(list: string[]): void {
+function saveJson<T>(key: string, value: T): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
     /* localStorage may be disabled in private mode */
   }
@@ -45,13 +59,80 @@ function saveWatchlist(list: string[]): void {
 
 interface MatchedItem {
   item: FeedItem;
-  matches: string[];
+  watchMatches: string[];
+  searchMatch: boolean;
 }
 
-function findMatches(item: FeedItem, watchlist: string[]): string[] {
+function findWatchMatches(item: FeedItem, watchlist: string[]): string[] {
   if (watchlist.length === 0) return [];
   const haystack = `${item.title ?? ''} ${item.description ?? ''}`.toLowerCase();
   return watchlist.filter((term) => term && haystack.includes(term.toLowerCase()));
+}
+
+/** Live search supports plain substring and regex (when wrapped in /pattern/). */
+function compileSearch(query: string): ((item: FeedItem) => boolean) | null {
+  const trimmed = query.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('/') && trimmed.lastIndexOf('/') > 0) {
+    try {
+      const lastSlash = trimmed.lastIndexOf('/');
+      const pattern = trimmed.slice(1, lastSlash);
+      const flags = trimmed.slice(lastSlash + 1) || 'i';
+      const re = new RegExp(pattern, flags);
+      return (item) => re.test(`${item.title ?? ''} ${item.description ?? ''}`);
+    } catch {
+      return null; // bad regex
+    }
+  }
+  // Plain text: split on whitespace, ALL terms must appear (AND semantics)
+  const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
+  return (item) => {
+    const hay = `${item.title ?? ''} ${item.description ?? ''}`.toLowerCase();
+    return tokens.every((t) => hay.includes(t));
+  };
+}
+
+function withinWindow(item: FeedItem, win: DateWindow): boolean {
+  if (win === 'all') return true;
+  const t = new Date(item.pubDate).getTime();
+  if (!t) return false;
+  const ageMs = Date.now() - t;
+  switch (win) {
+    case '24h':
+      return ageMs <= 24 * 3600_000;
+    case '7d':
+      return ageMs <= 7 * 86400_000;
+    case '30d':
+      return ageMs <= 30 * 86400_000;
+  }
+}
+
+function highlightInText(text: string, query: string, watchTerms: string[]): JSX.Element {
+  // Highlight all occurrences of each query token + each watchlist term
+  const tokens = [...query.toLowerCase().split(/\s+/).filter(Boolean), ...watchTerms.map((t) => t.toLowerCase())];
+  if (tokens.length === 0) return <>{text}</>;
+  // Build a regex that matches any token, case-insensitive
+  const escaped = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  let re: RegExp;
+  try {
+    re = new RegExp(`(${escaped})`, 'gi');
+  } catch {
+    return <>{text}</>;
+  }
+  const parts = text.split(re);
+  return (
+    <>
+      {parts.map((part, i) =>
+        re.test(part) ? (
+          <mark key={i} className="bg-amber-200 dark:bg-amber-700/40 text-inherit rounded px-0.5">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
 }
 
 export default function DarkWeb(): JSX.Element {
@@ -60,10 +141,16 @@ export default function DarkWeb(): JSX.Element {
   const [sourceCount, setSourceCount] = useState(0);
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [newTerm, setNewTerm] = useState('');
+  // Search controls
+  const [search, setSearch] = useState('');
+  const [activeSources, setActiveSources] = useState<Set<string>>(() => new Set(ALL_FEED_IDS));
+  const [dateWindow, setDateWindow] = useState<DateWindow>('all');
 
-  // Hydrate watchlist on mount.
+  // Hydrate from localStorage
   useEffect(() => {
-    setWatchlist(loadWatchlist());
+    setWatchlist(loadJson<string[]>(STORAGE_KEY_WATCH, []));
+    const savedSources = loadJson<string[]>(STORAGE_KEY_SOURCES, ALL_FEED_IDS);
+    setActiveSources(new Set(savedSources.length > 0 ? savedSources : ALL_FEED_IDS));
   }, []);
 
   const fetchFeeds = useCallback(async () => {
@@ -73,7 +160,7 @@ export default function DarkWeb(): JSX.Element {
     let active = 0;
     let firstSeen = false;
 
-    await fetchFeedsProgressive(DARKWEB_FEED_IDS, (_id, result) => {
+    await fetchFeedsProgressive(ALL_FEED_IDS, (_id, result) => {
       if (result.error || result.items.length === 0) return;
       active++;
       setSourceCount(active);
@@ -104,25 +191,56 @@ export default function DarkWeb(): JSX.Element {
     if (watchlist.some((w) => w.toLowerCase() === term.toLowerCase())) return;
     const next = [...watchlist, term];
     setWatchlist(next);
-    saveWatchlist(next);
+    saveJson(STORAGE_KEY_WATCH, next);
     setNewTerm('');
   };
-
   const removeTerm = (term: string) => {
     const next = watchlist.filter((w) => w !== term);
     setWatchlist(next);
-    saveWatchlist(next);
+    saveJson(STORAGE_KEY_WATCH, next);
+  };
+  const toggleSource = (id: string) => {
+    setActiveSources((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      saveJson(STORAGE_KEY_SOURCES, Array.from(next));
+      return next;
+    });
+  };
+  const allSourcesOn = activeSources.size === ALL_FEED_IDS.length;
+  const toggleAllSources = () => {
+    const next = allSourcesOn ? new Set<string>() : new Set(ALL_FEED_IDS);
+    setActiveSources(next);
+    saveJson(STORAGE_KEY_SOURCES, Array.from(next));
   };
 
-  const matched = useMemo<MatchedItem[]>(
-    () => items.map((it) => ({ item: it, matches: findMatches(it, watchlist) })),
-    [items, watchlist]
-  );
-  const matchCount = useMemo(() => matched.filter((m) => m.matches.length > 0).length, [matched]);
+  const searchFn = useMemo(() => compileSearch(search), [search]);
+
+  // Apply: source filter → date window → search → watchlist match annotation
+  const matched = useMemo<MatchedItem[]>(() => {
+    return items
+      .filter((it) => {
+        // FeedItem doesn't carry source id directly, but `source` field is the human label.
+        // Find source whose label matches.
+        if (allSourcesOn) return true;
+        const source = DARKWEB_FEEDS.find((f) => f.label === it.source || f.id === it.source);
+        return source ? activeSources.has(source.id) : true;
+      })
+      .filter((it) => withinWindow(it, dateWindow))
+      .filter((it) => (searchFn ? searchFn(it) : true))
+      .map((it) => ({
+        item: it,
+        watchMatches: findWatchMatches(it, watchlist),
+        searchMatch: !!searchFn,
+      }));
+  }, [items, activeSources, allSourcesOn, dateWindow, searchFn, watchlist]);
+
+  const matchCount = useMemo(() => matched.filter((m) => m.watchMatches.length > 0).length, [matched]);
   const perTermCount = useMemo(() => {
     const map: Record<string, number> = {};
     for (const term of watchlist) map[term] = 0;
-    for (const m of matched) for (const t of m.matches) map[t]++;
+    for (const m of matched) for (const t of m.watchMatches) map[t]++;
     return map;
   }, [matched, watchlist]);
 
@@ -138,14 +256,86 @@ export default function DarkWeb(): JSX.Element {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <h1 className="text-4xl font-display font-bold mb-2">Dark Web Watch</h1>
         <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-2xl">
-          Aggregated dark web, ransomware leak-site, and breach activity from {DARKWEB_FEED_IDS.length} curated sources.
-          Add company names, domains, or keywords to your watchlist and any matching post is highlighted. The watchlist
-          is stored locally in your browser. Nothing is uploaded.
+          Aggregated dark web, ransomware leak-site, breach, and security-research activity from
+          {` ${DARKWEB_FEEDS.length} `}curated free sources. Use the search box for live filtering (regex like{' '}
+          <code className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-1 rounded">/lockbit|alphv/i</code>{' '}
+          works), filter by source, narrow by date window, and add long-running keywords to your watchlist for
+          highlighted matches across visits. Watchlist + source preferences are stored locally; nothing is uploaded.
         </p>
       </motion.div>
 
+      {/* Search + filters */}
+      <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Search size={14} className="text-brand-600 dark:text-brand-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Live search. Plain words = AND. /regex/i for regex."
+            className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg font-mono text-sm focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="text-xs font-mono text-slate-500 hover:text-rose-600 dark:hover:text-rose-400"
+            >
+              clear
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
+          <Filter size={12} className="text-brand-600 dark:text-brand-400" />
+          <span className="text-slate-500">Sources:</span>
+          <button
+            type="button"
+            onClick={toggleAllSources}
+            className="text-brand-600 dark:text-brand-400 hover:underline"
+          >
+            {allSourcesOn ? 'clear all' : 'select all'}
+          </button>
+          {DARKWEB_FEEDS.map((f) => {
+            const on = activeSources.has(f.id);
+            return (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => toggleSource(f.id)}
+                className={`px-2 py-0.5 rounded border transition-colors ${
+                  on
+                    ? 'border-brand-500/50 text-slate-900 dark:text-slate-100 bg-brand-50 dark:bg-brand-900/20'
+                    : 'border-slate-200 dark:border-slate-800 text-slate-500'
+                }`}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span className="text-slate-500">Window:</span>
+          {(['24h', '7d', '30d', 'all'] as DateWindow[]).map((w) => (
+            <button
+              key={w}
+              type="button"
+              onClick={() => setDateWindow(w)}
+              className={`px-2 py-0.5 rounded border transition-colors ${
+                dateWindow === w
+                  ? 'border-brand-500/50 text-slate-900 dark:text-slate-100 bg-brand-50 dark:bg-brand-900/20'
+                  : 'border-slate-200 dark:border-slate-800 text-slate-500'
+              }`}
+            >
+              {w === 'all' ? 'all' : `last ${w}`}
+            </button>
+          ))}
+        </div>
+      </section>
+
       {/* Watchlist control */}
-      <section className="mb-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+      <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
         <div className="flex items-center gap-2 mb-3">
           <Bell size={14} className="text-brand-600 dark:text-brand-400" />
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">Watchlist</h2>
@@ -162,7 +352,7 @@ export default function DarkWeb(): JSX.Element {
             value={newTerm}
             onChange={(e) => setNewTerm(e.target.value)}
             placeholder="company name, domain, sector, threat actor…"
-            className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg font-mono text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
+            className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg font-mono text-sm focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
           />
           <button
             type="submit"
@@ -200,19 +390,21 @@ export default function DarkWeb(): JSX.Element {
       </section>
 
       {/* Stats */}
-      <header className="flex items-baseline justify-between mb-4">
+      <header className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
         <h2 className="font-display font-bold text-xl">Recent activity</h2>
         <div className="flex items-center gap-3 text-xs font-mono text-slate-600 dark:text-slate-400">
           <span>
-            {sourceCount} of {DARKWEB_FEED_IDS.length} sources
+            {sourceCount} of {DARKWEB_FEEDS.length} sources
           </span>
           <span aria-hidden="true">·</span>
-          <span>{items.length} items</span>
+          <span>
+            {matched.length} of {items.length} items
+          </span>
           {watchlist.length > 0 && (
             <>
               <span aria-hidden="true">·</span>
               <span className="text-brand-600 dark:text-brand-400">
-                {matchCount} match{matchCount === 1 ? '' : 'es'}
+                {matchCount} watchlist match{matchCount === 1 ? '' : 'es'}
               </span>
             </>
           )}
@@ -233,10 +425,27 @@ export default function DarkWeb(): JSX.Element {
         <p className="font-mono text-sm text-slate-600 dark:text-slate-400">Fetching…</p>
       )}
 
-      {items.length > 0 && (
+      {!loading && matched.length === 0 && items.length > 0 && (
+        <p className="font-mono text-sm text-slate-500">
+          No items match the current filters.{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setSearch('');
+              setActiveSources(new Set(ALL_FEED_IDS));
+              setDateWindow('all');
+            }}
+            className="text-brand-600 dark:text-brand-400 hover:underline"
+          >
+            reset filters
+          </button>
+        </p>
+      )}
+
+      {matched.length > 0 && (
         <ul className="space-y-3">
-          {matched.map(({ item: it, matches }) => {
-            const hit = matches.length > 0;
+          {matched.map(({ item: it, watchMatches }) => {
+            const hit = watchMatches.length > 0;
             return (
               <li
                 key={it.guid ?? it.link}
@@ -249,7 +458,7 @@ export default function DarkWeb(): JSX.Element {
                 <a href={it.link} target="_blank" rel="noopener noreferrer" className="group block">
                   <div className="flex items-baseline justify-between gap-3">
                     <h3 className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
-                      {it.title}
+                      {highlightInText(it.title, search, watchlist)}
                     </h3>
                     <ExternalLink size={12} className="text-slate-500 shrink-0 mt-1" />
                   </div>
@@ -261,7 +470,7 @@ export default function DarkWeb(): JSX.Element {
                 {hit && (
                   <div className="mt-2 flex items-center gap-2 flex-wrap">
                     <Eye size={12} className="text-amber-700 dark:text-amber-400" />
-                    {matches.map((m) => (
+                    {watchMatches.map((m) => (
                       <span
                         key={m}
                         className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-200/60 dark:bg-amber-700/30 text-amber-900 dark:text-amber-200"
@@ -279,17 +488,18 @@ export default function DarkWeb(): JSX.Element {
 
       <footer className="mt-12 text-xs font-mono text-slate-500 leading-relaxed">
         Sources: Dark Web Informer · Ransomware.live · DataBreaches.net · The DFIR Report · The Record · Curated
-        Intelligence. Truly closed darknet content (private Telegram channels, invite-only forums, paid leak sites) is
-        not in scope here. For an actively-curated index of those sources, see the{' '}
+        Intelligence · Reddit (r/Malware, r/blueteamsec, r/threatintel, r/netsec) · BleepingComputer · Krebs · Malware
+        Traffic Analysis · DoublePulsar · Sophos X-Ops. Closed-darknet content (private Telegram, paid leak sites,
+        invite-only forums) is not in scope; see{' '}
         <a
           href="https://github.com/fastfire/deepdarkCTI"
           target="_blank"
           rel="noopener noreferrer"
           className="text-brand-600 dark:text-brand-400 hover:underline"
         >
-          deepdarkCTI repo
-        </a>
-        .
+          deepdarkCTI
+        </a>{' '}
+        for an index of those.
       </footer>
     </div>
   );

@@ -1,20 +1,31 @@
 import type { Context } from 'hono';
 import type { Env } from '../env';
-import { parseFeodo, parseUrlhaus, parseThreatfox, parseIpsum, parsePlainTextIps } from '../lib/ioc-feed-parsers';
+import {
+  parseFeodo,
+  parseUrlhaus,
+  parseThreatfox,
+  parseIpsum,
+  parsePlainTextIps,
+  parseMalwarebazaar,
+} from '../lib/ioc-feed-parsers';
 
 /**
  * Cyber Threat Map
  *
- * Aggregates current malicious-IP indicators from Feodo Tracker, URLhaus, and
- * ThreatFox into a per-country count, then batch-geolocates via ip-api.com
- * (free, no key, 100 IPs / call, 15 calls / minute / IP).
+ * Aggregates current malicious infrastructure indicators across IOC types:
+ *   - IPs from Feodo, URLhaus, ThreatFox, Ipsum, CINS Army, Bitwire — each
+ *     batch-geolocated via ip-api.com and aggregated by country for the map.
+ *   - URLs from URLhaus + ThreatFox.
+ *   - Domains from ThreatFox.
+ *   - File hashes from MalwareBazaar + ThreatFox.
  *
  * Cached 1h in Cache API so each visitor doesn't re-trigger the geolocation.
  */
 
-const CACHE_KEY = 'https://threat-map-cache.internal/v2-6sources';
+const CACHE_KEY = 'https://threat-map-cache.internal/v3-multitype';
 const CACHE_TTL_SECONDS = 3600;
-const MAX_IPS = 200; // ip-api.com batch is 100; we'll do 2 batches max
+const MAX_IPS = 500; // ip-api.com batch is 100; we'll do up to 5 batches
+const MAX_PER_TYPE = 60; // per non-IP IOC type (urls / domains / hashes)
 const FETCH_TIMEOUT_MS = 12_000;
 
 interface CountryAgg {
@@ -25,12 +36,28 @@ interface CountryAgg {
   sample_ips: string[];
 }
 
+interface IocSample {
+  value: string;
+  source: string;
+  context?: string;
+  timestamp?: string;
+}
+
+interface IocTypeBucket {
+  type: 'url' | 'domain' | 'hash';
+  count: number;
+  source_counts: Record<string, number>;
+  recent: IocSample[];
+}
+
 interface ThreatMapResponse {
   generated_at: string;
   total_ips: number;
   countries: CountryAgg[];
   samples: Array<{ ip: string; country: string; countryCode: string; sources: string[] }>;
   source_counts: Record<string, number>;
+  // New in v3: non-IP IOC types from the same feeds
+  iocs_by_type: IocTypeBucket[];
 }
 
 interface IpApiBatchResult {
@@ -94,15 +121,17 @@ export async function threatMapHandler(c: Context<{ Bindings: Env }>) {
     });
   }
 
-  // Fan out to all malicious-IP feeds we have access to, in parallel.
-  const [feodoText, urlhausText, threatfoxText, ipsumText, cinsText, bitwireText] = await Promise.all([
-    fetchText('https://feodotracker.abuse.ch/downloads/ipblocklist.csv'),
-    fetchText('https://urlhaus.abuse.ch/downloads/csv_recent/'),
-    fetchText('https://threatfox.abuse.ch/export/csv/recent/'),
-    fetchText('https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt'),
-    fetchText('https://cinsscore.com/list/ci-badguys.txt'),
-    fetchText('https://raw.githubusercontent.com/bitwire-it/ipblocklist/main/outbound.txt'),
-  ]);
+  // Fan out to all IOC feeds we have access to, in parallel.
+  const [feodoText, urlhausText, threatfoxText, ipsumText, cinsText, bitwireText, malwarebazaarText] =
+    await Promise.all([
+      fetchText('https://feodotracker.abuse.ch/downloads/ipblocklist.csv'),
+      fetchText('https://urlhaus.abuse.ch/downloads/csv_recent/'),
+      fetchText('https://threatfox.abuse.ch/export/csv/recent/'),
+      fetchText('https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt'),
+      fetchText('https://cinsscore.com/list/ci-badguys.txt'),
+      fetchText('https://raw.githubusercontent.com/bitwire-it/ipblocklist/main/outbound.txt'),
+      fetchText('https://bazaar.abuse.ch/export/csv/recent/'),
+    ]);
 
   // Build a map of IP → set of sources, capped at MAX_IPS unique IPs.
   const ipSources = new Map<string, Set<string>>();
@@ -183,12 +212,55 @@ export async function threatMapHandler(c: Context<{ Bindings: Env }>) {
 
   const countries = Array.from(byCountry.values()).sort((a, b) => b.count - a.count);
 
+  // ─── Non-IP IOC types ──────────────────────────────────────────────────────
+  // Same upstream feeds, but extract URLs / domains / hashes so the map page
+  // shows a complete current-threat picture, not just IPs.
+  const urlBucket: IocTypeBucket = { type: 'url', count: 0, source_counts: {}, recent: [] };
+  const domainBucket: IocTypeBucket = { type: 'domain', count: 0, source_counts: {}, recent: [] };
+  const hashBucket: IocTypeBucket = { type: 'hash', count: 0, source_counts: {}, recent: [] };
+
+  const seen = { url: new Set<string>(), domain: new Set<string>(), hash: new Set<string>() };
+  const pushSample = (bucket: IocTypeBucket, sample: IocSample) => {
+    const set = seen[bucket.type];
+    if (set.has(sample.value)) return;
+    set.add(sample.value);
+    bucket.count += 1;
+    bucket.source_counts[sample.source] = (bucket.source_counts[sample.source] ?? 0) + 1;
+    if (bucket.recent.length < MAX_PER_TYPE) bucket.recent.push(sample);
+  };
+
+  if (urlhausText) {
+    for (const e of parseUrlhaus(urlhausText, MAX_PER_TYPE * 2)) {
+      if (e.type !== 'url') continue;
+      pushSample(urlBucket, { value: e.value, source: 'urlhaus', context: e.context, timestamp: e.timestamp });
+    }
+  }
+  if (threatfoxText) {
+    for (const e of parseThreatfox(threatfoxText, MAX_PER_TYPE * 4)) {
+      if (e.type === 'url') {
+        pushSample(urlBucket, { value: e.value, source: 'threatfox', context: e.context, timestamp: e.timestamp });
+      } else if (e.type === 'domain') {
+        pushSample(domainBucket, { value: e.value, source: 'threatfox', context: e.context, timestamp: e.timestamp });
+      } else if (e.type === 'hash') {
+        pushSample(hashBucket, { value: e.value, source: 'threatfox', context: e.context, timestamp: e.timestamp });
+      }
+    }
+  }
+  if (malwarebazaarText) {
+    for (const e of parseMalwarebazaar(malwarebazaarText, MAX_PER_TYPE * 2)) {
+      if (e.type === 'hash') {
+        pushSample(hashBucket, { value: e.value, source: 'malwarebazaar', context: e.context, timestamp: e.timestamp });
+      }
+    }
+  }
+
   const body: ThreatMapResponse = {
     generated_at: new Date().toISOString(),
     total_ips: ips.length,
     countries,
     samples,
     source_counts: sourceCounts,
+    iocs_by_type: [urlBucket, domainBucket, hashBucket].filter((b) => b.count > 0),
   };
 
   const json = JSON.stringify(body);

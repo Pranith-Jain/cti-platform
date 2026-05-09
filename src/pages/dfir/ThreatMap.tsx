@@ -12,12 +12,20 @@ interface CountryAgg {
   sample_ips: string[];
 }
 
+interface IocTypeBucket {
+  type: 'url' | 'domain' | 'hash';
+  count: number;
+  source_counts: Record<string, number>;
+  recent: Array<{ value: string; source: string; context?: string; timestamp?: string }>;
+}
+
 interface ThreatMapResponse {
   generated_at: string;
   total_ips: number;
   countries: CountryAgg[];
   samples: Array<{ ip: string; country: string; countryCode: string; sources: string[] }>;
   source_counts: Record<string, number>;
+  iocs_by_type?: IocTypeBucket[];
 }
 
 // Bundled locally to keep us inside the strict CSP (connect-src 'self').
@@ -264,9 +272,10 @@ export default function ThreatMap(): JSX.Element {
           <Globe size={28} className="text-brand-600 dark:text-brand-400" /> Cyber Threat Map
         </h1>
         <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-3xl">
-          Live geographic distribution of malicious infrastructure pulled from six IOC sources: Feodo Tracker, URLhaus,
-          ThreatFox, Ipsum (3+ source consensus), CINS Army, and Bitwire. Each IP is geolocated and aggregated by
-          country. Refreshes hourly server-side, so this is real data, not a CSS animation.
+          Live distribution of malicious infrastructure across IPs, URLs, domains, and file hashes. Sources: Feodo
+          Tracker, URLhaus, ThreatFox, Ipsum (3+ source consensus), CINS Army, Bitwire, and MalwareBazaar. IPs are
+          geolocated and aggregated by country; URLs / domains / hashes appear in dedicated panels. Refreshes hourly,
+          real data.
         </p>
       </motion.div>
 
@@ -384,11 +393,11 @@ export default function ThreatMap(): JSX.Element {
             </aside>
           </div>
 
-          {/* Recent samples */}
+          {/* Recent IPs (geolocated) */}
           {data.samples.length > 0 && (
             <section className="mt-8">
               <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 mb-3">
-                Recent indicators
+                Recent IPs
               </h3>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {data.samples.slice(0, 30).map((s, i) => (
@@ -409,9 +418,43 @@ export default function ThreatMap(): JSX.Element {
             </section>
           )}
 
+          {/* Other IOC types (URLs / Domains / Hashes) — same upstreams, no geo */}
+          {data.iocs_by_type?.map((bucket) => (
+            <section key={bucket.type} className="mt-8">
+              <div className="flex items-baseline justify-between mb-3">
+                <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">
+                  Recent {bucket.type === 'url' ? 'URLs' : bucket.type === 'domain' ? 'Domains' : 'File hashes'}
+                </h3>
+                <span className="text-xs font-mono text-slate-500">
+                  {bucket.count} unique ·{' '}
+                  {Object.entries(bucket.source_counts)
+                    .map(([k, n]) => `${k} ${n}`)
+                    .join(' · ')}
+                </span>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {bucket.recent.slice(0, 20).map((it, i) => (
+                  <Link
+                    key={`${bucket.type}-${i}`}
+                    to={`/dfir/ioc-check?indicator=${encodeURIComponent(it.value)}`}
+                    className="block rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 hover:border-brand-500/40 transition-colors"
+                  >
+                    <div className="font-mono text-xs text-slate-900 dark:text-slate-100 truncate" title={it.value}>
+                      {it.value}
+                    </div>
+                    <div className="text-[11px] font-mono text-slate-500 flex items-center gap-2 mt-0.5">
+                      <span className="text-brand-600 dark:text-brand-400">{it.source}</span>
+                      {it.context && <span className="truncate">{it.context}</span>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ))}
+
           <footer className="mt-8 text-xs font-mono text-slate-500">
-            Data refreshes hourly. Geolocation via ip-api.com (free, no key). Click any IP to run it through the IOC
-            Checker.
+            IPs refresh hourly. Geolocation via ip-api.com (free, no key). URLs / domains / hashes come from the same
+            upstream feeds and aren't geolocated. Click any IOC to run it through the IOC Checker.
           </footer>
         </>
       )}
