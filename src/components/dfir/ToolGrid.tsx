@@ -119,8 +119,8 @@ const FEATURED: Tool[] = [
   },
   {
     path: '/dfir/prompt-injection',
-    label: 'Prompt Injection Detector',
-    desc: '25+ injection / jailbreak patterns · highlight + severity score',
+    label: 'Prompt Injection & Red-Team',
+    desc: 'Detect 28 patterns · 26-prompt red-team library · OWASP LLM Top 10 · JSON export',
     icon: Sparkles,
   },
   {
@@ -143,7 +143,12 @@ const UTILITIES: Tool[] = [
   { path: '/dfir/exposure', label: 'Exposure Scanner', desc: 'Subdomains + open ports', icon: Radar },
   { path: '/dfir/jwt', label: 'JWT Inspector', desc: 'Decode + flag alg=none, exp, weak claims', icon: KeyRound },
   { path: '/dfir/punycode', label: 'Homograph Detector', desc: 'IDN · mixed scripts · brand lookalikes', icon: Type },
-  { path: '/dfir/cve', label: 'CVE Lookup', desc: 'NVD · EPSS · KEV · Exploit-DB', icon: Search },
+  {
+    path: '/dfir/cve',
+    label: 'CVE Lookup',
+    desc: 'NVD · CVSS · EPSS · KEV · combined patch-priority score with rationale',
+    icon: Search,
+  },
   { path: '/dfir/url-preview', label: 'URL Preview', desc: 'Server-side metadata · safe fetch', icon: Eye },
   { path: '/dfir/asn', label: 'ASN Lookup', desc: 'BGP · prefixes · abuse contacts', icon: Network },
   { path: '/dfir/breach', label: 'Breach Checker', desc: 'Pwned password · k-anonymity', icon: Shield },

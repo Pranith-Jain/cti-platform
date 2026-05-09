@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, BookText, Copy, Check, ExternalLink } from 'lucide-react';
+import { ArrowLeft, BookText, Copy, Check, ExternalLink, Gauge } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { prioritise, TIER_LABELS, TIER_STYLES, TIER_BARS } from '../../lib/dfir/cve-priority';
 
 const CVE_RE = /^CVE-\d{4}-\d{4,7}$/i;
 
@@ -173,6 +174,105 @@ export default function CveLookup(): JSX.Element {
               )}
             </div>
           </section>
+
+          {/* Patch priority — combined CVSS + EPSS + KEV */}
+          {(() => {
+            if (!result.cvss && !result.epss && !result.kev) return null;
+            const p = prioritise({ cvss: result.cvss, epss: result.epss, kev: result.kev });
+            const total = p.contributions.cvss + p.contributions.epss + p.contributions.kev;
+            return (
+              <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                  <h3 className="font-display font-semibold text-lg inline-flex items-center gap-2">
+                    <Gauge size={18} className="text-brand-600 dark:text-brand-400" /> Patch priority
+                  </h3>
+                  <span
+                    className={`text-xs font-mono uppercase tracking-wider px-2.5 py-1 rounded border ${TIER_STYLES[p.tier]}`}
+                  >
+                    {TIER_LABELS[p.tier]} · {p.score}/100
+                  </span>
+                </div>
+
+                <div className="h-2 rounded bg-slate-200 dark:bg-slate-800 overflow-hidden mb-3">
+                  <div
+                    className={`h-full transition-all ${TIER_BARS[p.tier]}`}
+                    style={{ width: `${Math.max(2, p.score)}%` }}
+                  />
+                </div>
+
+                <p className="text-sm font-mono text-slate-600 dark:text-slate-400 mb-4">
+                  Combined signal across CVSS severity, EPSS exploit probability, and CISA KEV listing. SLA suggestion:{' '}
+                  <strong className="text-slate-800 dark:text-slate-200">{p.sla}</strong>.
+                </p>
+
+                {/* Per-signal contribution bar */}
+                {total > 0 && (
+                  <div className="mb-4">
+                    <div className="flex h-3 rounded overflow-hidden border border-slate-200 dark:border-slate-800">
+                      {p.contributions.cvss > 0 && (
+                        <div
+                          className="bg-amber-500"
+                          style={{ width: `${(p.contributions.cvss / 100) * 100}%` }}
+                          title={`CVSS contribution: ${p.contributions.cvss}`}
+                        />
+                      )}
+                      {p.contributions.epss > 0 && (
+                        <div
+                          className="bg-orange-500"
+                          style={{ width: `${(p.contributions.epss / 100) * 100}%` }}
+                          title={`EPSS contribution: ${p.contributions.epss}`}
+                        />
+                      )}
+                      {p.contributions.kev > 0 && (
+                        <div
+                          className="bg-rose-500"
+                          style={{ width: `${(p.contributions.kev / 100) * 100}%` }}
+                          title={`KEV contribution: ${p.contributions.kev}`}
+                        />
+                      )}
+                      <div className="bg-slate-300 dark:bg-slate-700" style={{ flex: 1 }} />
+                    </div>
+                    <div className="flex flex-wrap gap-3 mt-1.5 text-[10px] font-mono text-slate-500 dark:text-slate-500">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="inline-block w-2 h-2 bg-amber-500 rounded-sm" /> CVSS · {p.contributions.cvss}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="inline-block w-2 h-2 bg-orange-500 rounded-sm" /> EPSS · {p.contributions.epss}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="inline-block w-2 h-2 bg-rose-500 rounded-sm" /> KEV · {p.contributions.kev}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <ul className="space-y-1 text-sm font-mono text-slate-700 dark:text-slate-300">
+                  {p.rationale.map((r, i) => (
+                    <li key={i} className="flex gap-2">
+                      <span className="text-slate-400 dark:text-slate-600 select-none">›</span>
+                      <span
+                        dangerouslySetInnerHTML={{
+                          __html: r.replace(
+                            /\*\*([^*]+)\*\*/g,
+                            '<strong class="text-slate-900 dark:text-slate-100">$1</strong>'
+                          ),
+                        }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="mt-4 flex">
+                  <CopyButton
+                    text={`${result.cve_id} — ${TIER_LABELS[p.tier]} (${p.score}/100, ${p.sla}).\n${p.rationale.map((r) => '- ' + r.replace(/\*\*/g, '')).join('\n')}`}
+                  />
+                  <span className="ml-2 self-center text-[11px] font-mono text-slate-500 dark:text-slate-500">
+                    Copy ticket-ready rationale
+                  </span>
+                </div>
+              </section>
+            );
+          })()}
 
           {/* Description */}
           {result.description && (

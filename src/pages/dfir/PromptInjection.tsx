@@ -1,6 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldAlert, AlertTriangle, CheckCircle2, ExternalLink, ArrowLeft } from 'lucide-react';
+import {
+  ShieldAlert,
+  AlertTriangle,
+  CheckCircle2,
+  ExternalLink,
+  ArrowLeft,
+  Copy,
+  Check,
+  Download,
+  Swords,
+} from 'lucide-react';
 import {
   PATTERNS,
   detectInjections,
@@ -10,6 +20,7 @@ import {
   type Severity,
   type LlmTop10Id,
 } from '../../lib/dfir/prompt-injection-patterns';
+import { RED_TEAM_PROMPTS, RED_TEAM_CATEGORIES, type RedTeamCategory } from '../../data/redteam-prompts';
 
 const SAMPLES: { label: string; text: string }[] = [
   {
@@ -48,6 +59,27 @@ const GRADE_STYLES: Record<string, string> = {
   high: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
   critical: 'bg-rose-500/15 text-rose-700 dark:text-rose-300',
 };
+
+function CopyChip({ value, label = 'copy' }: { value: string; label?: string }): JSX.Element {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(value);
+          setDone(true);
+          setTimeout(() => setDone(false), 1200);
+        } catch {
+          /* ignore */
+        }
+      }}
+      className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 hover:border-brand-500/40 inline-flex items-center gap-1"
+    >
+      {done ? <Check size={10} /> : <Copy size={10} />}
+      {done ? 'copied' : label}
+    </button>
+  );
+}
 
 function highlight(input: string, matches: InjectionMatch[]): JSX.Element[] {
   if (matches.length === 0) {
@@ -122,6 +154,27 @@ export default function PromptInjection(): JSX.Element {
   }, [owaspFilter]);
 
   const owaspIds = Object.keys(LLM_TOP10) as LlmTop10Id[];
+
+  // Red-team library state
+  const [rtCategory, setRtCategory] = useState<RedTeamCategory | 'all'>('all');
+  const [rtOwasp, setRtOwasp] = useState<LlmTop10Id | 'all'>('all');
+  const filteredRedTeam = useMemo(() => {
+    return RED_TEAM_PROMPTS.filter((p) => {
+      if (rtCategory !== 'all' && p.category !== rtCategory) return false;
+      if (rtOwasp !== 'all' && !p.owasp.includes(rtOwasp)) return false;
+      return true;
+    });
+  }, [rtCategory, rtOwasp]);
+
+  const exportRedTeam = () => {
+    const blob = new Blob([JSON.stringify(filteredRedTeam, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `redteam-prompts-${rtCategory}-${rtOwasp}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
@@ -281,6 +334,158 @@ export default function PromptInjection(): JSX.Element {
           )}
         </>
       )}
+
+      {/* ── Red-team prompt library ────────────────────────────────────── */}
+      <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 font-mono inline-flex items-center gap-2">
+            <Swords size={14} /> Red-team prompt library ({filteredRedTeam.length}/{RED_TEAM_PROMPTS.length})
+          </h2>
+          <button
+            onClick={exportRedTeam}
+            className="text-xs font-mono px-2 py-1 rounded border border-slate-300 dark:border-slate-700 hover:border-brand-500/40 hover:text-brand-600 dark:hover:text-brand-400 inline-flex items-center gap-1"
+          >
+            <Download size={11} /> Export filtered as JSON
+          </button>
+        </div>
+        <p className="text-xs font-mono text-slate-500 dark:text-slate-500 mb-3">
+          Curated prompts to send into your own LLM endpoint or eval harness. Each entry lists the expected well-behaved
+          response so you can score the model's actual reply. Nothing here is operational uplift — every pattern is
+          publicly documented.
+        </p>
+
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 dark:text-slate-500 self-center mr-1">
+            Category
+          </span>
+          <button
+            onClick={() => setRtCategory('all')}
+            className={`text-xs font-mono px-2 py-1 rounded border transition-colors ${
+              rtCategory === 'all'
+                ? 'border-brand-500/60 bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-500/40'
+            }`}
+          >
+            All
+          </button>
+          {RED_TEAM_CATEGORIES.map((c) => {
+            const count = RED_TEAM_PROMPTS.filter((p) => p.category === c.id).length;
+            if (count === 0) return null;
+            return (
+              <button
+                key={c.id}
+                onClick={() => setRtCategory(c.id)}
+                className={`text-xs font-mono px-2 py-1 rounded border transition-colors ${
+                  rtCategory === c.id
+                    ? 'border-brand-500/60 bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                    : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-500/40'
+                }`}
+              >
+                {c.label} <span className="opacity-60">· {count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 dark:text-slate-500 self-center mr-1">
+            OWASP LLM
+          </span>
+          <button
+            onClick={() => setRtOwasp('all')}
+            className={`text-xs font-mono px-2 py-1 rounded border transition-colors ${
+              rtOwasp === 'all'
+                ? 'border-brand-500/60 bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-500/40'
+            }`}
+          >
+            All
+          </button>
+          {owaspIds.map((id) => {
+            const count = RED_TEAM_PROMPTS.filter((p) => p.owasp.includes(id)).length;
+            if (count === 0) return null;
+            return (
+              <button
+                key={id}
+                onClick={() => setRtOwasp(id)}
+                title={LLM_TOP10[id].title}
+                className={`text-xs font-mono px-2 py-1 rounded border transition-colors ${
+                  rtOwasp === id
+                    ? 'border-brand-500/60 bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                    : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-500/40'
+                }`}
+              >
+                {id} <span className="opacity-60">· {count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <ul className="space-y-3">
+          {filteredRedTeam.map((p) => (
+            <li
+              key={p.id}
+              className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3"
+            >
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="font-display font-semibold text-slate-900 dark:text-slate-100">{p.name}</span>
+                <span
+                  className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${SEVERITY_STYLES[p.severity]}`}
+                >
+                  {p.severity}
+                </span>
+                <span className="text-[10px] font-mono text-slate-500 dark:text-slate-500">{p.category}</span>
+                {p.owasp.map((id) => (
+                  <span
+                    key={id}
+                    title={LLM_TOP10[id].title}
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-brand-500/30 bg-brand-500/10 text-brand-700 dark:text-brand-300"
+                  >
+                    {id}
+                  </span>
+                ))}
+              </div>
+              {p.systemContext && (
+                <div className="rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 mb-2">
+                  <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 dark:text-slate-500 mb-1">
+                    Assumed system context
+                  </div>
+                  <p className="text-[12px] font-mono text-slate-700 dark:text-slate-300 leading-relaxed">
+                    {p.systemContext}
+                  </p>
+                </div>
+              )}
+              <div className="rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 mb-2">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-rose-600 dark:text-rose-400">
+                    Prompt
+                  </span>
+                  <CopyChip value={p.prompt} label="copy prompt" />
+                </div>
+                <pre className="text-[12px] font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words">
+                  {p.prompt}
+                </pre>
+              </div>
+              <div className="rounded border border-emerald-500/30 bg-emerald-500/5 p-2">
+                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400 mb-1">
+                  Expected behaviour
+                </div>
+                <p className="text-[12px] font-mono text-slate-700 dark:text-slate-300 leading-relaxed">
+                  {p.expectedBehaviour}
+                </p>
+              </div>
+              {p.source && (
+                <p className="mt-1.5 text-[10px] font-mono text-slate-500 dark:text-slate-500">Source: {p.source}</p>
+              )}
+            </li>
+          ))}
+          {filteredRedTeam.length === 0 && (
+            <li className="text-center text-sm font-mono text-slate-500 dark:text-slate-500 py-6">
+              No prompts match those filters.
+            </li>
+          )}
+        </ul>
+      </section>
 
       <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
