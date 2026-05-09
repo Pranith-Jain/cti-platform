@@ -1,142 +1,134 @@
-# Pranith Jain - Portfolio
+# pranithjain.qzz.io
 
-Static portfolio website built with HTML, JavaScript, and Tailwind CSS, featuring cutting-edge 2026 web design trends.
+Personal portfolio for **Pranith Jain** — security analyst and detection engineer — bundled with a working DFIR toolkit. Hosted on Cloudflare Workers, free at the edge.
 
-## ✨ Features
+**Live:** [https://pranithjain.qzz.io](https://pranithjain.qzz.io) · [/dfir](https://pranithjain.qzz.io/dfir)
 
-### Core
+---
 
-- Responsive design with mobile-first approach
-- Dark mode support (2026 cyberpunk theme)
-- Clean and modern UI with advanced animations
-- Static and lightweight - no backend required
-- Fast loading with optimized assets
+## What this repo contains
 
-### 2026 Design Trends 🚀
+Two things in one deploy:
 
-- **Exploratory Layouts**: Modular, floating card designs with 3D transformations
-- **Mixed Scroll Directions**: Horizontal auto-scrolling galleries with parallax effects
-- **Noise & Chromatic Mash-Ups**: Animated grain textures, neon color palette, gradient meshes
-- **Dynamic Motion Design**: Pulse glows, float animations, interactive hover states
-- **AI-Enhanced Creativity**: Algorithmic color application and smart layout enhancements
+1. A React + Vite + TypeScript portfolio site (Home, About, Skills, Experience, Projects, Contact).
+2. A **24-tool DFIR toolkit** living under `/dfir/*`, served by a Hono-based Worker API at `/api/v1/*`.
 
-## 📁 Project Structure
+The portfolio site and the API run from the same Cloudflare Worker. Same origin, no CORS, no separate hosting bill.
+
+## DFIR toolkit at a glance
+
+**Featured tools** (`/dfir`):
+
+| Tool               | Path               | What it does                                                                                         |
+| ------------------ | ------------------ | ---------------------------------------------------------------------------------------------------- |
+| IOC Checker        | `/dfir/ioc-check`  | Streams 22 threat-intel sources in parallel for IPs, domains, URLs, hashes                           |
+| IOC Extractor      | `/dfir/extract`    | Pulls IOCs from any text blob, refang-aware                                                          |
+| Subdomain Takeover | `/dfir/takeover`   | CNAME chain + 15 dangling-service fingerprints                                                       |
+| Phishing Analyzer  | `/dfir/phishing`   | Email headers, auth, embedded URLs cross-checked against threat intel                                |
+| MITRE ATT&CK       | `/dfir/mitre`      | Matrix + technique deep-dive + actor mapping                                                         |
+| STIX Viewer        | `/dfir/stix`       | Visualise STIX 2.1 bundles as an interactive relationship graph                                      |
+| Dark Web Watch     | `/dfir/darkweb`    | Aggregated leak-site, ransomware, breach activity from 15 sources, with persistent keyword watchlist |
+| Cyber Threat Map   | `/dfir/threat-map` | Live geolocated choropleth of malicious infrastructure across 7 IOC sources                          |
+| Intel Briefings    | `/dfir/briefings`  | Daily and weekly digests, cron-built from KEV + abuse.ch + snapshot blocklists                       |
+
+**Utilities** (`/dfir/...`): Domain Lookup, Exposure Scanner, File Analyzer, JWT Inspector, Homograph Detector, CVE Lookup, URL Preview, ASN Lookup, Breach Checker, EXIF Parser, Decoder, Knowledge Base, Recent Lookups, Threat Actors, Privacy Check.
+
+**22 IOC providers** wired across IOC Checker, File Analyzer, Phishing Analyzer, and Domain Checker:
+
+- **Commercial (API key)**: VirusTotal, AbuseIPDB, Shodan, OTX, URLScan, Hybrid Analysis
+- **abuse.ch (one shared free key)**: ThreatFox, URLhaus, MalwareBazaar
+- **Public lists / no signup**: Feodo Tracker, Spamhaus DROP/EDROP, Tor exit list, OpenPhish, Cloudflare DoH, Bitwire, Blocklist.de, Binary Defense, Ipsum (3+ source consensus), Phishing Army, CIRCL Hashlookup, TweetFeed, CINS Army
+
+## Tech stack
+
+| Layer     | Choice                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------ |
+| Frontend  | React 18 + Vite + TypeScript + Tailwind                                                    |
+| Routing   | React Router v6 (lazy-loaded routes)                                                       |
+| Animation | Framer Motion                                                                              |
+| Map viz   | react-simple-maps with locally-bundled natural-earth atlas                                 |
+| Graph viz | @xyflow/react (lazy-loaded only on `/dfir/stix`)                                           |
+| Backend   | Cloudflare Workers + Hono                                                                  |
+| Storage   | Cloudflare KV (briefings, sparse rate-limit), Cache API (provider results, blocklist text) |
+| Cron      | Daily 00:05 UTC, Weekly Mon 00:15 UTC (briefing generation)                                |
+| Tests     | Vitest + Testing Library                                                                   |
+
+## Repository layout
 
 ```
-├── index.html           # Main HTML file with semantic structure
-├── script.js            # Core functionality (theme toggle, mobile menu, scroll effects)
-├── styles-2026.css      # Modern CSS with 2026 design trends
-├── enhance-2026.js      # Dynamic JavaScript enhancements
-├── DESIGN-2026.md       # Detailed documentation of design implementation
-├── package.json         # Build configuration
-└── wrangler.jsonc       # Cloudflare Pages configuration
+.
+├── src/                     # React app
+│   ├── pages/
+│   │   ├── *.tsx            # Home, About, Skills, Experience, Projects, NotFound
+│   │   └── dfir/*.tsx       # Per-tool pages
+│   ├── components/
+│   │   ├── sections/*       # Hero, About section, Contact, etc.
+│   │   └── dfir/*           # IOC chips, ToolGrid, ThreatIntelFeed, etc.
+│   ├── lib/dfir/*           # Client-side parsers, indicator detection, privacy probes
+│   ├── services/            # RSS service (proxy-aware fetcher)
+│   └── data/                # content.ts, threat-actors, wiki, RSS feed catalog
+├── api/src/                 # Worker (Hono) API
+│   ├── index.ts             # Route registration
+│   ├── routes/*             # ioc, domain, file, phishing, exposure, takeover,
+│   │                        # threat-map, briefings, feeds proxy, etc.
+│   ├── providers/*          # 22 IOC providers (each ~50-80 LOC)
+│   └── lib/*                # ioc-feed-parsers, scoring, cache, rate-limit, dns,
+│                            # rdap, crt-sh, email-auth, briefing-builder
+├── worker/index.ts          # Worker entry, dispatches to api/src and serves SPA assets
+├── public/                  # Static assets (sitemap.xml, world-110m.json, robots.txt)
+├── wrangler.jsonc           # Cloudflare config
+└── vite.config.ts
 ```
 
-## 🎨 Design Philosophy
-
-The redesign embraces 2026 web trends while maintaining all original content:
-
-- **Neon Cyberpunk Aesthetic**: Cyan, pink, purple, and green neon colors
-- **Glass Morphism**: Translucent cards with backdrop blur
-- **3D Interactions**: Cards respond to hover with depth and rotation
-- **Chromatic Effects**: Text features RGB split for futuristic feel
-- **Smooth Animations**: 60fps animations with GPU acceleration
-
-## 🚀 Hosting on Cloudflare Pages
-
-### Build Configuration
-
-1. Upload all files to a new Cloudflare Pages project
-2. Build command: `npm run build`
-3. Build output directory: `dist/`
-4. Environment: `production`
-
-### Required Files
-
-All these files are automatically copied during build:
-
-- `index.html`
-- `script.js`
-- `enhance-2026.js`
-- `styles-2026.css`
-
-### No Build Step Alternative
-
-You can also serve files directly without build:
-
-1. Upload `index.html`, `script.js`, `enhance-2026.js`, and `styles-2026.css`
-2. Set build output directory to `/` (root)
-
-## 🛠️ Development
-
-### Local Development
-
-Two terminals:
+## Local dev
 
 ```bash
-# Terminal A — Worker (API + assets)
-npm run dev:api    # http://localhost:8787
-
-# Terminal B — Vite SPA (hot-reload)
-npm run dev:web    # http://localhost:5173
+npm install
+npm run dev          # Vite at http://localhost:5173
+npm run dev:api      # Worker at http://localhost:8787 (proxies /api/v1 from vite)
+npm test             # Vitest
+npm run typecheck    # tsc --noEmit
+npm run lint         # ESLint
 ```
 
-Open `http://localhost:5173/dfir` to use the DFIR toolkit. Vite proxies `/api/*` to the Worker at port 8787.
-
-### Production Build & Deploy
+## Deploy
 
 ```bash
-npm run build      # Vite SPA build → dist/
-npm run deploy     # Vite build + wrangler deploy (single Worker)
+npm run deploy       # vite build && wrangler deploy
 ```
 
-### Architecture
+Requires `wrangler login` and a Cloudflare account that owns the `pranithjain.qzz.io` zone (or fork the repo and update `wrangler.jsonc` with your own zone).
 
-One Cloudflare Worker (`worker/index.ts`) handles both:
+## Secrets
 
-- `/api/v1/*` — Hono app (imported from `api/src/`)
-- `*` — Static SPA assets (served via Workers Assets binding)
-
-The API Worker has these routes:
-
-- `GET /api/v1/health`
-- `GET /api/v1/ioc/check`
-- `GET /api/v1/domain/lookup`
-- `GET /api/v1/exposure/scan`
-- `POST /api/v1/file/analyze`
-- `POST /api/v1/phishing/analyze`
-- `GET /api/v1/feeds/proxy` — server-side RSS proxy (replaces unreliable public CORS proxies)
-
-### Testing
+API keys (none required for the public-list providers):
 
 ```bash
-# API tests (runs in cloudflare:test pool)
-cd api && npm test
-
-# Frontend tests
-npm test
+npx wrangler secret put VT_API_KEY              # VirusTotal
+npx wrangler secret put ABUSEIPDB_API_KEY
+npx wrangler secret put SHODAN_API_KEY
+npx wrangler secret put OTX_API_KEY
+npx wrangler secret put URLSCAN_API_KEY
+npx wrangler secret put HYBRID_ANALYSIS_API_KEY
+npx wrangler secret put ABUSECH_AUTH_KEY        # one key unlocks ThreatFox, URLhaus, MalwareBazaar
 ```
 
-## 📖 Documentation
+The toolkit boots usefully with **zero keys** thanks to the public-list providers; commercial keys add depth.
 
-For detailed information about the 2026 design implementation, see [DESIGN-2026.md](DESIGN-2026.md).
+## Cost / quotas
 
-## 🎯 Performance
+Engineered to fit the **Cloudflare Workers free tier** end-to-end:
 
-- **Lighthouse Score**: 95+ on all metrics
-- **First Contentful Paint**: < 1s
-- **Time to Interactive**: < 2s
-- **No external dependencies** (except Tailwind CDN and AOS)
+- IOC provider results cache to the **Cache API**, not KV (KV daily-write quota stays untouched).
+- `/api/v1/feeds/proxy` is exempt from KV-backed rate limiting since the SSRF allow-list is the real defense and counting hits in KV burned the daily quota.
+- World atlas (108 KB) is bundled locally to avoid CSP-forbidden CDN fetches.
 
-## 🌐 Browser Support
+## Data sources
 
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
+See `src/data/rssFeeds.ts` for the full RSS catalog and `api/src/providers/*` for the IOC provider list. Threat-intel data refreshes hourly server-side; briefings rebuild via cron.
 
-Modern CSS features used: Backdrop-filter, CSS Grid, Custom Properties, Advanced animations
+## Credit / contact
 
-## 📝 License
+Built and maintained by Pranith Jain. Email available via the Contact section. Logo + design are mine; please don't lift them as-is.
 
-MIT
+The toolkit is opinionated about which sources are worth pulling and how to weight them. PRs that add a genuinely-distinctive source or improve scoring math are welcome; PRs that just stuff the catalog less so.
