@@ -162,6 +162,10 @@ export async function fetchMultipleFeeds(feedIds: string[]): Promise<Map<string,
  * Stream feed results as each fetch resolves. The callback runs on every
  * settled feed, letting callers update the UI progressively instead of
  * waiting for all feeds to finish.
+ *
+ * NOTE: prefer `fetchAggregatedFeed` for the common case of "show me the
+ * latest items across N feeds." It's one round trip vs. N here, and the
+ * server already does the parsing + sorting + capping for you.
  */
 export async function fetchFeedsProgressive(
   feedIds: string[],
@@ -174,6 +178,56 @@ export async function fetchFeedsProgressive(
       onResult(feed.id, result);
     })
   );
+}
+
+export interface AggregatedFeedItem {
+  source: string; // hostname
+  source_url: string;
+  title: string;
+  link: string;
+  description?: string;
+  pubDate: string;
+  guid?: string;
+}
+
+export interface AggregatedFeedResponse {
+  generated_at: string;
+  total_items: number;
+  feeds_attempted: number;
+  feeds_returned: number;
+  items: AggregatedFeedItem[];
+}
+
+/**
+ * Fetch many feeds via the server-side aggregator. Replaces N round-trips
+ * to /feeds/proxy with a single round trip to /feeds/aggregate. The server
+ * does the parallel fan-out, parses each feed, merges, sorts newest-first,
+ * and returns the top `limit` items.
+ *
+ * 60-second client cache + 60-second edge cache. For the common feed-widget
+ * use case this is much faster than `fetchFeedsProgressive` and uses far
+ * fewer network requests.
+ */
+export async function fetchAggregatedFeed(
+  feedIds: string[],
+  options: { limit?: number; perSource?: number } = {}
+): Promise<AggregatedFeedResponse | null> {
+  const feeds = rssFeeds.filter((f) => feedIds.includes(f.id));
+  if (feeds.length === 0) return null;
+  const urls = feeds
+    .map((f) => f.url)
+    .filter((u) => !u.startsWith('/')) // synthesised feeds aren't aggregator-eligible
+    .join(',');
+  const limit = options.limit ?? 30;
+  const perSource = options.perSource ?? 3;
+  const url = `/api/v1/feeds/aggregate?urls=${encodeURIComponent(urls)}&limit=${limit}&perSource=${perSource}`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) return null;
+    return (await res.json()) as AggregatedFeedResponse;
+  } catch {
+    return null;
+  }
 }
 
 // Get all feeds

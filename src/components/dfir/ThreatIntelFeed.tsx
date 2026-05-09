@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExternalLink, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { fetchFeedsProgressive, formatRelativeTime, type FeedItem } from '../../services/rssService';
+import { fetchAggregatedFeed, formatRelativeTime, type AggregatedFeedItem } from '../../services/rssService';
 import { defaultFeeds } from '../../data/rssFeeds';
 import { extractIndicators, type ExtractedIndicator } from '../../lib/dfir/indicator-client';
 
@@ -30,41 +30,28 @@ function IocChip({ iocs }: { iocs: ExtractedIndicator[] }): JSX.Element | null {
 }
 
 export function ThreatIntelFeed(): JSX.Element {
-  const [items, setItems] = useState<FeedItem[]>([]);
+  const [items, setItems] = useState<AggregatedFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sourceCount, setSourceCount] = useState(0);
-  const [totalSources] = useState(defaultFeeds.length);
+  const [feedsAttempted, setFeedsAttempted] = useState(0);
+  const [feedsReturned, setFeedsReturned] = useState(0);
 
   const fetchFeeds = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setItems([]);
-    setSourceCount(0);
-
-    let active = 0;
-    let firstSeen = false;
-
     try {
-      await fetchFeedsProgressive(defaultFeeds, (_id, result) => {
-        if (result.error || result.items.length === 0) return;
-        active++;
-        setSourceCount(active);
-        setItems((prev) => {
-          const merged = [...prev, ...result.items.slice(0, MAX_PER_SOURCE)];
-          merged.sort((a, b) => {
-            const dateA = new Date(a.pubDate).getTime() || 0;
-            const dateB = new Date(b.pubDate).getTime() || 0;
-            return dateB - dateA;
-          });
-          return merged.slice(0, MAX_ITEMS);
-        });
-        // Unblock the UI as soon as the first feed resolves.
-        if (!firstSeen) {
-          firstSeen = true;
-          setLoading(false);
-        }
+      const data = await fetchAggregatedFeed(defaultFeeds, {
+        limit: MAX_ITEMS,
+        perSource: MAX_PER_SOURCE,
       });
+      if (!data) {
+        setError('feeds unavailable');
+        setItems([]);
+        return;
+      }
+      setItems(data.items);
+      setFeedsAttempted(data.feeds_attempted);
+      setFeedsReturned(data.feeds_returned);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'feed unavailable');
     } finally {
@@ -93,8 +80,8 @@ export function ThreatIntelFeed(): JSX.Element {
         <h2 className="font-display font-bold text-xl text-slate-900 dark:text-slate-100">Threat Intel</h2>
         <div className="flex items-center gap-3">
           <span className="text-xs font-mono text-slate-600 dark:text-slate-400">
-            {sourceCount} of {totalSources} sources · {totalIocs > 0 ? `${totalIocs} IOCs found · ` : ''}
-            {loading ? 'streaming…' : 'live'}
+            {feedsReturned} of {feedsAttempted} sources · {totalIocs > 0 ? `${totalIocs} IOCs found · ` : ''}
+            {loading ? 'loading…' : 'live'}
           </span>
           <button
             type="button"
@@ -110,7 +97,7 @@ export function ThreatIntelFeed(): JSX.Element {
       </header>
 
       {loading && items.length === 0 && (
-        <p className="font-mono text-sm text-slate-600 dark:text-slate-400">Fetching…</p>
+        <p className="font-mono text-sm text-slate-600 dark:text-slate-400">Aggregating feeds…</p>
       )}
       {error && <p className="font-mono text-sm text-rose-600 dark:text-rose-400">error: {error}</p>}
 
@@ -118,7 +105,7 @@ export function ThreatIntelFeed(): JSX.Element {
         <ul className="space-y-3">
           {itemsWithIocs.map(({ item: it, iocs }) => (
             <li
-              key={it.guid ?? it.link}
+              key={it.guid ?? it.link ?? it.title}
               className="border-t border-slate-200 dark:border-slate-800 pt-3 first:border-t-0 first:pt-0"
             >
               <a href={it.link} target="_blank" rel="noopener noreferrer" className="group block">

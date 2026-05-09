@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, RefreshCw, Plus, X, Eye, Bell, Search, Filter } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { fetchFeedsProgressive, formatRelativeTime, type FeedItem } from '../../services/rssService';
+import { fetchAggregatedFeed, formatRelativeTime, type AggregatedFeedItem } from '../../services/rssService';
+import { rssFeeds } from '../../data/rssFeeds';
+
+// Use the same shape as before so we minimise downstream churn.
+type FeedItem = AggregatedFeedItem & { source: string; pubDate: string };
 
 /**
  * Curated dark-web monitoring sources. Higher-signal subset of the general
@@ -158,28 +162,18 @@ export default function DarkWeb(): JSX.Element {
     setLoading(true);
     setItems([]);
     setSourceCount(0);
-    let active = 0;
-    let firstSeen = false;
-
-    await fetchFeedsProgressive(ALL_FEED_IDS, (_id, result) => {
-      if (result.error || result.items.length === 0) return;
-      active++;
-      setSourceCount(active);
-      setItems((prev) => {
-        const merged = [...prev, ...result.items.slice(0, MAX_PER_SOURCE)];
-        merged.sort((a, b) => {
-          const da = new Date(a.pubDate).getTime() || 0;
-          const db = new Date(b.pubDate).getTime() || 0;
-          return db - da;
-        });
-        return merged.slice(0, MAX_ITEMS);
+    try {
+      const data = await fetchAggregatedFeed(ALL_FEED_IDS, {
+        limit: MAX_ITEMS,
+        perSource: MAX_PER_SOURCE,
       });
-      if (!firstSeen) {
-        firstSeen = true;
-        setLoading(false);
+      if (data) {
+        setItems(data.items);
+        setSourceCount(data.feeds_returned);
       }
-    });
-    setLoading(false);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -219,23 +213,36 @@ export default function DarkWeb(): JSX.Element {
   const searchFn = useMemo(() => compileSearch(search), [search]);
 
   // Apply: source filter → date window → search → watchlist match annotation
+  // Build url → feed-id index once per render. The aggregator returns each
+  // item's `source_url`, so we look up the feed id directly instead of trying
+  // to match on hostname (which would collapse all reddit subs together).
+  const urlToFeedId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const f of DARKWEB_FEEDS) {
+      const url = rssFeeds.find((r) => r.id === f.id)?.url;
+      if (url) map.set(url, f.id);
+    }
+    return map;
+  }, []);
+
   const matched = useMemo<MatchedItem[]>(() => {
-    return items
-      .filter((it) => {
-        // FeedItem doesn't carry source id directly, but `source` field is the human label.
-        // Find source whose label matches.
-        if (allSourcesOn) return true;
-        const source = DARKWEB_FEEDS.find((f) => f.label === it.source || f.id === it.source);
-        return source ? activeSources.has(source.id) : true;
-      })
-      .filter((it) => withinWindow(it, dateWindow))
-      .filter((it) => (searchFn ? searchFn(it) : true))
-      .map((it) => ({
+    const filterBySource = !allSourcesOn;
+    const out: MatchedItem[] = [];
+    for (const it of items) {
+      if (filterBySource) {
+        const fid = urlToFeedId.get(it.source_url);
+        if (fid && !activeSources.has(fid)) continue;
+      }
+      if (!withinWindow(it, dateWindow)) continue;
+      if (searchFn && !searchFn(it)) continue;
+      out.push({
         item: it,
         watchMatches: findWatchMatches(it, watchlist),
         searchMatch: !!searchFn,
-      }));
-  }, [items, activeSources, allSourcesOn, dateWindow, searchFn, watchlist]);
+      });
+    }
+    return out;
+  }, [items, activeSources, allSourcesOn, dateWindow, searchFn, watchlist, urlToFeedId]);
 
   const matchCount = useMemo(() => matched.filter((m) => m.watchMatches.length > 0).length, [matched]);
   const perTermCount = useMemo(() => {
