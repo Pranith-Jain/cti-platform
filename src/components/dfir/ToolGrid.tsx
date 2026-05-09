@@ -47,134 +47,220 @@ interface Tool {
   external?: boolean;
 }
 
-/** Flagship tools — most visitors should start here. */
-const FEATURED: Tool[] = [
-  {
-    path: '/dfir/ioc-check',
-    label: 'IOC & Hash Checker',
-    desc: '24 sources · streaming results · IPs · domains · URLs · file hashes',
-    icon: Hash,
-  },
-  { path: '/dfir/extract', label: 'IOC Extractor', desc: 'Pull IOCs from any text blob · refang-aware', icon: Filter },
-  {
-    path: '/dfir/takeover',
-    label: 'Subdomain Takeover',
-    desc: 'CNAME chain + 15 dangling-service fingerprints',
-    icon: Unplug,
-  },
-  {
-    path: '/dfir/phishing',
-    label: 'Phishing Analyzer',
-    desc: 'Email headers · auth · embedded URLs',
-    icon: ShieldAlert,
-  },
-  {
-    path: '/dfir/email-defense',
-    label: 'Email Defense / BEC Score',
-    desc: 'SPF · DMARC · DKIM · MTA-STS · spoofability score · attack scenarios per gap',
-    icon: Mail,
-  },
-  {
-    path: '/dfir/nhi',
-    label: 'NHI Inventory & Top 10',
-    desc: 'OWASP NHI Top 10 (2025) · service-account / OAuth / MCP-token inventory · per-NHI risk score',
-    icon: KeyRound,
-  },
-  { path: '/dfir/mitre', label: 'MITRE ATT&CK', desc: 'Matrix · technique deep-dive · actor mapping', icon: Grid3x3 },
-  {
-    path: '/dfir/kill-chain',
-    label: 'Cyber Kill Chain',
-    desc: '7 phases · 28 techniques · ATT&CK cross-links',
-    icon: Crosshair,
-  },
-  {
-    path: '/dfir/diamond',
-    label: 'Diamond Model',
-    desc: '4 vertices · meta-features · interactive event template',
-    icon: Diamond,
-  },
-  {
-    path: '/dfir/stix',
-    label: 'STIX Viewer',
-    desc: 'Visualise STIX 2.1 bundles · interactive relationship graph',
-    icon: Share2,
-  },
-  {
-    path: '/dfir/darkweb',
-    label: 'Dark Web Watch',
-    desc: 'Aggregated leak-site, ransomware, breach activity · keyword watchlist',
-    icon: Bell,
-  },
-  {
-    path: '/dfir/threat-map',
-    label: 'Cyber Threat Map',
-    desc: 'Live geolocation of malicious infrastructure · choropleth + leaderboard',
-    icon: Globe2,
-  },
-  {
-    path: '/dfir/rules',
-    label: 'Detection Rules',
-    desc: 'Sigma · YARA · Elastic · Splunk · KQL · Suricata · live commit feeds',
-    icon: FileCode,
-  },
-  {
-    path: '/dfir/owasp',
-    label: 'OWASP Top 10',
-    desc: 'Web 2021 · API 2023 · LLM 2025 · self-assessment + MITRE links',
-    icon: ShieldCheck,
-  },
-  {
-    path: '/dfir/prompt-injection',
-    label: 'Prompt Injection & Red-Team',
-    desc: 'Detect 28 patterns · 26-prompt red-team library · OWASP LLM Top 10 · JSON export',
-    icon: Sparkles,
-  },
-  {
-    path: '/dfir/mcp-audit',
-    label: 'MCP & Claude Code Auditor',
-    desc: 'MCP configs + Claude Code settings · hooks · permission rules · tool poisoning',
-    icon: Plug,
-  },
-  {
-    path: '/dfir/briefings',
-    label: 'Intel Briefings',
-    desc: 'Daily + weekly digest · auto-generated from feeds',
-    icon: Newspaper,
-  },
-];
+interface Section {
+  id: string;
+  label: string;
+  /** One-line hint shown under the section heading. */
+  blurb: string;
+  tools: Tool[];
+}
 
-/** Everything else — utilities and lookups. */
-const UTILITIES: Tool[] = [
-  { path: '/dfir/domain', label: 'Domain Lookup', desc: 'WHOIS · DNS · email auth', icon: Globe },
-  { path: '/dfir/exposure', label: 'Exposure Scanner', desc: 'Subdomains + open ports', icon: Radar },
-  { path: '/dfir/jwt', label: 'JWT Inspector', desc: 'Decode + flag alg=none, exp, weak claims', icon: KeyRound },
-  { path: '/dfir/punycode', label: 'Homograph Detector', desc: 'IDN · mixed scripts · brand lookalikes', icon: Type },
+/**
+ * Sections are ordered by typical investigation flow:
+ * triage first, then infra, email, intel, detection-engineering, frameworks,
+ * AI security, vulns/identity, reference. External resources sit at the end.
+ */
+const SECTIONS: Section[] = [
   {
-    path: '/dfir/cve',
-    label: 'CVE Lookup',
-    desc: 'NVD · CVSS · EPSS · KEV · combined patch-priority score with rationale',
-    icon: Search,
+    id: 'triage',
+    label: 'Triage & IOCs',
+    blurb: 'First stop when an indicator lands in your inbox.',
+    tools: [
+      {
+        path: '/dfir/ioc-check',
+        label: 'IOC & Hash Checker',
+        desc: '24 sources · streaming · IPs · domains · URLs · file hashes',
+        icon: Hash,
+      },
+      {
+        path: '/dfir/extract',
+        label: 'IOC Extractor',
+        desc: 'Pull IOCs from any text blob · refang-aware',
+        icon: Filter,
+      },
+      { path: '/dfir/url-preview', label: 'URL Preview', desc: 'Server-side metadata · safe fetch', icon: Eye },
+      { path: '/dfir/decode', label: 'Decoder', desc: 'Base64 · URL · multi-pass', icon: Code2 },
+      { path: '/dfir/exif', label: 'EXIF Parser', desc: 'GPS · camera · client-only', icon: ImageIcon },
+      {
+        path: '/dfir/punycode',
+        label: 'Homograph Detector',
+        desc: 'IDN · mixed scripts · brand lookalikes',
+        icon: Type,
+      },
+    ],
   },
-  { path: '/dfir/url-preview', label: 'URL Preview', desc: 'Server-side metadata · safe fetch', icon: Eye },
-  { path: '/dfir/asn', label: 'ASN Lookup', desc: 'BGP · prefixes · abuse contacts', icon: Network },
-  { path: '/dfir/breach', label: 'Breach Checker', desc: 'Pwned password · k-anonymity', icon: Shield },
-  { path: '/dfir/exif', label: 'EXIF Parser', desc: 'GPS · camera · client-only', icon: ImageIcon },
-  { path: '/dfir/decode', label: 'Decoder', desc: 'Base64 · URL · multi-pass', icon: Code2 },
-  { path: '/dfir/wiki', label: 'Knowledge Base', desc: 'Concepts + playbooks', icon: BookOpen },
-  { path: '/dfir/dashboard', label: 'Recent Lookups', desc: 'Your last 20 queries', icon: Clock },
-  { path: '/dfir/actors', label: 'Threat Actors', desc: 'APT catalog · STIX-aware', icon: Users },
-  { path: '/dfir/privacy', label: 'Privacy Check', desc: 'IP · WebRTC · fingerprint', icon: Lock },
   {
-    path: '/dfir/lolbins',
-    label: 'LOLBins / GTFOBins',
-    desc: 'Curated living-off-the-land catalog · ATT&CK-mapped · detection ideas',
-    icon: Terminal,
+    id: 'domain',
+    label: 'Domain, Network & Edge',
+    blurb: 'Where does this thing live, what does it expose, who owns it.',
+    tools: [
+      { path: '/dfir/domain', label: 'Domain Lookup', desc: 'WHOIS · DNS · email auth · CT logs', icon: Globe },
+      { path: '/dfir/asn', label: 'ASN Lookup', desc: 'BGP · prefixes · abuse contacts', icon: Network },
+      { path: '/dfir/exposure', label: 'Exposure Scanner', desc: 'Subdomains + open ports', icon: Radar },
+      {
+        path: '/dfir/takeover',
+        label: 'Subdomain Takeover',
+        desc: 'CNAME chain + 15 dangling-service fingerprints',
+        icon: Unplug,
+      },
+      {
+        path: '/dfir/threat-map',
+        label: 'Cyber Threat Map',
+        desc: 'Live geolocation of malicious infrastructure · choropleth + leaderboard',
+        icon: Globe2,
+      },
+    ],
   },
   {
-    path: '/dfir/rule-playground',
-    label: 'YARA / Sigma Playground',
-    desc: 'Paste rule + sample · highlight matches · client-side',
-    icon: FlaskConical,
+    id: 'email',
+    label: 'Email Security',
+    blurb: 'Phishing analysis and BEC-defense for the domain you protect.',
+    tools: [
+      {
+        path: '/dfir/phishing',
+        label: 'Phishing Analyzer',
+        desc: 'Email headers · auth · embedded URLs',
+        icon: ShieldAlert,
+      },
+      {
+        path: '/dfir/email-defense',
+        label: 'Email Defense / BEC Score',
+        desc: 'SPF · DMARC · DKIM · MTA-STS · spoofability score · attack scenarios per gap',
+        icon: Mail,
+      },
+    ],
+  },
+  {
+    id: 'intel',
+    label: 'Threat Intelligence',
+    blurb: 'Feeds, actors, and the data behind the indicators.',
+    tools: [
+      {
+        path: '/dfir/briefings',
+        label: 'Intel Briefings',
+        desc: 'Daily + weekly digest · auto-generated from feeds',
+        icon: Newspaper,
+      },
+      {
+        path: '/dfir/darkweb',
+        label: 'Dark Web Watch',
+        desc: 'Aggregated leak-site, ransomware, breach activity · keyword watchlist',
+        icon: Bell,
+      },
+      { path: '/dfir/actors', label: 'Threat Actors', desc: 'APT catalog · STIX-aware', icon: Users },
+      {
+        path: '/dfir/mitre',
+        label: 'MITRE ATT&CK',
+        desc: 'Matrix · technique deep-dive · actor mapping',
+        icon: Grid3x3,
+      },
+      {
+        path: '/dfir/stix',
+        label: 'STIX Viewer',
+        desc: 'Visualise STIX 2.1 bundles · interactive relationship graph',
+        icon: Share2,
+      },
+    ],
+  },
+  {
+    id: 'det-eng',
+    label: 'Detection Engineering',
+    blurb: 'Build, test, and maintain detection content.',
+    tools: [
+      {
+        path: '/dfir/rules',
+        label: 'Detection Rules',
+        desc: 'Sigma · YARA · Elastic · Splunk · KQL · Suricata · live commit feeds',
+        icon: FileCode,
+      },
+      {
+        path: '/dfir/rule-playground',
+        label: 'YARA / Sigma Playground',
+        desc: 'Paste rule + sample · highlight matches · client-side',
+        icon: FlaskConical,
+      },
+      {
+        path: '/dfir/lolbins',
+        label: 'LOLBins / GTFOBins',
+        desc: 'Curated living-off-the-land catalog · ATT&CK-mapped · detection ideas',
+        icon: Terminal,
+      },
+    ],
+  },
+  {
+    id: 'frameworks',
+    label: 'Frameworks & Posture',
+    blurb: 'Models analysts use to structure intrusions and security programs.',
+    tools: [
+      {
+        path: '/dfir/kill-chain',
+        label: 'Cyber Kill Chain',
+        desc: '7 phases · 28 techniques · ATT&CK cross-links',
+        icon: Crosshair,
+      },
+      {
+        path: '/dfir/diamond',
+        label: 'Diamond Model',
+        desc: '4 vertices · meta-features · interactive event template',
+        icon: Diamond,
+      },
+      {
+        path: '/dfir/owasp',
+        label: 'OWASP Top 10',
+        desc: 'Web 2021 · API 2023 · LLM 2025 · self-assessment + MITRE links',
+        icon: ShieldCheck,
+      },
+      {
+        path: '/dfir/nhi',
+        label: 'NHI Inventory & Top 10',
+        desc: 'OWASP NHI Top 10 (2025) · service-account / OAuth / MCP-token inventory · per-NHI risk',
+        icon: KeyRound,
+      },
+    ],
+  },
+  {
+    id: 'ai-sec',
+    label: 'AI Security',
+    blurb: 'AI-system threat surface — prompts, agents, MCP servers.',
+    tools: [
+      {
+        path: '/dfir/prompt-injection',
+        label: 'Prompt Injection & Red-Team',
+        desc: 'Detect 28 patterns · 26-prompt red-team library · OWASP LLM Top 10 · JSON export',
+        icon: Sparkles,
+      },
+      {
+        path: '/dfir/mcp-audit',
+        label: 'MCP & Claude Code Auditor',
+        desc: 'MCP configs + Claude Code settings · hooks · permission rules · tool poisoning',
+        icon: Plug,
+      },
+    ],
+  },
+  {
+    id: 'vulns-identity',
+    label: 'Vulnerabilities & Identity',
+    blurb: 'CVE triage, breach exposure, and identity verification.',
+    tools: [
+      {
+        path: '/dfir/cve',
+        label: 'CVE Lookup',
+        desc: 'NVD · CVSS · EPSS · KEV · combined patch-priority score with rationale',
+        icon: Search,
+      },
+      { path: '/dfir/breach', label: 'Breach Checker', desc: 'Pwned password · k-anonymity', icon: Shield },
+      { path: '/dfir/jwt', label: 'JWT Inspector', desc: 'Decode + flag alg=none, exp, weak claims', icon: KeyRound },
+    ],
+  },
+  {
+    id: 'reference',
+    label: 'Reference & Personal',
+    blurb: 'Knowledge base, your own state, and privacy hygiene.',
+    tools: [
+      { path: '/dfir/wiki', label: 'Knowledge Base', desc: 'Concepts + playbooks', icon: BookOpen },
+      { path: '/dfir/dashboard', label: 'Recent Lookups', desc: 'Your last 20 queries', icon: Clock },
+      { path: '/dfir/privacy', label: 'Privacy Check', desc: 'IP · WebRTC · fingerprint', icon: Lock },
+    ],
   },
 ];
 
@@ -267,37 +353,48 @@ function Card({ tool }: { tool: Tool }): JSX.Element {
   );
 }
 
-function SectionHeading({ label }: { label: string }): JSX.Element {
+function SectionBlock({ section }: { section: Section }): JSX.Element {
   return (
-    <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 font-mono mb-4 mt-2">
-      {label}
-    </h3>
+    <div>
+      <div className="flex items-baseline justify-between gap-3 mb-3 mt-2 flex-wrap">
+        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 font-mono">
+          {section.label}
+        </h3>
+        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-500">
+          {section.blurb} · {section.tools.length} tool{section.tools.length === 1 ? '' : 's'}
+        </span>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {section.tools.map((t) => (
+          <Card key={t.path} tool={t} />
+        ))}
+      </div>
+    </div>
   );
 }
 
 export function ToolGrid(): JSX.Element {
+  const totalInternal = SECTIONS.reduce((n, s) => n + s.tools.length, 0);
   return (
-    <div className="space-y-10">
-      <div>
-        <SectionHeading label="Start here" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURED.map((t) => (
-            <Card key={t.path} tool={t} />
-          ))}
-        </div>
-      </div>
+    <div className="space-y-8">
+      <p className="text-xs font-mono text-slate-500 dark:text-slate-500">
+        {totalInternal} tools across {SECTIONS.length} categories. All client-side or run from this site's edge worker —
+        nothing leaves your browser unless explicitly stated on the tool's page.
+      </p>
+
+      {SECTIONS.map((s) => (
+        <SectionBlock key={s.id} section={s} />
+      ))}
 
       <div>
-        <SectionHeading label="Utilities & lookups" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {UTILITIES.map((t) => (
-            <Card key={t.path} tool={t} />
-          ))}
+        <div className="flex items-baseline justify-between gap-3 mb-3 mt-2 flex-wrap">
+          <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 font-mono">
+            External resources
+          </h3>
+          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-500">
+            Curated tools and catalogs hosted elsewhere · {EXTERNAL.length} links
+          </span>
         </div>
-      </div>
-
-      <div>
-        <SectionHeading label="External resources" />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {EXTERNAL.map((t) => (
             <Card key={t.path} tool={t} />
