@@ -37,6 +37,7 @@ import {
   Terminal,
   FlaskConical,
   ScrollText,
+  FileCheck,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -228,6 +229,12 @@ const SECTIONS: Section[] = [
         label: 'Tabletop / IR Exercise Generator',
         desc: '6 archetypes × actor catalog · timed injects · per-role prompts · markdown export',
         icon: ScrollText,
+      },
+      {
+        path: '/dfir/grc',
+        label: 'GRC Compliance & Maturity',
+        desc: 'NIST CSF 2.0 · ISO 27001:2022 · CIS Controls v8 · SOC 2 · SOC-CMM · cross-mapping',
+        icon: FileCheck,
       },
     ],
   },

@@ -60,6 +60,7 @@ const Nhi = lazy(() => import('./pages/dfir/Nhi'));
 const PowershellDeobf = lazy(() => import('./pages/dfir/PowershellDeobf'));
 const AgentMap = lazy(() => import('./pages/dfir/AgentMap'));
 const Tabletop = lazy(() => import('./pages/dfir/Tabletop'));
+const Grc = lazy(() => import('./pages/dfir/Grc'));
 
 function TechniqueRedirect() {
   const params = new URLSearchParams(window.location.search);
@@ -486,6 +487,14 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <Tabletop />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/grc"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <Grc />
                 </Suspense>
               }
             />
