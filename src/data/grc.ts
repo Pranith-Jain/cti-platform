@@ -22,11 +22,12 @@
  * and CSF↔ISO that are the canonical source).
  */
 
-export type FrameworkId = 'nist-csf' | 'iso-27001' | 'cis' | 'soc2' | 'soc-cmm';
+export type FrameworkId = 'nist-csf' | 'iso-27001' | 'iso-42001' | 'cis' | 'soc2' | 'soc-cmm';
 
 export const FRAMEWORK_META: Record<FrameworkId, { label: string; short: string; year: string }> = {
   'nist-csf': { label: 'NIST CSF 2.0', short: 'NIST Cybersecurity Framework 2.0', year: '2024' },
   'iso-27001': { label: 'ISO 27001:2022', short: 'ISO/IEC 27001 Annex A', year: '2022' },
+  'iso-42001': { label: 'ISO 42001:2023', short: 'ISO/IEC 42001 — AI Management System', year: '2023' },
   cis: { label: 'CIS Controls v8', short: 'Center for Internet Security Controls', year: '2021' },
   soc2: { label: 'SOC 2 TSC', short: 'AICPA Trust Services Criteria', year: '2017' },
   'soc-cmm': { label: 'SOC-CMM', short: 'SOC Capability Maturity Model', year: '2023' },
@@ -598,6 +599,323 @@ export const ISO_27001: IsoTheme[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
+// ISO/IEC 42001:2023 — AI Management System (AIMS)
+// ─────────────────────────────────────────────────────────────────────────
+// First international standard for AI management systems. Annex A defines
+// 9 control domains (A.2-A.10). Domain A.1 is intentionally not used (it
+// describes the structure of the annex itself).
+
+export interface AiDomain {
+  id: string;
+  shortId: string;
+  title: string;
+  description: string;
+  controls: Control[];
+}
+
+export const ISO_42001: AiDomain[] = [
+  {
+    id: 'iso-42001-A2',
+    shortId: 'A.2',
+    title: 'Policies related to AI',
+    description: 'Define and maintain policies that govern the development, use, and oversight of AI systems.',
+    controls: [
+      {
+        id: 'iso-42001:A.2.2',
+        shortId: 'A.2.2',
+        title: 'AI policy',
+        body: "An AI policy is established that aligns with business objectives, applicable law, and the organisation's risk-management strategy. Reviewed at planned intervals.",
+        mappings: [{ to: 'nist-csf:GV.PO-01' }, { to: 'iso-27001:A.5.1' }],
+      },
+      {
+        id: 'iso-42001:A.2.3',
+        shortId: 'A.2.3',
+        title: 'Alignment with other organisational policies',
+        body: 'AI policy is consistent with broader policies — security, privacy, ethics, HR, vendor management.',
+        mappings: [{ to: 'nist-csf:GV.OC-03' }],
+      },
+    ],
+  },
+  {
+    id: 'iso-42001-A3',
+    shortId: 'A.3',
+    title: 'Internal organization',
+    description: 'Roles, responsibilities, and authorities for AI development and use are defined and communicated.',
+    controls: [
+      {
+        id: 'iso-42001:A.3.2',
+        shortId: 'A.3.2',
+        title: 'AI roles and responsibilities',
+        body: 'Roles and responsibilities for AI systems are defined and assigned, including ownership of AI risk.',
+        mappings: [{ to: 'nist-csf:GV.RR-01' }, { to: 'nist-csf:GV.RR-04' }],
+      },
+      {
+        id: 'iso-42001:A.3.3',
+        shortId: 'A.3.3',
+        title: 'AI reporting and accountability',
+        body: 'Reporting lines and accountability mechanisms for AI-system performance and incidents are established.',
+        mappings: [{ to: 'soc2:CC1.1' }],
+      },
+    ],
+  },
+  {
+    id: 'iso-42001-A4',
+    shortId: 'A.4',
+    title: 'Resources for AI systems',
+    description: 'People, infrastructure, data and tooling required to operate AI systems safely.',
+    controls: [
+      {
+        id: 'iso-42001:A.4.2',
+        shortId: 'A.4.2',
+        title: 'Resource documentation',
+        body: 'Resources used by AI systems (compute, data, models, tooling) are documented and managed.',
+        mappings: [{ to: 'nist-csf:ID.AM-02' }],
+      },
+      {
+        id: 'iso-42001:A.4.3',
+        shortId: 'A.4.3',
+        title: 'Tooling for AI lifecycle',
+        body: 'Tools used across the AI lifecycle (training, evaluation, deployment, monitoring) are selected and maintained appropriate to risk.',
+      },
+      {
+        id: 'iso-42001:A.4.4',
+        shortId: 'A.4.4',
+        title: 'AI competence',
+        body: 'Personnel involved with AI systems possess and maintain appropriate competence (training, certifications, hands-on experience).',
+        mappings: [{ to: 'iso-27001:A.6.3' }, { to: 'nist-csf:PR.AT-01' }],
+      },
+      {
+        id: 'iso-42001:A.4.5',
+        shortId: 'A.4.5',
+        title: 'Data resources',
+        body: 'Data resources used by AI systems are appropriate, governed, and traceable.',
+        mappings: [{ to: 'iso-27001:A.5.12' }],
+      },
+    ],
+  },
+  {
+    id: 'iso-42001-A5',
+    shortId: 'A.5',
+    title: 'Assessing impacts of AI systems',
+    description:
+      'Identify and assess potential impacts (intended and unintended) of AI systems on individuals, groups, and society.',
+    controls: [
+      {
+        id: 'iso-42001:A.5.2',
+        shortId: 'A.5.2',
+        title: 'AI system impact assessment process',
+        body: 'A documented process exists to assess the potential impacts of AI systems, including risks to individuals and groups.',
+      },
+      {
+        id: 'iso-42001:A.5.3',
+        shortId: 'A.5.3',
+        title: 'Documentation of impact assessments',
+        body: 'Impact assessments are documented, reviewed, and updated when AI systems materially change.',
+        mappings: [{ to: 'nist-csf:ID.RA-05' }],
+      },
+      {
+        id: 'iso-42001:A.5.4',
+        shortId: 'A.5.4',
+        title: 'Assessing AI system impact on individuals',
+        body: 'The impact on individuals (privacy, autonomy, fundamental rights) is assessed and addressed.',
+      },
+      {
+        id: 'iso-42001:A.5.5',
+        shortId: 'A.5.5',
+        title: 'Assessing societal impacts',
+        body: 'Broader societal impacts (groups, communities, the environment) are assessed where relevant.',
+      },
+    ],
+  },
+  {
+    id: 'iso-42001-A6',
+    shortId: 'A.6',
+    title: 'AI system life cycle',
+    description:
+      'Manage AI systems through their lifecycle: requirements, design, development, verification, deployment, operation, monitoring, retirement.',
+    controls: [
+      {
+        id: 'iso-42001:A.6.1.2',
+        shortId: 'A.6.1.2',
+        title: 'AI lifecycle objectives',
+        body: 'Objectives for managing the AI lifecycle are defined, including security, safety, fairness, transparency, accountability.',
+      },
+      {
+        id: 'iso-42001:A.6.2.2',
+        shortId: 'A.6.2.2',
+        title: 'AI system requirements and specification',
+        body: 'Requirements (functional, security, safety, ethical) are defined and traceable to design and verification.',
+      },
+      {
+        id: 'iso-42001:A.6.2.3',
+        shortId: 'A.6.2.3',
+        title: 'AI system design and development',
+        body: 'AI systems are designed and developed against the documented requirements with risks addressed at each stage.',
+      },
+      {
+        id: 'iso-42001:A.6.2.4',
+        shortId: 'A.6.2.4',
+        title: 'Verification and validation of AI systems',
+        body: 'AI systems are verified (does it meet requirements?) and validated (does it meet stakeholder needs?) before deployment.',
+      },
+      {
+        id: 'iso-42001:A.6.2.5',
+        shortId: 'A.6.2.5',
+        title: 'AI system deployment',
+        body: 'Deployment is planned and controlled — staging, rollback, gradual rollout, user training.',
+        mappings: [{ to: 'nist-csf:PR.PS-02' }],
+      },
+      {
+        id: 'iso-42001:A.6.2.6',
+        shortId: 'A.6.2.6',
+        title: 'AI system operation and monitoring',
+        body: 'Operation and monitoring covers performance, drift, fairness, security incidents, model degradation.',
+        mappings: [{ to: 'nist-csf:DE.CM-09' }, { to: 'soc2:CC7.2' }],
+      },
+      {
+        id: 'iso-42001:A.6.2.7',
+        shortId: 'A.6.2.7',
+        title: 'AI system technical documentation',
+        body: 'Technical documentation (model cards, datasets, evaluation results, known limitations) is produced and maintained.',
+      },
+      {
+        id: 'iso-42001:A.6.2.8',
+        shortId: 'A.6.2.8',
+        title: 'AI system event logging',
+        body: 'Events relevant to AI-system operation are logged for accountability, audit, and incident investigation.',
+        mappings: [{ to: 'iso-27001:A.8.15' }, { to: 'nist-csf:PR.PS-04' }],
+      },
+    ],
+  },
+  {
+    id: 'iso-42001-A7',
+    shortId: 'A.7',
+    title: 'Data for AI systems',
+    description: 'Manage the data used to train, evaluate, and operate AI systems — quality, provenance, governance.',
+    controls: [
+      {
+        id: 'iso-42001:A.7.2',
+        shortId: 'A.7.2',
+        title: 'Data for development and enhancement',
+        body: 'Data used for development and enhancement is identified, sourced lawfully, and quality-managed.',
+      },
+      {
+        id: 'iso-42001:A.7.3',
+        shortId: 'A.7.3',
+        title: 'Acquisition of data',
+        body: 'Acquisition of data follows defined processes (contracts, consent, licensing).',
+      },
+      {
+        id: 'iso-42001:A.7.4',
+        shortId: 'A.7.4',
+        title: 'Quality of data for AI systems',
+        body: "Data quality is assessed against criteria appropriate to the AI system's purpose (representativeness, accuracy, relevance, freshness).",
+      },
+      {
+        id: 'iso-42001:A.7.5',
+        shortId: 'A.7.5',
+        title: 'Data provenance',
+        body: 'Provenance of data (origin, transformations, ownership) is recorded and traceable.',
+      },
+      {
+        id: 'iso-42001:A.7.6',
+        shortId: 'A.7.6',
+        title: 'Data preparation',
+        body: 'Data preparation activities (cleaning, labelling, augmentation) are documented and repeatable.',
+      },
+    ],
+  },
+  {
+    id: 'iso-42001-A8',
+    shortId: 'A.8',
+    title: 'Information for interested parties of AI systems',
+    description: 'Information provided to users, deployers, regulators, and other affected parties about an AI system.',
+    controls: [
+      {
+        id: 'iso-42001:A.8.2',
+        shortId: 'A.8.2',
+        title: 'System documentation and information for users',
+        body: 'Users receive information sufficient to use the AI system appropriately — capabilities, limitations, intended use.',
+      },
+      {
+        id: 'iso-42001:A.8.3',
+        shortId: 'A.8.3',
+        title: 'External reporting',
+        body: 'External reporting (incidents, performance, regulatory disclosure) is performed as required.',
+        mappings: [{ to: 'nist-csf:RS.CO-02' }],
+      },
+      {
+        id: 'iso-42001:A.8.4',
+        shortId: 'A.8.4',
+        title: 'Communication of incidents',
+        body: 'AI-related incidents are communicated to affected parties and to relevant authorities where required.',
+        mappings: [{ to: 'nist-csf:RS.MA-01' }],
+      },
+      {
+        id: 'iso-42001:A.8.5',
+        shortId: 'A.8.5',
+        title: 'Information for interested parties',
+        body: 'Information requirements of interested parties (regulators, customers, partners) are identified and addressed.',
+      },
+    ],
+  },
+  {
+    id: 'iso-42001-A9',
+    shortId: 'A.9',
+    title: 'Use of AI systems',
+    description: 'Govern the actual use of AI systems — intended-use boundaries, monitoring of misuse.',
+    controls: [
+      {
+        id: 'iso-42001:A.9.2',
+        shortId: 'A.9.2',
+        title: 'Processes for responsible use',
+        body: 'Processes for the responsible use of AI systems are established (acceptable-use, override, human review).',
+      },
+      {
+        id: 'iso-42001:A.9.3',
+        shortId: 'A.9.3',
+        title: 'Objectives for responsible use',
+        body: 'Objectives for the responsible use of AI systems are documented and communicated to users.',
+      },
+      {
+        id: 'iso-42001:A.9.4',
+        shortId: 'A.9.4',
+        title: 'Intended use of the AI system',
+        body: 'The intended use of each AI system is defined and the boundaries of acceptable use are made explicit.',
+      },
+    ],
+  },
+  {
+    id: 'iso-42001-A10',
+    shortId: 'A.10',
+    title: 'Third-party and customer relationships',
+    description: 'Manage AI-system risks introduced by third-party providers, suppliers, and customers.',
+    controls: [
+      {
+        id: 'iso-42001:A.10.2',
+        shortId: 'A.10.2',
+        title: 'Allocation of responsibilities',
+        body: 'Responsibilities along the AI supply chain (provider, integrator, deployer, user) are defined and contractually allocated.',
+        mappings: [{ to: 'nist-csf:GV.SC-01' }, { to: 'iso-27001:A.5.19' }],
+      },
+      {
+        id: 'iso-42001:A.10.3',
+        shortId: 'A.10.3',
+        title: 'Suppliers',
+        body: 'AI suppliers (model vendors, MCP servers, third-party APIs) are evaluated against AI-specific risks before engagement.',
+        mappings: [{ to: 'cis:15' }],
+      },
+      {
+        id: 'iso-42001:A.10.4',
+        shortId: 'A.10.4',
+        title: 'Customers',
+        body: 'Information and obligations passed on to customers using the AI system are defined (e.g. acceptable-use, data-handling).',
+      },
+    ],
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────
 // CIS Controls v8 — 18 top-level controls
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -1018,6 +1336,10 @@ export function nistCsfControlIds(): string[] {
 
 export function isoControlIds(): string[] {
   return ISO_27001.flatMap((t) => t.controls.map((c) => c.id));
+}
+
+export function iso42001ControlIds(): string[] {
+  return ISO_42001.flatMap((d) => d.controls.map((c) => c.id));
 }
 
 export function cisControlIds(): string[] {

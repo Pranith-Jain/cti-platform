@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import {
   NIST_CSF,
   ISO_27001,
+  ISO_42001,
   CIS_CONTROLS,
   SOC2_TSC,
   SOC_CMM,
@@ -16,6 +17,7 @@ import {
   coverage,
   nistCsfControlIds,
   isoControlIds,
+  iso42001ControlIds,
   cisControlIds,
   soc2ControlIds,
   type CoverageStatus,
@@ -78,6 +80,7 @@ export default function Grc(): JSX.Element {
     () => ({
       'nist-csf': coverage(nistCsfControlIds(), a),
       'iso-27001': coverage(isoControlIds(), a),
+      'iso-42001': coverage(iso42001ControlIds(), a),
       cis: coverage(cisControlIds(), a),
       soc2: coverage(soc2ControlIds(), a),
     }),
@@ -87,7 +90,7 @@ export default function Grc(): JSX.Element {
   const exportMd = () => {
     const lines: string[] = ['# GRC Compliance & Maturity Assessment', ''];
     lines.push('## Coverage by framework', '');
-    for (const fid of ['nist-csf', 'iso-27001', 'cis', 'soc2'] as FrameworkId[]) {
+    for (const fid of ['nist-csf', 'iso-27001', 'iso-42001', 'cis', 'soc2'] as FrameworkId[]) {
       const c = overall[fid as keyof typeof overall];
       lines.push(`- **${FRAMEWORK_META[fid].label}** — ${c.score}% (${c.covered}/${c.total})`);
     }
@@ -136,9 +139,10 @@ export default function Grc(): JSX.Element {
           <FileCheck size={28} className="text-brand-600 dark:text-brand-400" /> GRC Compliance &amp; Maturity
         </h1>
         <p className="text-slate-600 dark:text-slate-400 font-mono mb-2">
-          Five major frameworks side-by-side with cross-mapping and self-assessment. NIST CSF 2.0 is the spine; ISO
-          27001:2022, CIS Controls v8, and SOC 2 are mapped to NIST where official cross-references exist. SOC-CMM gives
-          a maturity view across Business / People / Process / Technology / Services.
+          Six major frameworks side-by-side with cross-mapping and self-assessment. NIST CSF 2.0 is the spine; ISO
+          27001:2022, ISO 42001:2023 (AI Management System), CIS Controls v8, and SOC 2 are mapped to NIST where
+          official cross-references exist. SOC-CMM gives a maturity view across Business / People / Process / Technology
+          / Services.
         </p>
         <p className="text-xs text-slate-500 dark:text-slate-500 font-mono mb-6">
           All data stays in your browser. Cross-mappings are illustrative — for audit work, validate against official
@@ -155,8 +159,8 @@ export default function Grc(): JSX.Element {
       </motion.div>
 
       {/* Coverage dashboard */}
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-        {(['nist-csf', 'iso-27001', 'cis', 'soc2'] as FrameworkId[]).map((fid) => {
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-6">
+        {(['nist-csf', 'iso-27001', 'iso-42001', 'cis', 'soc2'] as FrameworkId[]).map((fid) => {
           const c = overall[fid as keyof typeof overall];
           return (
             <button
@@ -187,7 +191,7 @@ export default function Grc(): JSX.Element {
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-2 mb-4">
-        {(['nist-csf', 'iso-27001', 'cis', 'soc2', 'soc-cmm'] as FrameworkId[]).map((fid) => (
+        {(['nist-csf', 'iso-27001', 'iso-42001', 'cis', 'soc2', 'soc-cmm'] as FrameworkId[]).map((fid) => (
           <button
             key={fid}
             onClick={() => setTab(fid)}
@@ -357,6 +361,74 @@ export default function Grc(): JSX.Element {
         </div>
       )}
 
+      {/* ISO 42001 — AI Management System */}
+      {tab === 'iso-42001' && (
+        <div className="space-y-3">
+          <p className="text-xs font-mono text-slate-500 dark:text-slate-500 mb-2">
+            ISO/IEC 42001:2023 — first international standard for AI management systems. Annex A defines 9 control
+            domains (A.2-A.10). Pairs with{' '}
+            <Link to="/dfir/owasp" className="text-brand-600 dark:text-brand-400 hover:underline">
+              OWASP LLM Top 10
+            </Link>{' '}
+            (technical risks) and{' '}
+            <Link to="/dfir/mcp-audit" className="text-brand-600 dark:text-brand-400 hover:underline">
+              the MCP / Claude Code Auditor
+            </Link>{' '}
+            (operational AI tooling).
+          </p>
+          {ISO_42001.map((domain) => (
+            <div
+              key={domain.id}
+              className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4"
+            >
+              <div className="flex flex-wrap items-baseline gap-2 mb-1">
+                <span className="font-mono text-xs font-bold text-brand-600 dark:text-brand-400">{domain.shortId}</span>
+                <h3 className="font-display font-semibold text-slate-900 dark:text-slate-100">{domain.title}</h3>
+                <span className="text-[10px] font-mono text-slate-500 dark:text-slate-500 ml-auto">
+                  {domain.controls.length} control{domain.controls.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              <p className="text-xs font-mono text-slate-600 dark:text-slate-400 mb-3">{domain.description}</p>
+              <div className="space-y-1.5">
+                {domain.controls.map((ctl) => {
+                  const s: CoverageStatus = a.controls[ctl.id] ?? 'unset';
+                  return (
+                    <div
+                      key={ctl.id}
+                      className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2.5"
+                    >
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <button
+                          onClick={() => cycle(ctl.id)}
+                          className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${STATUS_STYLES[s].cls}`}
+                        >
+                          {STATUS_STYLES[s].label}
+                        </button>
+                        <span className="font-display font-semibold text-xs text-slate-900 dark:text-slate-100">
+                          {ctl.shortId} {ctl.title}
+                        </span>
+                        {ctl.mappings?.map((m) => (
+                          <span
+                            key={m.to}
+                            title={m.label ?? m.to}
+                            className="text-[9px] font-mono px-1 py-0.5 rounded border border-brand-500/30 bg-brand-500/10 text-brand-700 dark:text-brand-300"
+                          >
+                            {m.label ?? m.to.split(':')[1]}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400 leading-relaxed">
+                        {ctl.body}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* CIS Controls */}
       {tab === 'cis' && (
         <div className="grid gap-2 lg:grid-cols-2">
@@ -506,6 +578,17 @@ export default function Grc(): JSX.Element {
               className="text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-1"
             >
               ISO/IEC 27001:2022
+              <ExternalLink size={11} aria-hidden="true" />
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://www.iso.org/standard/81230.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-1"
+            >
+              ISO/IEC 42001:2023 — AI Management System
               <ExternalLink size={11} aria-hidden="true" />
             </a>
           </li>

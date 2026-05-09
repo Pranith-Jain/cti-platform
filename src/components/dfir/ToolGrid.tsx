@@ -233,7 +233,7 @@ const SECTIONS: Section[] = [
       {
         path: '/dfir/grc',
         label: 'GRC Compliance & Maturity',
-        desc: 'NIST CSF 2.0 · ISO 27001:2022 · CIS Controls v8 · SOC 2 · SOC-CMM · cross-mapping',
+        desc: 'NIST CSF 2.0 · ISO 27001 · ISO 42001 (AI) · CIS · SOC 2 · SOC-CMM · cross-mapping',
         icon: FileCheck,
       },
     ],
@@ -399,8 +399,10 @@ function SectionBlock({ section }: { section: Section }): JSX.Element {
   );
 }
 
+export const TOOL_COUNT = SECTIONS.reduce((n, s) => n + s.tools.length, 0);
+
 export function ToolGrid(): JSX.Element {
-  const totalInternal = SECTIONS.reduce((n, s) => n + s.tools.length, 0);
+  const totalInternal = TOOL_COUNT;
   return (
     <div className="space-y-8">
       <p className="text-xs font-mono text-slate-500 dark:text-slate-500">

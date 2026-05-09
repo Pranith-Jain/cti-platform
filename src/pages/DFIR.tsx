@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Cloud, Github, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { ToolGrid } from '../components/dfir/ToolGrid';
+import { ToolGrid, TOOL_COUNT } from '../components/dfir/ToolGrid';
 import { ThreatIntelFeed } from '../components/dfir/ThreatIntelFeed';
 import { TechNewsFeed } from '../components/dfir/TechNewsFeed';
 import { personalInfo } from '../data/content';
@@ -60,7 +60,7 @@ export default function DFIRPage(): JSX.Element {
         </p>
         <div className="flex flex-wrap items-center gap-4 text-sm font-mono text-slate-600 dark:text-slate-400">
           <span>
-            <span className="text-slate-900 dark:text-slate-100 text-base">25</span> tools
+            <span className="text-slate-900 dark:text-slate-100 text-base">{TOOL_COUNT}</span> tools
           </span>
           <span aria-hidden="true">·</span>
           <span>
