@@ -101,6 +101,13 @@ const ALLOWED_HOSTS = new Set([
   'www.cvedetails.com',
   'www.exploit-db.com',
   'raw.githubusercontent.com',
+  // Scam Watch sources
+  'consumer.ftc.gov',
+  'www.ic3.gov',
+  'ic3.gov',
+  'www.snopes.com',
+  'snopes.com',
+  'news.google.com',
 ]);
 
 export async function feedProxyHandler(c: Context<{ Bindings: Env }>) {

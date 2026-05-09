@@ -472,6 +472,93 @@ export const rssFeeds: RSSFeed[] = [
     source: 'Reddit',
     language: 'en-US',
   },
+
+  // ============================================================================
+  // SCAM WATCH SOURCES — official alerts, deepfake news, victim reports
+  // ============================================================================
+  {
+    id: 'ftc-consumer',
+    name: 'FTC Consumer Alerts',
+    url: 'https://consumer.ftc.gov/blog/rss',
+    description: 'Federal Trade Commission consumer-protection blog — scam alerts and emerging fraud trends',
+    category: 'advisory',
+    source: 'FTC',
+    language: 'en-US',
+  },
+  {
+    id: 'ic3-psas',
+    name: 'FBI IC3 Public Service Announcements',
+    url: 'https://www.ic3.gov/CSA/RSS',
+    description: 'FBI Internet Crime Complaint Center PSAs — active fraud schemes, BEC, romance + tech-support scams',
+    category: 'advisory',
+    source: 'FBI IC3',
+    language: 'en-US',
+  },
+  {
+    id: 'snopes',
+    name: 'Snopes',
+    url: 'https://www.snopes.com/feed/',
+    description: 'Misinformation + scam fact-checking; routinely covers deepfake claims and viral scam stories',
+    category: 'news',
+    source: 'snopes.com',
+    language: 'en-US',
+  },
+  {
+    id: 'gnews-deepfake',
+    name: 'Google News — deepfake scam',
+    url: 'https://news.google.com/rss/search?q=deepfake+scam&hl=en-US&gl=US&ceid=US:en',
+    description: 'Google News search RSS for "deepfake scam" — synthetic-media-driven fraud incidents',
+    category: 'news',
+    source: 'Google News',
+    language: 'en-US',
+  },
+  {
+    id: 'gnews-victim',
+    name: 'Google News — digital scam victims',
+    url: 'https://news.google.com/rss/search?q=digital+scam+victim&hl=en-US&gl=US&ceid=US:en',
+    description:
+      'Google News search RSS for "digital scam victim" — case-by-case fraud reporting from mainstream media',
+    category: 'news',
+    source: 'Google News',
+    language: 'en-US',
+  },
+  {
+    id: 'reddit-scams',
+    name: 'Reddit r/Scams',
+    url: 'https://www.reddit.com/r/Scams/.rss',
+    description:
+      'First-person scam reports — phishing, IRS impersonation, romance, marketplace, tech-support, gift-card',
+    category: 'threat-intel',
+    source: 'Reddit',
+    language: 'en-US',
+  },
+  {
+    id: 'reddit-cryptoscams',
+    name: 'Reddit r/CryptoScams',
+    url: 'https://www.reddit.com/r/CryptoScams/.rss',
+    description: 'Cryptocurrency-specific scam reports — pig butchering, fake exchanges, wallet drainers',
+    category: 'threat-intel',
+    source: 'Reddit',
+    language: 'en-US',
+  },
+  {
+    id: 'reddit-romance-scams',
+    name: 'Reddit r/Romance_Scams',
+    url: 'https://www.reddit.com/r/Romance_Scams/.rss',
+    description: 'Romance- and pig-butchering-scam victim reports + recovery community',
+    category: 'threat-intel',
+    source: 'Reddit',
+    language: 'en-US',
+  },
+  {
+    id: 'reddit-phishing-scams',
+    name: 'Reddit r/PhishingScams',
+    url: 'https://www.reddit.com/r/PhishingScams/.rss',
+    description: 'User-reported phishing samples — SMS, email, voice (vishing)',
+    category: 'threat-intel',
+    source: 'Reddit',
+    language: 'en-US',
+  },
 ];
 
 // Default feeds shown in the ThreatIntelFeed surface on /dfir.

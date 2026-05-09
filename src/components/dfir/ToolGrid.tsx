@@ -45,6 +45,7 @@ import {
   Scale,
   AtSign,
   History,
+  AlertTriangle,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -217,6 +218,12 @@ const SECTIONS: Section[] = [
         label: 'Dark Web Watch',
         desc: 'Aggregated leak-site, ransomware, breach activity · keyword watchlist',
         icon: Bell,
+      },
+      {
+        path: '/dfir/scam-watch',
+        label: 'Scam Watch',
+        desc: 'Live FTC + FBI IC3 alerts · deepfake-scam news · Reddit victim reports · search + filter',
+        icon: AlertTriangle,
       },
       { path: '/dfir/actors', label: 'Threat Actors', desc: 'APT catalog · STIX-aware', icon: Users },
       {
