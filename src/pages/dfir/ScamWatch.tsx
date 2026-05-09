@@ -32,7 +32,20 @@ const SECTIONS: { id: string; label: string; blurb: string; feedIds: string[] }[
     id: 'pig-butchering',
     label: 'Pig butchering & investment',
     blurb: 'Long-con investment scams — sha zhu pan, fake brokers, romance-baiting into crypto / forex.',
-    feedIds: ['gnews-pig-butcher', 'gnews-investment-scam', 'reddit-cryptoscams', 'reddit-romance-scams'],
+    feedIds: ['gnews-pig-butcher', 'gnews-investment-scam', 'reddit-romance-scams'],
+  },
+  {
+    id: 'crypto-nft',
+    label: 'Crypto & NFT scams',
+    blurb: 'Rug pulls, wallet drainers, NFT phishing, DeFi exploits — first-person + post-mortems.',
+    feedIds: [
+      'gnews-rug-pull',
+      'gnews-nft-drainer',
+      'gnews-defi-hack',
+      'rekt-news',
+      'web3-grift',
+      'reddit-cryptoscams',
+    ],
   },
   {
     id: 'job',
@@ -296,6 +309,8 @@ function sectionStyle(section: string): string {
       return 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300';
     case 'impersonation':
       return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
+    case 'crypto-nft':
+      return 'border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300';
     case 'victims':
       return 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300';
     case 'news':

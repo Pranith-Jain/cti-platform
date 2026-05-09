@@ -108,6 +108,9 @@ const ALLOWED_HOSTS = new Set([
   'www.snopes.com',
   'snopes.com',
   'news.google.com',
+  'rekt.news',
+  'www.web3isgoinggreat.com',
+  'web3isgoinggreat.com',
 ]);
 
 export async function feedProxyHandler(c: Context<{ Bindings: Env }>) {

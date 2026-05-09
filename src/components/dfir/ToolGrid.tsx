@@ -46,6 +46,7 @@ import {
   AtSign,
   History,
   AlertTriangle,
+  Coins,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -165,6 +166,12 @@ const SECTIONS: Section[] = [
         label: 'Homograph Detector',
         desc: 'IDN · mixed scripts · brand lookalikes · paste a domain to inspect',
         icon: Type,
+      },
+      {
+        path: '/dfir/crypto-trace',
+        label: 'Crypto Address Tracer',
+        desc: 'BTC + 6 EVM chains + Solana · balance · explorer + NFT + DeFi + scam-flag pivots',
+        icon: Coins,
       },
     ],
   },
