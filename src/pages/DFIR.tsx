@@ -60,7 +60,7 @@ export default function DFIRPage(): JSX.Element {
         </p>
         <div className="flex flex-wrap items-center gap-4 text-sm font-mono text-slate-600 dark:text-slate-400">
           <span>
-            <span className="text-slate-900 dark:text-slate-100 text-base">24</span> tools
+            <span className="text-slate-900 dark:text-slate-100 text-base">25</span> tools
           </span>
           <span aria-hidden="true">·</span>
           <span>

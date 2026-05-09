@@ -48,6 +48,7 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 const StixViewer = lazy(() => import('./pages/dfir/StixViewer'));
 const DarkWeb = lazy(() => import('./pages/dfir/DarkWeb'));
 const ThreatMap = lazy(() => import('./pages/dfir/ThreatMap'));
+const Rules = lazy(() => import('./pages/dfir/Rules'));
 
 function TechniqueRedirect() {
   const params = new URLSearchParams(window.location.search);
@@ -376,6 +377,14 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <ThreatMap />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/rules"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <Rules />
                 </Suspense>
               }
             />

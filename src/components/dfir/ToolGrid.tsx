@@ -28,6 +28,7 @@ import {
   Microscope,
   Bell,
   Globe2,
+  FileCode,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -78,6 +79,12 @@ const FEATURED: Tool[] = [
     label: 'Cyber Threat Map',
     desc: 'Live geolocation of malicious infrastructure · choropleth + leaderboard',
     icon: Globe2,
+  },
+  {
+    path: '/dfir/rules',
+    label: 'Detection Rules',
+    desc: 'Sigma · YARA · Elastic · Splunk · KQL · Suricata · live commit feeds',
+    icon: FileCode,
   },
   {
     path: '/dfir/briefings',
