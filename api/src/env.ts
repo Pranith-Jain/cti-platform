@@ -11,4 +11,5 @@ export interface Env {
   HYBRID_ANALYSIS_API_KEY: string;
   ABUSECH_AUTH_KEY?: string;
   DFIR_DEV_ERRORS?: string;
+  DFIR_ANALYTICS?: AnalyticsEngineDataset;
 }

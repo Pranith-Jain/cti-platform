@@ -4,6 +4,7 @@ import { detectType } from '../lib/indicator';
 import { sseStream } from '../lib/sse';
 import { compositeScore } from '../lib/scoring';
 import { ProviderCache } from '../lib/cache';
+import { trackEvent, visitorCountry } from '../lib/analytics';
 import { virustotal } from '../providers/virustotal';
 import { abuseipdb } from '../providers/abuseipdb';
 import { shodan } from '../providers/shodan';
@@ -117,6 +118,14 @@ export async function iocCheckHandler(c: Context<{ Bindings: Env }>) {
       })
     );
 
-    write('done', compositeScore(type, collected));
+    const composite = compositeScore(type, collected);
+    write('done', composite);
+    // Fire-and-forget telemetry: indicator type + verdict + contributing count.
+    // No PII; the indicator value itself is never written to AE.
+    trackEvent(c.env, 'ioc_check', {
+      blobs: [type, composite.verdict, composite.confidence],
+      doubles: [composite.score, composite.contributing],
+      indexes: [visitorCountry(c.req.raw)],
+    });
   });
 }

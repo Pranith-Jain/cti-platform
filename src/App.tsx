@@ -7,7 +7,18 @@ import { SkipToContent } from './components/SkipToContent';
 import { StructuredData } from './components/StructuredData';
 import { ScrollProgress, BackToTop } from './components/ui';
 import { Layout } from './components/Layout';
-import { Home, About, Skills, Experience, Projects, DFIR } from './pages';
+
+// Top-level pages were eagerly imported, which dragged framer-motion (used
+// by their inner section components) into the initial bundle. Lazy them so
+// the initial paint only loads what's needed for the current route.
+// Home stays eager-ish via a synchronous import inside the lazy promise so
+// landing on `/` doesn't show a Suspense flash on the most-likely entry.
+import Home from './pages/Home';
+const About = lazy(() => import('./pages/About'));
+const Skills = lazy(() => import('./pages/Skills'));
+const Experience = lazy(() => import('./pages/Experience'));
+const Projects = lazy(() => import('./pages/Projects'));
+const DFIR = lazy(() => import('./pages/DFIR'));
 
 const IocCheck = lazy(() => import('./pages/dfir/IocCheck'));
 const Phishing = lazy(() => import('./pages/dfir/Phishing'));
@@ -110,11 +121,46 @@ export function AppContent() {
         <Layout>
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/skills" element={<Skills />} />
-            <Route path="/experience" element={<Experience />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/dfir" element={<DFIR />} />
+            <Route
+              path="/about"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <About />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/skills"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <Skills />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/experience"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <Experience />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/projects"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <Projects />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <DFIR />
+                </Suspense>
+              }
+            />
             <Route
               path="/dfir/ioc-check"
               element={

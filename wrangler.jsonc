@@ -25,5 +25,17 @@
   "triggers": {
     // Daily briefing at 00:05 UTC (covers prior 24h window). Weekly at 00:15 UTC Monday (covers prior week).
     "crons": ["5 0 * * *", "15 0 * * 1"]
-  }
+  },
+  // Cloudflare Analytics Engine — usage telemetry. Free tier: 100k writes/day,
+  // 10M reads/month. Only writes high-signal events (IOC checks, threat-map
+  // fetches), never PII. Code path is wired in api/src/lib/analytics.ts and
+  // gracefully no-ops when the binding is missing.
+  //
+  // ONE-TIME ENABLE: click "Enable" once at
+  //   https://dash.cloudflare.com/6a7461d701e2e1c989e05137b0255405/workers/analytics-engine
+  // then uncomment the block below and redeploy.
+  //
+  // "analytics_engine_datasets": [
+  //   { "binding": "DFIR_ANALYTICS", "dataset": "dfir_analytics" }
+  // ]
 }

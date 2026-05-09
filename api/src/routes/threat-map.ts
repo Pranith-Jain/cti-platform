@@ -8,6 +8,7 @@ import {
   parsePlainTextIps,
   parseMalwarebazaar,
 } from '../lib/ioc-feed-parsers';
+import { trackEvent, visitorCountry } from '../lib/analytics';
 
 /**
  * Cyber Threat Map
@@ -111,6 +112,10 @@ export async function threatMapHandler(c: Context<{ Bindings: Env }>) {
   const cacheReq = new Request(CACHE_KEY);
   const cached = await cache.match(cacheReq);
   if (cached) {
+    trackEvent(c.env, 'threat_map_fetch', {
+      blobs: ['hit'],
+      indexes: [visitorCountry(c.req.raw)],
+    });
     return new Response(cached.body, {
       status: 200,
       headers: {
@@ -274,5 +279,10 @@ export async function threatMapHandler(c: Context<{ Bindings: Env }>) {
   });
   // Cache async; don't block the response on the put
   c.executionCtx.waitUntil(cache.put(cacheReq, response.clone()));
+  trackEvent(c.env, 'threat_map_fetch', {
+    blobs: ['miss'],
+    doubles: [body.total_ips, body.countries.length],
+    indexes: [visitorCountry(c.req.raw)],
+  });
   return response;
 }
