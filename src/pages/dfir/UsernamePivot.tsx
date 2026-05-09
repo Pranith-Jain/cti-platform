@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   AtSign,
@@ -85,17 +85,21 @@ function CopyChip({ value }: { value: string }): JSX.Element {
 }
 
 export default function UsernamePivot(): JSX.Element {
-  const [username, setUsername] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [username, setUsername] = useState(searchParams.get('u') ?? '');
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [rows, setRows] = useState<CheckedRow[]>([]);
   const [running, setRunning] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<Category | 'all'>('all');
+  const initialDone = useRef(false);
 
   const validUsername = USERNAME_RE.test(username.trim());
 
-  const startScan = async () => {
-    const u = username.trim();
+  const startScan = async (override?: string) => {
+    const u = (override ?? username).trim();
     if (!USERNAME_RE.test(u)) return;
+    if (override) setUsername(override);
+    setSearchParams({ u }, { replace: false });
     setSubmitted(u);
     setRunning(true);
     // Initial state: active = pending, manual = manual.
@@ -122,6 +126,17 @@ export default function UsernamePivot(): JSX.Element {
     }
     setRunning(false);
   };
+
+  // Auto-fetch from URL on first mount.
+  useEffect(() => {
+    if (initialDone.current) return;
+    const initial = searchParams.get('u');
+    if (initial && USERNAME_RE.test(initial)) {
+      initialDone.current = true;
+      void startScan(initial);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredRows = useMemo(() => {
     if (categoryFilter === 'all') return rows;

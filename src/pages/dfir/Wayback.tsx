@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, History, Search, Loader2, ExternalLink, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -43,17 +43,21 @@ function statusClass(status: string): string {
 }
 
 export default function Wayback(): JSX.Element {
-  const [url, setUrl] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [url, setUrl] = useState(searchParams.get('url') ?? '');
   const [snapshots, setSnapshots] = useState<Snapshot[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initialDone = useRef(false);
 
-  const lookup = async () => {
-    const t = url.trim();
+  const lookup = async (override?: string) => {
+    const t = (override ?? url).trim();
     if (!t) return;
+    if (override) setUrl(override);
     setLoading(true);
     setError(null);
     setSnapshots(null);
+    setSearchParams({ url: t }, { replace: false });
     try {
       // CDX returns [[header...],[row...],...] as 2D array.
       const res = await fetch(buildCdxUrl(t));
@@ -79,6 +83,17 @@ export default function Wayback(): JSX.Element {
       setLoading(false);
     }
   };
+
+  // Auto-fetch from URL on first mount.
+  useEffect(() => {
+    if (initialDone.current) return;
+    const initial = searchParams.get('url');
+    if (initial) {
+      initialDone.current = true;
+      void lookup(initial);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const stats = useMemo(() => {
     if (!snapshots || snapshots.length === 0) return null;

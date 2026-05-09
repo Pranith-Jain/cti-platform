@@ -70,6 +70,7 @@ const GithubOsint = lazy(() => import('./pages/dfir/GithubOsint'));
 const OsintFramework = lazy(() => import('./pages/dfir/OsintFramework'));
 const ScamWatch = lazy(() => import('./pages/dfir/ScamWatch'));
 const CryptoTrace = lazy(() => import('./pages/dfir/CryptoTrace'));
+const IndustryNews = lazy(() => import('./pages/dfir/IndustryNews'));
 
 function TechniqueRedirect() {
   const params = new URLSearchParams(window.location.search);
@@ -576,6 +577,14 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <CryptoTrace />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/industry-news"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <IndustryNews />
                 </Suspense>
               }
             />

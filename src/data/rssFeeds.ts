@@ -676,6 +676,55 @@ export const rssFeeds: RSSFeed[] = [
     source: 'web3isgoinggreat.com',
     language: 'en-US',
   },
+
+  // ============================================================================
+  // INDUSTRY & FUNDRAISING — security-vendor M&A, Series A-D rounds, IPO news
+  // ============================================================================
+  {
+    id: 'techcrunch-security',
+    name: 'TechCrunch — Security',
+    url: 'https://techcrunch.com/category/security/feed/',
+    description: 'Security-vendor funding, M&A, breaches, and product launches as covered by TechCrunch',
+    category: 'tech',
+    source: 'techcrunch.com',
+    language: 'en-US',
+  },
+  {
+    id: 'venturebeat-security',
+    name: 'VentureBeat — Security',
+    url: 'https://venturebeat.com/category/security/feed/',
+    description: 'Enterprise security industry coverage — funding, AI/security crossover, vendor moves',
+    category: 'tech',
+    source: 'venturebeat.com',
+    language: 'en-US',
+  },
+  {
+    id: 'gnews-cybersec-funding',
+    name: 'Google News — cybersecurity Series A funding',
+    url: 'https://news.google.com/rss/search?q=cybersecurity+Series+A+funding&hl=en-US&gl=US&ceid=US:en',
+    description: 'Recent Series A / B / C announcements in the cybersecurity sector',
+    category: 'tech',
+    source: 'Google News',
+    language: 'en-US',
+  },
+  {
+    id: 'gnews-cybersec-acquisition',
+    name: 'Google News — cybersecurity acquisition',
+    url: 'https://news.google.com/rss/search?q=cybersecurity+acquisition&hl=en-US&gl=US&ceid=US:en',
+    description: 'M&A activity in cybersecurity — strategic acquisitions, vendor consolidation',
+    category: 'tech',
+    source: 'Google News',
+    language: 'en-US',
+  },
+  {
+    id: 'gnews-infosec-startup',
+    name: 'Google News — infosec startup funding',
+    url: 'https://news.google.com/rss/search?q=infosec+startup+funding&hl=en-US&gl=US&ceid=US:en',
+    description: 'Early-stage infosec / threat-intel / detection-engineering startup funding events',
+    category: 'tech',
+    source: 'Google News',
+    language: 'en-US',
+  },
 ];
 
 // Default feeds shown in the ThreatIntelFeed surface on /dfir.

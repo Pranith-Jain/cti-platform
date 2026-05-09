@@ -47,6 +47,7 @@ import {
   History,
   AlertTriangle,
   Coins,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -241,6 +242,12 @@ const SECTIONS: Section[] = [
         label: 'Scam Watch',
         desc: 'Live FTC + FBI IC3 alerts · deepfake-scam news · Reddit victim reports · search + filter',
         icon: AlertTriangle,
+      },
+      {
+        path: '/dfir/industry-news',
+        label: 'Industry & Fundraising News',
+        desc: 'Cybersecurity vendor funding · M&A · IPOs · launches · TechCrunch + VentureBeat + Google News',
+        icon: TrendingUp,
       },
       { path: '/dfir/actors', label: 'Threat Actors', desc: 'APT catalog · STIX-aware', icon: Users },
       {

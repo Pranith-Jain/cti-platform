@@ -111,6 +111,11 @@ const ALLOWED_HOSTS = new Set([
   'rekt.news',
   'www.web3isgoinggreat.com',
   'web3isgoinggreat.com',
+  // Industry / fundraising
+  'techcrunch.com',
+  'www.techcrunch.com',
+  'venturebeat.com',
+  'www.venturebeat.com',
 ]);
 
 export async function feedProxyHandler(c: Context<{ Bindings: Env }>) {

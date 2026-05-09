@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Coins,
@@ -35,10 +35,18 @@ interface ChainResult {
   error?: string;
 }
 
+interface SanctionsCheck {
+  listed: boolean;
+  matched_in?: string;
+  source: string;
+  source_url: string;
+}
+
 interface TraceResponse {
   address: string;
   detected_kind: 'btc' | 'evm' | 'solana' | 'unknown';
   results: ChainResult[];
+  sanctions?: SanctionsCheck;
   generated_at: string;
 }
 
@@ -85,17 +93,21 @@ function DirectionPill({ d }: { d?: RecentTx['direction'] }): JSX.Element | null
 }
 
 export default function CryptoTrace(): JSX.Element {
-  const [address, setAddress] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [address, setAddress] = useState(searchParams.get('address') ?? '');
   const [data, setData] = useState<TraceResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initialDone = useRef(false);
 
-  const lookup = async () => {
-    const a = address.trim();
+  const lookup = async (override?: string) => {
+    const a = (override ?? address).trim();
     if (!a) return;
     setLoading(true);
     setError(null);
     setData(null);
+    if (override) setAddress(override);
+    setSearchParams({ address: a }, { replace: false });
     try {
       const res = await fetch(`/api/v1/crypto-trace?address=${encodeURIComponent(a)}`);
       if (!res.ok) {
@@ -109,6 +121,17 @@ export default function CryptoTrace(): JSX.Element {
       setLoading(false);
     }
   };
+
+  // Auto-fetch from URL on first mount.
+  useEffect(() => {
+    if (initialDone.current) return;
+    const initial = searchParams.get('address');
+    if (initial) {
+      initialDone.current = true;
+      void lookup(initial);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const explorerLinks = useMemo(() => {
     if (!data) return [];
@@ -223,6 +246,52 @@ export default function CryptoTrace(): JSX.Element {
               {data.address}
             </code>
           </section>
+
+          {/* OFAC sanctions verdict */}
+          {data.sanctions &&
+            (data.sanctions.listed ? (
+              <section className="rounded-lg border-2 border-rose-500/60 bg-rose-500/10 p-4 mb-6">
+                <div className="flex items-baseline gap-2 mb-2">
+                  <AlertTriangle size={16} className="text-rose-700 dark:text-rose-300" />
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300 font-mono">
+                    OFAC SDN listed
+                  </h2>
+                </div>
+                <p className="text-sm font-mono text-slate-700 dark:text-slate-300 mb-2">
+                  This address appears on the U.S. Treasury Office of Foreign Assets Control Specially Designated
+                  Nationals list (matched in <strong>{data.sanctions.matched_in}</strong> currency feed). Transacting
+                  with sanctioned addresses can constitute a U.S. sanctions violation regardless of intent.
+                </p>
+                <a
+                  href={data.sanctions.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] font-mono text-rose-700 dark:text-rose-300 hover:underline inline-flex items-center gap-1"
+                >
+                  source: {data.sanctions.source} <ExternalLink size={10} />
+                </a>
+              </section>
+            ) : (
+              data.detected_kind !== 'solana' && (
+                <section className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 mb-6 text-xs font-mono text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-2 w-full">
+                  <span className="inline-flex items-center gap-1">
+                    ✓ Not listed in the OFAC SDN sanctioned-address feed.
+                  </span>
+                  <span className="text-slate-500 dark:text-slate-500 ml-auto">
+                    (per{' '}
+                    <a
+                      href={data.sanctions.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:underline"
+                    >
+                      0xB10C/ofac-sanctioned-digital-currency-addresses
+                    </a>
+                    , refreshed daily)
+                  </span>
+                </section>
+              )
+            ))}
 
           <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 mb-6">
             <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 font-mono mb-3">
