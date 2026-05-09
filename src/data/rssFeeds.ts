@@ -825,15 +825,72 @@ export const rssFeeds: RSSFeed[] = [
   },
 ];
 
-// Default feeds shown in the ThreatIntelFeed surface on /dfir.
-// Auto-derived from the catalog so any new threat-intel, advisory, or news entry
-// is picked up automatically. Tech / startup news (HN, YC) lives in `defaultTechFeeds`.
+/**
+ * Feeds shown in the live Threat Intel panel on the /dfir landing page.
+ * Auto-derived from category but with an explicit exclusion list so the
+ * scam-watch / industry / AI feeds (which live in their own dedicated
+ * tools — /dfir/scam-watch and /dfir/tech-ai-news) don't pollute the
+ * landing page's threat-intel surface.
+ */
+const EXCLUDE_FROM_LANDING = new Set<string>([
+  // Scam Watch sources (live at /dfir/scam-watch)
+  'ftc-consumer',
+  'ic3-psas',
+  'snopes',
+  'gnews-deepfake',
+  'gnews-victim',
+  'gnews-pig-butcher',
+  'gnews-job-scam',
+  'gnews-tech-support',
+  'gnews-investment-scam',
+  'gnews-voice-clone',
+  'gnews-sim-swap',
+  'gnews-rug-pull',
+  'gnews-nft-drainer',
+  'gnews-defi-hack',
+  'reddit-scams',
+  'reddit-cryptoscams',
+  'reddit-romance-scams',
+  'reddit-phishing-scams',
+  'reddit-jobscams',
+  'reddit-scammer-payback',
+  'rekt-news',
+  'web3-grift',
+]);
+
 export const defaultFeeds = rssFeeds
   .filter((f) => f.category === 'threat-intel' || f.category === 'advisory' || f.category === 'news')
+  .filter((f) => !EXCLUDE_FROM_LANDING.has(f.id))
   .map((f) => f.id);
 
-// Tech / AI / startup news — rendered in TechNewsFeed on /dfir, separate from the threat feed.
-export const defaultTechFeeds = ['hn-frontpage', 'hn-ask', 'hn-show', 'hn-ai', 'yc-blog'];
+/**
+ * Tech / AI / Industry feeds — rendered as a separate categorised box on
+ * the /dfir landing page (TechNewsFeed) and as the full surface at
+ * /dfir/tech-ai-news. Three sections, three lists.
+ */
+export const landingAiFeeds = [
+  'techcrunch-ai',
+  'venturebeat-ai',
+  'verge-ai',
+  'openai-news',
+  'google-ai',
+  'gnews-ai-security',
+  'gnews-ai-funding',
+  'gnews-genai-enterprise',
+];
+
+export const landingIndustryFeeds = [
+  'techcrunch-security',
+  'venturebeat-security',
+  'gnews-cybersec-funding',
+  'gnews-cybersec-acquisition',
+  'gnews-infosec-startup',
+];
+
+export const landingGeneralTechFeeds = ['ars-tech', 'mit-tech-review', 'hn-frontpage', 'hn-ai', 'yc-blog'];
+
+/** Backward-compat alias retained for any older callers. */
+export const defaultTechFeeds = landingGeneralTechFeeds;
 
 // Feed categories for filtering
 export const feedCategories = [

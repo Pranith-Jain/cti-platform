@@ -1,37 +1,68 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
-import { fetchMultipleFeeds, formatRelativeTime, type FeedItem } from '../../services/rssService';
-import { defaultTechFeeds } from '../../data/rssFeeds';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowRight, ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { fetchAggregatedFeed, formatRelativeTime, type AggregatedFeedItem } from '../../services/rssService';
+import { landingAiFeeds, landingIndustryFeeds, landingGeneralTechFeeds, rssFeeds } from '../../data/rssFeeds';
 
-const MAX_ITEMS = 12;
-const MAX_PER_SOURCE = 3;
+type SectionId = 'ai' | 'industry' | 'tech';
+
+interface Section {
+  id: SectionId;
+  label: string;
+  blurb: string;
+  feedIds: string[];
+  pillCls: string;
+}
+
+const SECTIONS: Section[] = [
+  {
+    id: 'ai',
+    label: 'AI',
+    blurb: 'Model releases, AI funding, agentic-AI products, AI-system security incidents.',
+    feedIds: landingAiFeeds,
+    pillCls: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+  },
+  {
+    id: 'industry',
+    label: 'Cybersec funding & M&A',
+    blurb: 'Series A-D rounds, acquisitions, IPOs, vendor consolidation.',
+    feedIds: landingIndustryFeeds,
+    pillCls: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  },
+  {
+    id: 'tech',
+    label: 'General tech',
+    blurb: 'Infrastructure, OS, networking, devices, the security crossover.',
+    feedIds: landingGeneralTechFeeds,
+    pillCls: 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+  },
+];
+
+const ALL_LANDING_FEED_IDS = SECTIONS.flatMap((s) => s.feedIds);
+const PER_SECTION_VISIBLE = 5;
+const PER_SOURCE = 4;
+const TOTAL_LIMIT = 200;
 
 export function TechNewsFeed(): JSX.Element {
-  const [items, setItems] = useState<FeedItem[]>([]);
+  const [items, setItems] = useState<AggregatedFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sourceCount, setSourceCount] = useState(0);
+  const [active, setActive] = useState<SectionId>('ai');
 
-  const fetchFeeds = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const resultsMap = await fetchMultipleFeeds(defaultTechFeeds);
-      const all: FeedItem[] = [];
-      let activeSources = 0;
-      resultsMap.forEach((result) => {
-        if (!result.error && result.items.length > 0) {
-          activeSources++;
-          all.push(...result.items.slice(0, MAX_PER_SOURCE));
-        }
+      const data = await fetchAggregatedFeed(ALL_LANDING_FEED_IDS, {
+        limit: TOTAL_LIMIT,
+        perSource: PER_SOURCE,
       });
-      setSourceCount(activeSources);
-      all.sort((a, b) => {
-        const dateA = new Date(a.pubDate).getTime() || 0;
-        const dateB = new Date(b.pubDate).getTime() || 0;
-        return dateB - dateA;
-      });
-      setItems(all.slice(0, MAX_ITEMS));
+      if (!data) {
+        setError('feeds unavailable');
+        setItems([]);
+        return;
+      }
+      setItems(data.items);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'feed unavailable');
     } finally {
@@ -40,21 +71,50 @@ export function TechNewsFeed(): JSX.Element {
   }, []);
 
   useEffect(() => {
-    void fetchFeeds();
-  }, [fetchFeeds]);
+    void load();
+  }, [load]);
+
+  // Map source URL → section id so we can bucket items per tab.
+  const urlToSection = useMemo(() => {
+    const map = new Map<string, SectionId>();
+    for (const sec of SECTIONS) {
+      for (const fid of sec.feedIds) {
+        const url = rssFeeds.find((r) => r.id === fid)?.url;
+        if (url) map.set(url, sec.id);
+      }
+    }
+    return map;
+  }, []);
+
+  const bySection = useMemo(() => {
+    const out: Record<SectionId, AggregatedFeedItem[]> = { ai: [], industry: [], tech: [] };
+    for (const it of items) {
+      const sec = urlToSection.get(it.source_url);
+      if (sec) out[sec].push(it);
+    }
+    return out;
+  }, [items, urlToSection]);
+
+  const activeItems = bySection[active].slice(0, PER_SECTION_VISIBLE);
+  const activeSection = SECTIONS.find((s) => s.id === active)!;
 
   return (
     <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
-      <header className="flex items-center justify-between mb-4">
-        <h2 className="font-display font-bold text-xl text-slate-900 dark:text-slate-100 flex items-center gap-2">
+      <header className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 className="font-display font-bold text-xl text-slate-900 dark:text-slate-100 inline-flex items-center gap-2">
           <Sparkles size={18} className="text-brand-600 dark:text-brand-400" />
           Tech &amp; AI News
         </h2>
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono text-slate-600 dark:text-slate-400">{sourceCount} sources · HN · YC</span>
+          <Link
+            to="/dfir/tech-ai-news"
+            className="text-xs font-mono text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-1"
+          >
+            view all <ArrowRight size={12} />
+          </Link>
           <button
             type="button"
-            onClick={() => void fetchFeeds()}
+            onClick={() => void load()}
             disabled={loading}
             aria-label="refresh tech news feed"
             className="inline-flex items-center gap-1.5 text-xs font-mono text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
@@ -65,20 +125,46 @@ export function TechNewsFeed(): JSX.Element {
         </div>
       </header>
 
+      <div className="flex flex-wrap items-center gap-1.5 mb-4">
+        {SECTIONS.map((sec) => (
+          <button
+            key={sec.id}
+            type="button"
+            onClick={() => setActive(sec.id)}
+            className={`text-xs font-mono px-2 py-1 rounded border transition-colors ${
+              active === sec.id
+                ? sec.pillCls
+                : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-500/40'
+            }`}
+          >
+            {sec.label}
+            <span className="opacity-60"> · {bySection[sec.id].length}</span>
+          </button>
+        ))}
+      </div>
+
+      <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-3">{activeSection.blurb}</p>
+
       {loading && <p className="font-mono text-sm text-slate-600 dark:text-slate-400">Fetching…</p>}
       {error && <p className="font-mono text-sm text-rose-600 dark:text-rose-400">error: {error}</p>}
 
-      {!loading && !error && (
+      {!loading && !error && activeItems.length === 0 && (
+        <p className="font-mono text-sm text-slate-500 dark:text-slate-500">
+          No items in this category right now. Try refresh.
+        </p>
+      )}
+
+      {!loading && !error && activeItems.length > 0 && (
         <ul className="space-y-3">
-          {items.map((it) => (
+          {activeItems.map((it) => (
             <li
-              key={it.guid ?? it.link}
+              key={it.guid ?? it.link ?? `${it.title}-${it.pubDate}`}
               className="border-t border-slate-200 dark:border-slate-800 pt-3 first:border-t-0 first:pt-0"
             >
               <a href={it.link} target="_blank" rel="noopener noreferrer" className="group block">
                 <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:text-brand-400 transition-colors">
-                    {it.title}
+                  <h3 className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+                    {it.title || '(untitled)'}
                   </h3>
                   <ExternalLink size={12} className="text-slate-500 shrink-0 mt-1" />
                 </div>
