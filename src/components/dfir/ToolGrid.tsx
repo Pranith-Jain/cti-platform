@@ -74,6 +74,12 @@ const FEATURED: Tool[] = [
     desc: 'SPF · DMARC · DKIM · MTA-STS · spoofability score · attack scenarios per gap',
     icon: Mail,
   },
+  {
+    path: '/dfir/nhi',
+    label: 'NHI Inventory & Top 10',
+    desc: 'OWASP NHI Top 10 (2025) · service-account / OAuth / MCP-token inventory · per-NHI risk score',
+    icon: KeyRound,
+  },
   { path: '/dfir/mitre', label: 'MITRE ATT&CK', desc: 'Matrix · technique deep-dive · actor mapping', icon: Grid3x3 },
   {
     path: '/dfir/kill-chain',

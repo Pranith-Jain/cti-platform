@@ -56,6 +56,7 @@ const Diamond = lazy(() => import('./pages/dfir/Diamond'));
 const Lolbins = lazy(() => import('./pages/dfir/Lolbins'));
 const RulePlayground = lazy(() => import('./pages/dfir/RulePlayground'));
 const EmailDefense = lazy(() => import('./pages/dfir/EmailDefense'));
+const Nhi = lazy(() => import('./pages/dfir/Nhi'));
 
 function TechniqueRedirect() {
   const params = new URLSearchParams(window.location.search);
@@ -450,6 +451,14 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <EmailDefense />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/nhi"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <Nhi />
                 </Suspense>
               }
             />
