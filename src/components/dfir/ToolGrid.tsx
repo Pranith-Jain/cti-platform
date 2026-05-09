@@ -36,6 +36,7 @@ import {
   Mail,
   Terminal,
   FlaskConical,
+  ScrollText,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -80,6 +81,12 @@ const SECTIONS: Section[] = [
       },
       { path: '/dfir/url-preview', label: 'URL Preview', desc: 'Server-side metadata · safe fetch', icon: Eye },
       { path: '/dfir/decode', label: 'Decoder', desc: 'Base64 · URL · multi-pass', icon: Code2 },
+      {
+        path: '/dfir/powershell-deobf',
+        label: 'PowerShell Deobfuscator',
+        desc: 'EncodedCommand · char-arrays · format-strings · multi-pass with diff trace',
+        icon: Terminal,
+      },
       { path: '/dfir/exif', label: 'EXIF Parser', desc: 'GPS · camera · client-only', icon: ImageIcon },
       {
         path: '/dfir/punycode',
@@ -216,6 +223,12 @@ const SECTIONS: Section[] = [
         desc: 'OWASP NHI Top 10 (2025) · service-account / OAuth / MCP-token inventory · per-NHI risk',
         icon: KeyRound,
       },
+      {
+        path: '/dfir/tabletop',
+        label: 'Tabletop / IR Exercise Generator',
+        desc: '6 archetypes × actor catalog · timed injects · per-role prompts · markdown export',
+        icon: ScrollText,
+      },
     ],
   },
   {
@@ -234,6 +247,12 @@ const SECTIONS: Section[] = [
         label: 'MCP & Claude Code Auditor',
         desc: 'MCP configs + Claude Code settings · hooks · permission rules · tool poisoning',
         icon: Plug,
+      },
+      {
+        path: '/dfir/agent-map',
+        label: 'AI Agent Attack-Surface Mapper',
+        desc: 'Capability graph from MCP/CC config · flags exfil + RCE chains · SVG visual',
+        icon: Network,
       },
     ],
   },

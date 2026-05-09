@@ -57,6 +57,9 @@ const Lolbins = lazy(() => import('./pages/dfir/Lolbins'));
 const RulePlayground = lazy(() => import('./pages/dfir/RulePlayground'));
 const EmailDefense = lazy(() => import('./pages/dfir/EmailDefense'));
 const Nhi = lazy(() => import('./pages/dfir/Nhi'));
+const PowershellDeobf = lazy(() => import('./pages/dfir/PowershellDeobf'));
+const AgentMap = lazy(() => import('./pages/dfir/AgentMap'));
+const Tabletop = lazy(() => import('./pages/dfir/Tabletop'));
 
 function TechniqueRedirect() {
   const params = new URLSearchParams(window.location.search);
@@ -459,6 +462,30 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <Nhi />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/powershell-deobf"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <PowershellDeobf />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/agent-map"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <AgentMap />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/tabletop"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <Tabletop />
                 </Suspense>
               }
             />
