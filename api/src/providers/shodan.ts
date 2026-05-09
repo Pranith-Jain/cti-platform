@@ -25,6 +25,26 @@ export const shodan: ProviderAdapter = async (indicator, env, signal) => {
       : `https://api.shodan.io/dns/domain/${encodeURIComponent(indicator.value)}?key=${env.SHODAN_API_KEY}`;
 
     const res = await fetch(url, { signal });
+    // 401 / 403 = key denied (Shodan host/dns endpoints require Membership tier).
+    // Treat as a graceful "no data from this provider" so the overall verdict
+    // isn't polluted by a permission issue rather than a real signal.
+    if (res.status === 401 || res.status === 403) {
+      return base('ok', {
+        score: 0,
+        verdict: 'unknown',
+        tags: ['shodan-no-access'],
+        raw_summary: { reason: `${res.status} from Shodan (membership endpoint)` },
+      });
+    }
+    // 404 = host not indexed. Common for clean infrastructure.
+    if (res.status === 404) {
+      return base('ok', {
+        score: 0,
+        verdict: 'clean',
+        tags: ['shodan-no-data'],
+        raw_summary: { reason: 'host not indexed' },
+      });
+    }
     if (!res.ok) return base('error', { error: `${res.status} ${res.statusText}`.trim() });
 
     const json = (await res.json()) as Record<string, unknown>;

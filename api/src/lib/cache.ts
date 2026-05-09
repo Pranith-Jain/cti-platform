@@ -11,23 +11,38 @@ const TTL_BY_TYPE: Record<IndicatorType, number> = {
   unknown: 3600,
 };
 
+/**
+ * Per-provider IOC result cache.
+ *
+ * Backed by the Cloudflare Cache API rather than KV. Cache API operations don't
+ * count against the KV daily quota and are colo-local (slightly less consistent
+ * across data centers, but for IOC verdicts that's fine — we'd rather burn a
+ * fresh upstream call than chew through KV writes for cache hits).
+ *
+ * The KVNamespace constructor argument is preserved for backwards compatibility
+ * with the existing call sites but is no longer used.
+ */
 export class ProviderCache {
-  constructor(private kv: KVNamespace | undefined) {}
+  // Argument retained so the existing `new ProviderCache(c.env.KV_CACHE)` call
+  // sites compile without change. Not actually used.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  constructor(_kv?: KVNamespace) {}
 
   static ttlSeconds(type: IndicatorType): number {
     return TTL_BY_TYPE[type];
   }
 
-  static key(provider: ProviderId, indicator: Indicator): string {
-    return `prov:${provider}:${indicator.type}:${indicator.value.toLowerCase()}`;
+  /** Synthetic URL used as the Cache API key. Must be a valid absolute URL. */
+  private static cacheKey(provider: ProviderId, indicator: Indicator): Request {
+    const safe = encodeURIComponent(indicator.value.toLowerCase());
+    return new Request(`https://ioc-cache.internal/${provider}/${indicator.type}/${safe}`);
   }
 
   async get(provider: ProviderId, indicator: Indicator): Promise<ProviderResult | null> {
-    if (!this.kv) return null;
     try {
-      const raw = await this.kv.get(ProviderCache.key(provider, indicator));
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as ProviderResult;
+      const cached = await caches.default.match(ProviderCache.cacheKey(provider, indicator));
+      if (!cached) return null;
+      const parsed = (await cached.json()) as ProviderResult;
       return { ...parsed, cached: true };
     } catch {
       return null;
@@ -35,14 +50,17 @@ export class ProviderCache {
   }
 
   async set(provider: ProviderId, indicator: Indicator, value: ProviderResult): Promise<void> {
-    if (!this.kv) return;
     try {
       const ttl = ProviderCache.ttlSeconds(indicator.type);
-      await this.kv.put(ProviderCache.key(provider, indicator), JSON.stringify(value), {
-        expirationTtl: ttl,
+      const response = new Response(JSON.stringify(value), {
+        headers: {
+          'content-type': 'application/json',
+          'cache-control': `public, max-age=${ttl}, s-maxage=${ttl}`,
+        },
       });
+      await caches.default.put(ProviderCache.cacheKey(provider, indicator), response);
     } catch {
-      // KV write failed (quota / network) — non-fatal, just skip caching
+      // Cache write failed (quota / IO) — non-fatal, just skip caching
     }
   }
 }

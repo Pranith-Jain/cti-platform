@@ -14,6 +14,8 @@ import { mitreTechniqueHandler } from './routes/mitre';
 import { asnLookupHandler } from './routes/asn';
 import { breachRangeHandler, breachEmailHandler, breachDomainHandler } from './routes/breach';
 import { urlPreviewHandler } from './routes/url-preview';
+import { takeoverCheckHandler } from './routes/takeover';
+import { threatMapHandler } from './routes/threat-map';
 import { abuseRssHandler } from './routes/abuse-rss';
 import {
   listBriefingsHandler,
@@ -48,6 +50,8 @@ app.get('/api/v1/breach/range', breachRangeHandler);
 app.get('/api/v1/breach/email', breachEmailHandler);
 app.get('/api/v1/breach/domain', breachDomainHandler);
 app.get('/api/v1/url-preview', urlPreviewHandler);
+app.get('/api/v1/takeover/check', takeoverCheckHandler);
+app.get('/api/v1/threat-map', threatMapHandler);
 app.get('/api/v1/briefings/list', listBriefingsHandler);
 app.get('/api/v1/briefings/today', todayBriefingHandler);
 app.post('/api/v1/briefings/build', buildBriefingHandler);

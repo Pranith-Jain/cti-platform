@@ -79,12 +79,10 @@ export default function ExifParse(): JSX.Element {
     setFileName(file.name);
     try {
       const arrayBuf = await file.arrayBuffer();
-      const data = (await exifr.parse(arrayBuf, {
-        gps: true,
-        exif: true,
-        ifd0: true,
-        iptc: true,
-      } as Parameters<typeof exifr.parse>[1])) as ExifData | null;
+      const parseOptions = { gps: true, exif: true, ifd0: true, iptc: true } as unknown as Parameters<
+        typeof exifr.parse
+      >[1];
+      const data = (await exifr.parse(arrayBuf, parseOptions)) as ExifData | null;
 
       if (!data || Object.keys(data).length === 0) {
         setError('No EXIF metadata found in this file. Try a JPEG taken by a camera or phone.');
@@ -140,7 +138,7 @@ export default function ExifParse(): JSX.Element {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <h1 className="text-4xl font-display font-bold mb-2">EXIF Parser</h1>
         <p className="text-slate-600 dark:text-slate-400 mb-4 max-w-2xl">
-          Extract metadata from images — GPS coordinates, camera make/model, capture settings, and more.
+          Extract metadata from images. Includes GPS coordinates, camera make and model, capture settings, and more.
         </p>
       </motion.div>
 

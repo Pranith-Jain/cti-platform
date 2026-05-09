@@ -54,7 +54,7 @@ export default function Domain(): JSX.Element {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <h1 className="text-4xl font-display font-bold mb-2">Domain Lookup</h1>
         <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-2xl">
-          WHOIS, DNS, SPF / DMARC / DKIM / BIMI / MTA-STS, and Certificate Transparency — one query.
+          WHOIS, DNS, SPF, DMARC, DKIM, BIMI, MTA-STS, and Certificate Transparency, all from one query.
         </p>
       </motion.div>
 

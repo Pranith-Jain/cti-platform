@@ -1,0 +1,119 @@
+import type { Context } from 'hono';
+import type { Env } from '../env';
+import { TAKEOVER_FINGERPRINTS, type TakeoverFingerprint } from '../lib/takeover-fingerprints';
+
+const DOMAIN_RE = /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+const MAX_CNAME_HOPS = 5;
+const FETCH_TIMEOUT_MS = 6000;
+
+interface TakeoverResult {
+  domain: string;
+  cname_chain: string[];
+  resolves: boolean;
+  service?: string;
+  vulnerable: boolean;
+  evidence?: string;
+  recommendation?: string;
+  notes: string[];
+}
+
+export async function takeoverCheckHandler(c: Context<{ Bindings: Env }>) {
+  const raw = c.req.query('domain')?.trim().toLowerCase();
+  if (!raw) return c.json({ error: 'missing domain' }, 400);
+  if (!DOMAIN_RE.test(raw)) return c.json({ error: 'invalid domain' }, 400);
+
+  const result: TakeoverResult = {
+    domain: raw,
+    cname_chain: [],
+    resolves: false,
+    vulnerable: false,
+    notes: [],
+  };
+
+  const chain = await resolveCnameChain(raw);
+  result.cname_chain = chain;
+  result.resolves = chain.length > 0;
+
+  if (chain.length === 0) {
+    result.notes.push('No CNAME chain. NXDOMAIN or apex/A-record only — takeover unlikely via this vector.');
+    return c.json(result);
+  }
+
+  const finalCname = chain[chain.length - 1];
+  const match = TAKEOVER_FINGERPRINTS.find((fp) => fp.cname.test(finalCname));
+
+  if (!match) {
+    result.notes.push(`Final CNAME ${finalCname} does not match any known takeover fingerprint.`);
+    return c.json(result);
+  }
+
+  result.service = match.service;
+  result.recommendation = match.recommendation;
+
+  if (match.fingerprint) {
+    const evidence = await checkFingerprint(raw, match);
+    if (evidence) {
+      result.vulnerable = true;
+      result.evidence = evidence;
+      result.notes.push(`Fingerprint matched on ${match.service}.`);
+    } else {
+      result.notes.push(
+        `CNAME points to ${match.service}, but the dangling-state fingerprint was not found — service is probably claimed.`
+      );
+    }
+  } else if (match.status) {
+    result.vulnerable = true;
+    result.notes.push(`CNAME points to ${match.service} (status-based fingerprint).`);
+  }
+
+  return c.json(result);
+}
+
+async function resolveCnameChain(domain: string): Promise<string[]> {
+  const chain: string[] = [];
+  let current = domain;
+  for (let i = 0; i < MAX_CNAME_HOPS; i++) {
+    const next = await dohCname(current);
+    if (!next) break;
+    chain.push(next);
+    if (next === current) break;
+    current = next;
+  }
+  return chain;
+}
+
+async function dohCname(name: string): Promise<string | null> {
+  try {
+    const r = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=CNAME`, {
+      headers: { accept: 'application/dns-json' },
+    });
+    if (!r.ok) return null;
+    const data = (await r.json()) as { Answer?: { type: number; data?: string }[] };
+    const cname = data.Answer?.find((a) => a.type === 5)
+      ?.data?.replace(/\.$/, '')
+      .toLowerCase();
+    return cname ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function checkFingerprint(domain: string, fp: TakeoverFingerprint): Promise<string | null> {
+  for (const scheme of ['https', 'http']) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+      const r = await fetch(`${scheme}://${domain}/`, { signal: ctrl.signal, redirect: 'follow' });
+      clearTimeout(t);
+
+      if (fp.status && r.status === fp.status) return `HTTP ${r.status} on ${scheme}`;
+      const body = (await r.text()).slice(0, 16384);
+      if (fp.fingerprint && body.includes(fp.fingerprint)) {
+        return `Body contains "${fp.fingerprint}" (${scheme})`;
+      }
+    } catch {
+      /* try next scheme */
+    }
+  }
+  return null;
+}

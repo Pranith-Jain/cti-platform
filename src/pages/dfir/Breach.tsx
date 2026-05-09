@@ -293,7 +293,7 @@ function PasswordTab(): JSX.Element {
                 <div>
                   <h2 className="font-display font-bold text-xl mb-1">Not seen in any known breach</h2>
                   <p className="text-sm text-emerald-800 dark:text-emerald-300 mb-3">
-                    Good news — this password was not found in the HIBP database. This does not guarantee security;
+                    Good news, this password was not found in the HIBP database. This does not guarantee security;
                     always use unique, strong passwords with a password manager.
                   </p>
                   <a
@@ -484,7 +484,7 @@ function DomainTab(): JSX.Element {
         <div className="flex gap-3">
           <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <p className="text-sm text-amber-800 dark:text-amber-300">
-            Domain breach data is inherently noisy — many breaches aggregate from many sites. Results show breaches
+            Domain breach data is inherently noisy, since many breaches aggregate from many sites. Results show breaches
             where XposedOrNot identified the domain as involved.
           </p>
         </div>

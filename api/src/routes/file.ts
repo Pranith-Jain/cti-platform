@@ -2,7 +2,12 @@ import type { Context } from 'hono';
 import type { Env } from '../env';
 import { virustotal } from '../providers/virustotal';
 import { hybridanalysis } from '../providers/hybridanalysis';
-import type { ProviderEnv, ProviderResult } from '../providers/types';
+import { malwarebazaar } from '../providers/malwarebazaar';
+import { threatfox } from '../providers/threatfox';
+import { otx } from '../providers/otx';
+import { hashlookup } from '../providers/hashlookup';
+import { tweetfeed } from '../providers/tweetfeed';
+import type { ProviderAdapter, ProviderEnv, ProviderResult } from '../providers/types';
 import { compositeScore } from '../lib/scoring';
 
 interface RequestBody {
@@ -33,19 +38,20 @@ export async function fileAnalyzeHandler(c: Context<{ Bindings: Env }>) {
     VT_API_KEY: c.env.VT_API_KEY ?? '',
     ABUSEIPDB_API_KEY: c.env.ABUSEIPDB_API_KEY ?? '',
     SHODAN_API_KEY: c.env.SHODAN_API_KEY ?? '',
-    GREYNOISE_API_KEY: c.env.GREYNOISE_API_KEY ?? '',
     OTX_API_KEY: c.env.OTX_API_KEY ?? '',
     URLSCAN_API_KEY: c.env.URLSCAN_API_KEY ?? '',
     HYBRID_ANALYSIS_API_KEY: c.env.HYBRID_ANALYSIS_API_KEY ?? '',
-    PULSEDIVE_API_KEY: c.env.PULSEDIVE_API_KEY ?? '',
+    ABUSECH_AUTH_KEY: c.env.ABUSECH_AUTH_KEY,
   };
   const indicator = { type: 'hash' as const, value: hash };
-  const signal = AbortSignal.timeout(5000);
+  const signal = AbortSignal.timeout(8000);
 
-  const [vt, ha] = await Promise.all([
-    virustotal(indicator, env, signal).catch(
-      (err: unknown): ProviderResult => ({
-        source: 'virustotal',
+  const safeCall = async (name: string, fn: ProviderAdapter): Promise<ProviderResult> => {
+    try {
+      return await fn(indicator, env, signal);
+    } catch (err) {
+      return {
+        source: name as ProviderResult['source'],
         status: 'error',
         score: 0,
         verdict: 'unknown',
@@ -54,28 +60,25 @@ export async function fileAnalyzeHandler(c: Context<{ Bindings: Env }>) {
         error: err instanceof Error ? err.message : String(err),
         fetched_at: new Date().toISOString(),
         cached: false,
-      })
-    ),
-    hybridanalysis(indicator, env, signal).catch(
-      (err: unknown): ProviderResult => ({
-        source: 'hybridanalysis',
-        status: 'error',
-        score: 0,
-        verdict: 'unknown',
-        raw_summary: {},
-        tags: [],
-        error: err instanceof Error ? err.message : String(err),
-        fetched_at: new Date().toISOString(),
-        cached: false,
-      })
-    ),
+      };
+    }
+  };
+
+  const providers = await Promise.all([
+    safeCall('virustotal', virustotal),
+    safeCall('hybridanalysis', hybridanalysis),
+    safeCall('malwarebazaar', malwarebazaar),
+    safeCall('threatfox', threatfox),
+    safeCall('otx', otx),
+    safeCall('hashlookup', hashlookup),
+    safeCall('tweetfeed', tweetfeed),
   ]);
 
-  const composite = compositeScore('hash', [vt, ha]);
+  const composite = compositeScore('hash', providers);
   return c.json({
     hash,
     hash_type: hashType,
-    providers: [vt, ha],
+    providers,
     score: composite.score,
     verdict: composite.verdict,
     confidence: composite.confidence,

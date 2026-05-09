@@ -4,11 +4,25 @@ export type ProviderId =
   | 'virustotal'
   | 'abuseipdb'
   | 'shodan'
-  | 'greynoise'
   | 'otx'
   | 'urlscan'
   | 'hybridanalysis'
-  | 'pulsedive';
+  | 'feodo'
+  | 'spamhaus'
+  | 'tor'
+  | 'doh'
+  | 'openphish'
+  | 'threatfox'
+  | 'urlhaus'
+  | 'malwarebazaar'
+  | 'hashlookup'
+  | 'cinsarmy'
+  | 'bitwire'
+  | 'blocklistde'
+  | 'binarydefense'
+  | 'ipsum'
+  | 'phishingArmy'
+  | 'tweetfeed';
 
 export type Verdict = 'clean' | 'suspicious' | 'malicious' | 'unknown';
 
@@ -33,25 +47,41 @@ export interface ProviderEnv {
   VT_API_KEY: string;
   ABUSEIPDB_API_KEY: string;
   SHODAN_API_KEY: string;
-  GREYNOISE_API_KEY: string;
   OTX_API_KEY: string;
   URLSCAN_API_KEY: string;
   HYBRID_ANALYSIS_API_KEY: string;
-  PULSEDIVE_API_KEY: string;
+  ABUSECH_AUTH_KEY?: string;
 }
 
 export type ProviderAdapter = (indicator: Indicator, env: ProviderEnv, signal: AbortSignal) => Promise<ProviderResult>;
 
-export const PROVIDER_TIMEOUT_MS = 5000;
+// Per-provider request timeout. Bumped from 5s to 8s after live observation
+// of OTX timeouts on free-tier lookups. Providers run in parallel, so this
+// only delays the response if EVERY provider is slow.
+export const PROVIDER_TIMEOUT_MS = 8000;
 
 /** Which indicator types each provider supports. Used by the route to skip unsupported. */
 export const PROVIDER_SUPPORT: Record<ProviderId, IndicatorType[]> = {
   virustotal: ['ipv4', 'ipv6', 'domain', 'url', 'hash'],
   abuseipdb: ['ipv4', 'ipv6'],
   shodan: ['ipv4', 'ipv6', 'domain'],
-  greynoise: ['ipv4', 'ipv6'],
   otx: ['ipv4', 'ipv6', 'domain', 'url', 'hash'],
   urlscan: ['url', 'domain'],
   hybridanalysis: ['hash'],
-  pulsedive: ['ipv4', 'ipv6', 'domain', 'url', 'hash'],
+  feodo: ['ipv4', 'ipv6'],
+  spamhaus: ['ipv4'],
+  tor: ['ipv4'],
+  doh: ['domain'],
+  openphish: ['url', 'domain'],
+  threatfox: ['ipv4', 'ipv6', 'domain', 'url', 'hash'],
+  urlhaus: ['url', 'domain', 'ipv4'],
+  malwarebazaar: ['hash'],
+  hashlookup: ['hash'],
+  cinsarmy: ['ipv4'],
+  bitwire: ['ipv4'],
+  blocklistde: ['ipv4'],
+  binarydefense: ['ipv4'],
+  ipsum: ['ipv4'],
+  phishingArmy: ['domain', 'url'],
+  tweetfeed: ['ipv4', 'domain', 'url', 'hash'],
 };

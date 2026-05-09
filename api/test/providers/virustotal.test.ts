@@ -6,11 +6,9 @@ const env: ProviderEnv = {
   VT_API_KEY: 'fake-key',
   ABUSEIPDB_API_KEY: '',
   SHODAN_API_KEY: '',
-  GREYNOISE_API_KEY: '',
   OTX_API_KEY: '',
   URLSCAN_API_KEY: '',
   HYBRID_ANALYSIS_API_KEY: '',
-  PULSEDIVE_API_KEY: '',
 };
 
 beforeEach(() => vi.restoreAllMocks());

@@ -4,7 +4,7 @@ export function StructuredData() {
   // Extract numeric values from stats for schema
   const domainsSecured = stats.find((s) => s.label === 'Domains Secured')?.target || 1300;
   const inboxesMonitored = stats.find((s) => s.label === 'Inboxes Monitored')?.target || 2700;
-  const incidentsInvestigated = stats.find((s) => s.label === 'Incidents Investigated')?.target || 200;
+  const incidentsInvestigated = stats.find((s) => s.label === 'Incidents Investigated')?.target || 250;
 
   const personSchema = {
     '@context': 'https://schema.org',
@@ -14,24 +14,33 @@ export function StructuredData() {
     description: personalInfo.description,
     url: 'https://pranithjain.qzz.io',
     email: personalInfo.email,
-    telephone: personalInfo.phone,
+    // Phone deliberately omitted from public schema. Email + Calendly is the
+    // documented contact channel; surfacing the personal number to scrapers is
+    // unnecessary exposure.
     sameAs: [personalInfo.linkedInUrl, personalInfo.githubUrl, personalInfo.featuredUrl],
     worksFor: {
       '@type': 'Organization',
       name: 'Qubit Capital',
     },
     knowsAbout: [
+      'Digital Forensics and Incident Response',
+      'DFIR Toolkit Engineering',
+      'Detection Engineering',
+      'Threat Intelligence',
       'Email Security Operations',
-      'Email Infrastructure Monitoring',
       'Phishing Investigation',
       'BEC Mitigation',
       'Email Forensics',
-      'IOC Identification',
+      'IOC Analysis',
+      'IOC Extraction',
+      'Subdomain Takeover Detection',
+      'JWT Security',
+      'IDN Homograph Detection',
       'Threat Remediation',
       'SOC Automation',
       'Incident Response Automation',
       'n8n Workflows',
-      'MCP',
+      'MCP Frameworks',
       'Claude Code Integration',
       'Domain Abuse Monitoring',
       'OSINT-driven Threat Intelligence',
@@ -40,17 +49,19 @@ export function StructuredData() {
       'SMTP Authentication Controls',
       'WAF Rule Tuning',
       'SSL/TLS Certificate Management',
-      'Inbox Placement Rate',
       'Email Deliverability Optimization',
       'SPF/DKIM/DMARC Enforcement',
       'Zero Trust Architecture',
       'Cloud Security Monitoring',
-      'Dashboard Engineering',
+      'Cloudflare Workers',
+      'Edge-native Security Tooling',
       'Alert Correlation',
       'Threat Actor TTP Analysis',
       'MITRE ATT&CK Mapping',
+      'STIX 2.1 Ingest',
       'False Positive Reduction',
-      'Security Metrics & Reporting',
+      'AI Security',
+      'NHI Governance',
     ],
     alumniOf: [
       {
@@ -97,21 +108,24 @@ export function StructuredData() {
   const professionalServiceSchema = {
     '@context': 'https://schema.org',
     '@type': 'ProfessionalService',
-    name: `${personalInfo.name} - Email Security Consulting`,
-    description: 'Email security analysis, threat intelligence, and cybersecurity consulting services',
+    name: `${personalInfo.name}, Security Analyst and Detection Engineer`,
+    description:
+      'Security analysis, detection engineering, threat intelligence, email security hardening, and DFIR tooling. Builder of an open, edge-hosted DFIR toolkit on Cloudflare Workers.',
     provider: {
       '@type': 'Person',
       name: personalInfo.name,
     },
     areaServed: 'Global',
     serviceType: [
-      'Email Security Consulting',
+      'Detection Engineering',
       'Threat Intelligence Analysis',
       'Phishing Investigation',
-      'Security Awareness Training',
+      'Email Security Consulting',
       'DMARC Implementation',
+      'DFIR Tooling',
       'SOC Automation',
       'Incident Response Automation',
+      'Edge-native Security Infrastructure',
     ],
     url: 'https://pranithjain.qzz.io',
     email: personalInfo.email,

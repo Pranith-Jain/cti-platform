@@ -14,7 +14,19 @@ export interface IocEntry {
 }
 
 export interface IocFeedSummary {
-  source: 'urlhaus' | 'malwarebazaar' | 'threatfox' | 'feodo' | 'openphish' | 'cisa-kev';
+  source:
+    | 'urlhaus'
+    | 'malwarebazaar'
+    | 'threatfox'
+    | 'feodo'
+    | 'openphish'
+    | 'cisa-kev'
+    | 'blocklist-de'
+    | 'binary-defense'
+    | 'ipsum'
+    | 'phishing-army'
+    | 'tweetfeed'
+    | 'bitwire';
   source_name: string;
   fetched_at: string;
   count: number;
@@ -234,6 +246,101 @@ export function parseCisaKev(body: string): { entries: IocEntry[]; total: number
   return { entries, total };
 }
 
+// ─── Plain-text IP / CIDR blocklists ────────────────────────────────────────
+// Used by: blocklist.de, Binary Defense, bitwire, sslbl. One IP/CIDR per line,
+// optional comment lines starting with #.
+
+const IPV4_LINE_RE = /^(?:\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?\b/;
+
+export function parsePlainTextIps(body: string, cap: number = CAP): IocEntry[] {
+  const entries: IocEntry[] = [];
+  for (const line of body.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith(';')) continue;
+    const match = trimmed.match(IPV4_LINE_RE);
+    if (!match) continue;
+    entries.push({ type: 'ipv4', value: match[0] });
+    if (entries.length >= cap) break;
+  }
+  return entries;
+}
+
+// ─── Ipsum (stamparm) ────────────────────────────────────────────────────────
+// Plain text: "<ip>\t<score>" or just "<ip>". Score is the number of source
+// blocklists that flagged it — higher means stronger consensus.
+
+export function parseIpsum(body: string, cap: number = CAP): IocEntry[] {
+  const entries: IocEntry[] = [];
+  for (const line of body.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const parts = trimmed.split(/\s+/);
+    const ip = parts[0];
+    if (!IPV4_LINE_RE.test(ip)) continue;
+    const score = parts[1];
+    entries.push({ type: 'ipv4', value: ip, context: score ? `consensus: ${score} sources` : undefined });
+    if (entries.length >= cap) break;
+  }
+  return entries;
+}
+
+// ─── Phishing Army domain blocklist ─────────────────────────────────────────
+// Format follows hosts(5) syntax: `0.0.0.0 evil.example.com` or just `evil.example.com`.
+
+const DOMAIN_LINE_RE = /^(?:[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i;
+
+export function parsePhishingArmy(body: string, cap: number = CAP): IocEntry[] {
+  const entries: IocEntry[] = [];
+  for (const line of body.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('!')) continue;
+    // Strip leading "0.0.0.0 " or "127.0.0.1 " from hosts-format lines
+    const candidate = trimmed.replace(/^(?:0\.0\.0\.0|127\.0\.0\.1)\s+/, '').trim();
+    if (!DOMAIN_LINE_RE.test(candidate)) continue;
+    entries.push({ type: 'domain', value: candidate });
+    if (entries.length >= cap) break;
+  }
+  return entries;
+}
+
+// ─── TweetFeed (0xDanielLopez) ──────────────────────────────────────────────
+// Plain CSV without quotes: date,source,type,ioc,tags,info_url
+// `type` is one of: domain, url, ip, sha256, md5, sha1
+// Newest-last → reverse iterate to take newest first.
+
+function tweetfeedType(raw: string): IocType | null {
+  const t = raw.toLowerCase().trim();
+  if (t === 'ip') return 'ipv4';
+  if (t === 'domain') return 'domain';
+  if (t === 'url') return 'url';
+  if (t === 'sha256' || t === 'md5' || t === 'sha1') return 'hash';
+  return null;
+}
+
+export function parseTweetFeed(body: string, cap: number = CAP): IocEntry[] {
+  const entries: IocEntry[] = [];
+  const lines = body
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  // Iterate newest-first
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const cols = lines[i].split(',');
+    if (cols.length < 4) continue;
+    const type = tweetfeedType(cols[2]);
+    if (!type) continue;
+    const value = cols[3];
+    if (!value) continue;
+    const tags = cols[4] || undefined;
+    const reporter = cols[1] || undefined;
+    const context = [reporter, tags].filter(Boolean).join(' | ') || undefined;
+    const timestamp = cols[0] || undefined;
+    entries.push({ type, value, context, timestamp });
+    if (entries.length >= cap) break;
+  }
+  return entries;
+}
+
 // ─── Source metadata ─────────────────────────────────────────────────────────
 
 export type SourceId = IocFeedSummary['source'];
@@ -274,6 +381,36 @@ export const FEED_SOURCES: Record<SourceId, FeedSource> = {
     id: 'cisa-kev',
     name: 'CISA KEV',
     url: 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json',
+  },
+  'blocklist-de': {
+    id: 'blocklist-de',
+    name: 'Blocklist.de (last 48h)',
+    url: 'https://lists.blocklist.de/lists/all.txt',
+  },
+  'binary-defense': {
+    id: 'binary-defense',
+    name: 'Binary Defense Banlist',
+    url: 'https://www.binarydefense.com/banlist.txt',
+  },
+  ipsum: {
+    id: 'ipsum',
+    name: 'Ipsum (3+ source consensus)',
+    url: 'https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt',
+  },
+  'phishing-army': {
+    id: 'phishing-army',
+    name: 'Phishing Army',
+    url: 'https://phishing.army/download/phishing_army_blocklist.txt',
+  },
+  tweetfeed: {
+    id: 'tweetfeed',
+    name: 'TweetFeed (today)',
+    url: 'https://raw.githubusercontent.com/0xDanielLopez/TweetFeed/master/today.csv',
+  },
+  bitwire: {
+    id: 'bitwire',
+    name: 'Bitwire IP Blocklist (outbound)',
+    url: 'https://raw.githubusercontent.com/bitwire-it/ipblocklist/main/outbound.txt',
   },
 };
 
@@ -318,6 +455,20 @@ export function buildSummary(sourceId: SourceId, rawBody: string, cap: number = 
       totalInFeed = r.total;
       break;
     }
+    case 'blocklist-de':
+    case 'binary-defense':
+    case 'bitwire':
+      entries = parsePlainTextIps(rawBody, cap);
+      break;
+    case 'ipsum':
+      entries = parseIpsum(rawBody, cap);
+      break;
+    case 'phishing-army':
+      entries = parsePhishingArmy(rawBody, cap);
+      break;
+    case 'tweetfeed':
+      entries = parseTweetFeed(rawBody, cap);
+      break;
   }
 
   return {

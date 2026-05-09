@@ -6,11 +6,9 @@ const env: ProviderEnv = {
   VT_API_KEY: '',
   ABUSEIPDB_API_KEY: '',
   SHODAN_API_KEY: '',
-  GREYNOISE_API_KEY: '',
   OTX_API_KEY: '',
   URLSCAN_API_KEY: 'fake-key',
   HYBRID_ANALYSIS_API_KEY: '',
-  PULSEDIVE_API_KEY: '',
 };
 
 beforeEach(() => vi.restoreAllMocks());
@@ -66,8 +64,10 @@ describe('urlscan adapter', () => {
       new Response('unauthorized', { status: 401, statusText: 'Unauthorized' })
     );
     const r = await urlscan({ type: 'url', value: 'https://example.com' }, env, AbortSignal.timeout(2000));
-    expect(r.status).toBe('error');
-    expect(r.error).toMatch(/401/);
+    // 401/403 are now treated as graceful no-access (membership / key tier issues),
+    // so the IOC verdict isn't dragged down by a permission problem.
+    expect(r.status).toBe('ok');
+    expect(r.tags).toContain('urlscan-no-access');
   });
 
   it('returns unsupported for ipv4 indicator', async () => {

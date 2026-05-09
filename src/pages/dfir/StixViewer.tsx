@@ -1,0 +1,409 @@
+import { useCallback, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, FileJson, Trash2, Copy, Check, Filter } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  Handle,
+  Position,
+  type Node,
+  type Edge,
+  type NodeTypes,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import {
+  type StixBundle,
+  type StixObject,
+  type StixObjectType,
+  STIX_TYPE_COLOR,
+  bundleStats,
+  bundleToGraph,
+} from '../../lib/dfir/stix-graph';
+
+const SAMPLE_BUNDLE: StixBundle = {
+  type: 'bundle',
+  id: 'bundle--demo-pranithjain',
+  spec_version: '2.1',
+  objects: [
+    {
+      type: 'threat-actor',
+      id: 'threat-actor--apt-demo',
+      name: 'APT Demo',
+      labels: ['nation-state', 'espionage'],
+      created: '2026-01-01T00:00:00Z',
+      modified: '2026-05-01T00:00:00Z',
+      description: 'Demo threat actor for portfolio walkthrough.',
+    },
+    {
+      type: 'campaign',
+      id: 'campaign--phish-wave-2026',
+      name: 'Phish Wave 2026',
+      description: 'Hypothetical phishing campaign targeting fintech inboxes.',
+    },
+    {
+      type: 'malware',
+      id: 'malware--demo-loader',
+      name: 'DemoLoader',
+      labels: ['loader', 'trojan'],
+    },
+    {
+      type: 'attack-pattern',
+      id: 'attack-pattern--T1566.001',
+      name: 'Spearphishing Attachment',
+      description: 'MITRE ATT&CK T1566.001',
+    },
+    {
+      type: 'indicator',
+      id: 'indicator--ip-1',
+      name: 'C2 IP 198.51.100.7',
+      pattern: "[ipv4-addr:value = '198.51.100.7']",
+      labels: ['malicious-activity'],
+    },
+    {
+      type: 'indicator',
+      id: 'indicator--domain-1',
+      name: 'phish-demo.example',
+      pattern: "[domain-name:value = 'phish-demo.example']",
+    },
+    {
+      type: 'vulnerability',
+      id: 'vulnerability--cve-2026-99999',
+      name: 'CVE-2026-99999',
+      description: 'Hypothetical demo vulnerability used by the campaign.',
+    },
+    {
+      type: 'tool',
+      id: 'tool--cobalt-demo',
+      name: 'CobaltDemoStrike',
+    },
+    {
+      type: 'relationship',
+      id: 'relationship--ta-uses-malware',
+      source_ref: 'threat-actor--apt-demo',
+      target_ref: 'malware--demo-loader',
+      relationship_type: 'uses',
+    },
+    {
+      type: 'relationship',
+      id: 'relationship--ta-attributed-campaign',
+      source_ref: 'campaign--phish-wave-2026',
+      target_ref: 'threat-actor--apt-demo',
+      relationship_type: 'attributed-to',
+    },
+    {
+      type: 'relationship',
+      id: 'relationship--campaign-uses-attack-pattern',
+      source_ref: 'campaign--phish-wave-2026',
+      target_ref: 'attack-pattern--T1566.001',
+      relationship_type: 'uses',
+    },
+    {
+      type: 'relationship',
+      id: 'relationship--ind-indicates-campaign',
+      source_ref: 'indicator--ip-1',
+      target_ref: 'campaign--phish-wave-2026',
+      relationship_type: 'indicates',
+    },
+    {
+      type: 'relationship',
+      id: 'relationship--ind-domain-indicates-malware',
+      source_ref: 'indicator--domain-1',
+      target_ref: 'malware--demo-loader',
+      relationship_type: 'indicates',
+    },
+    {
+      type: 'relationship',
+      id: 'relationship--malware-targets-vuln',
+      source_ref: 'malware--demo-loader',
+      target_ref: 'vulnerability--cve-2026-99999',
+      relationship_type: 'targets',
+    },
+    {
+      type: 'relationship',
+      id: 'relationship--ta-uses-tool',
+      source_ref: 'threat-actor--apt-demo',
+      target_ref: 'tool--cobalt-demo',
+      relationship_type: 'uses',
+    },
+  ],
+};
+
+function StixNodeBox({
+  data,
+  selected,
+}: {
+  data: { label: string; stixType: StixObjectType };
+  selected?: boolean;
+}): JSX.Element {
+  const color = STIX_TYPE_COLOR[data.stixType] ?? '#94a3b8';
+  return (
+    <div
+      className={`rounded-lg border-2 px-3 py-2 text-xs font-mono shadow-sm bg-white dark:bg-slate-900 ${
+        selected ? 'ring-2 ring-brand-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950' : ''
+      }`}
+      style={{ borderColor: color, minWidth: 140, maxWidth: 200 }}
+    >
+      <Handle type="target" position={Position.Top} style={{ background: color }} />
+      <div className="text-[10px] uppercase tracking-wider font-bold mb-0.5" style={{ color }}>
+        {data.stixType}
+      </div>
+      <div className="text-slate-900 dark:text-slate-100 break-words leading-tight">{data.label}</div>
+      <Handle type="source" position={Position.Bottom} style={{ background: color }} />
+    </div>
+  );
+}
+
+const NODE_TYPES: NodeTypes = { stixNode: StixNodeBox };
+
+export default function StixViewer(): JSX.Element {
+  const [input, setInput] = useState('');
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [filterTypes, setFilterTypes] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<StixObject | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const bundle = useMemo<StixBundle | null>(() => {
+    if (!input.trim()) return null;
+    try {
+      const parsed = JSON.parse(input) as unknown;
+      if (typeof parsed !== 'object' || parsed === null) throw new Error('Top-level must be an object');
+      const obj = parsed as Record<string, unknown>;
+      const objects = Array.isArray(obj.objects) ? (obj.objects as StixObject[]) : null;
+      if (!objects) throw new Error('Bundle has no "objects" array');
+      setParseError(null);
+      return {
+        type: typeof obj.type === 'string' ? obj.type : 'bundle',
+        id: typeof obj.id === 'string' ? obj.id : undefined,
+        spec_version: typeof obj.spec_version === 'string' ? obj.spec_version : undefined,
+        objects,
+      };
+    } catch (e) {
+      setParseError((e as Error).message);
+      return null;
+    }
+  }, [input]);
+
+  const stats = useMemo(() => (bundle ? bundleStats(bundle) : {}), [bundle]);
+  const types = useMemo(() => Object.keys(stats).sort(), [stats]);
+
+  const { nodes, edges } = useMemo(() => {
+    if (!bundle) return { nodes: [] as Node[], edges: [] as Edge[] };
+    const g = bundleToGraph(bundle, filterTypes);
+    return { nodes: g.nodes as unknown as Node[], edges: g.edges as unknown as Edge[] };
+  }, [bundle, filterTypes]);
+
+  const onNodeClick = useCallback((_e: unknown, node: Node) => {
+    const raw = (node.data as { raw?: StixObject } | undefined)?.raw ?? null;
+    setSelected(raw);
+  }, []);
+
+  const toggleType = (t: string) => {
+    setFilterTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+  };
+
+  const loadSample = () => {
+    setInput(JSON.stringify(SAMPLE_BUNDLE, null, 2));
+    setSelected(null);
+    setFilterTypes(new Set());
+  };
+
+  const clearAll = () => {
+    setInput('');
+    setSelected(null);
+    setFilterTypes(new Set());
+  };
+
+  const copySelected = async () => {
+    if (!selected) return;
+    await navigator.clipboard.writeText(JSON.stringify(selected, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-8 py-12 text-slate-900 dark:text-slate-100">
+      <Link
+        to="/dfir"
+        className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 mb-8 font-mono"
+      >
+        <ArrowLeft size={14} /> /dfir
+      </Link>
+
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+        <h1 className="text-4xl font-display font-bold mb-2">STIX Viewer</h1>
+        <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-3xl">
+          Paste a STIX 2.1 bundle and explore the relationship graph between threat actors, campaigns, malware, attack
+          patterns, indicators, and more. Everything parses in your browser. Nothing is uploaded.
+        </p>
+      </motion.div>
+
+      <div className="grid lg:grid-cols-[400px_1fr] gap-6">
+        {/* Left: input + filter + selected detail */}
+        <aside className="space-y-4">
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="stix-input" className="text-xs font-mono uppercase tracking-wider text-slate-500">
+                STIX 2.1 Bundle (JSON)
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={loadSample}
+                  className="inline-flex items-center gap-1 text-xs font-mono text-brand-600 dark:text-brand-400 hover:underline"
+                >
+                  <FileJson size={12} /> sample
+                </button>
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="inline-flex items-center gap-1 text-xs font-mono text-slate-500 hover:text-rose-600 dark:hover:text-rose-400"
+                >
+                  <Trash2 size={12} /> clear
+                </button>
+              </div>
+            </div>
+            <textarea
+              id="stix-input"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder='{ "type": "bundle", "objects": [...] }'
+              rows={12}
+              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-mono text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
+              spellCheck={false}
+            />
+            {parseError && <p className="mt-2 text-xs font-mono text-rose-600 dark:text-rose-400">{parseError}</p>}
+          </section>
+
+          {bundle && (
+            <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+              <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-slate-500 mb-3">
+                <Filter size={12} /> Types ({types.length})
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {types.map((t) => {
+                  const active = filterTypes.size === 0 || filterTypes.has(t);
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => toggleType(t)}
+                      className={`text-xs font-mono px-2 py-1 rounded border transition-colors ${
+                        active
+                          ? 'border-brand-500/50 text-slate-900 dark:text-slate-100 bg-brand-50 dark:bg-brand-900/20'
+                          : 'border-slate-200 dark:border-slate-800 text-slate-500'
+                      }`}
+                    >
+                      {t} <span className="text-slate-500">{stats[t]}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {filterTypes.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setFilterTypes(new Set())}
+                  className="mt-3 text-xs font-mono text-brand-600 dark:text-brand-400 hover:underline"
+                >
+                  reset filters
+                </button>
+              )}
+            </section>
+          )}
+
+          {selected && (
+            <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs font-mono uppercase tracking-wider text-slate-500">Selected object</div>
+                <button
+                  type="button"
+                  onClick={copySelected}
+                  className="inline-flex items-center gap-1 text-xs font-mono text-brand-600 dark:text-brand-400 hover:underline"
+                >
+                  {copied ? <Check size={12} /> : <Copy size={12} />}
+                  {copied ? 'copied' : 'copy json'}
+                </button>
+              </div>
+              <div
+                className="text-[10px] uppercase tracking-wider font-bold mb-1"
+                style={{ color: STIX_TYPE_COLOR[selected.type as StixObjectType] ?? '#94a3b8' }}
+              >
+                {selected.type}
+              </div>
+              <div className="font-display font-semibold text-slate-900 dark:text-slate-100 mb-2 break-words">
+                {selected.name ?? selected.value ?? selected.id}
+              </div>
+              <pre className="font-mono text-[11px] text-slate-700 dark:text-slate-300 overflow-x-auto whitespace-pre-wrap break-all max-h-96">
+                {JSON.stringify(selected, null, 2)}
+              </pre>
+            </section>
+          )}
+        </aside>
+
+        {/* Right: graph */}
+        <div
+          className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 overflow-hidden"
+          style={{ height: '70vh', minHeight: 520 }}
+        >
+          {bundle && nodes.length > 0 ? (
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={NODE_TYPES}
+              onNodeClick={onNodeClick}
+              fitView
+              minZoom={0.2}
+              maxZoom={2}
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background gap={24} size={1} />
+              <Controls position="bottom-right" showInteractive={false} />
+              <MiniMap
+                pannable
+                zoomable
+                maskColor="rgba(15, 23, 42, 0.6)"
+                nodeColor={(n) =>
+                  STIX_TYPE_COLOR[(n.data as { stixType?: StixObjectType })?.stixType ?? 'unknown'] ?? '#94a3b8'
+                }
+                style={{ height: 80 }}
+              />
+            </ReactFlow>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center text-slate-500 font-mono text-sm gap-3 p-8 text-center">
+              {bundle ? (
+                <>
+                  <div>No nodes match the current filter.</div>
+                  <button
+                    type="button"
+                    onClick={() => setFilterTypes(new Set())}
+                    className="text-brand-600 dark:text-brand-400 hover:underline"
+                  >
+                    reset filters
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div>Paste a STIX 2.1 bundle on the left, or load the sample.</div>
+                  <button
+                    type="button"
+                    onClick={loadSample}
+                    className="inline-flex items-center gap-1 text-brand-600 dark:text-brand-400 hover:underline"
+                  >
+                    <FileJson size={14} /> load demo bundle
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

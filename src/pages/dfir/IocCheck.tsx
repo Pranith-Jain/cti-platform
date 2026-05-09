@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Search } from 'lucide-react';
+import { ArrowLeft, Search, ShieldAlert, ShieldCheck, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { detectType, detectHashSubtype } from '../../lib/dfir/indicator-client';
 import { streamIoc } from '../../lib/dfir/api';
@@ -9,6 +9,55 @@ import { IocResultRow } from '../../components/dfir/IocResultRow';
 import { VerdictChip } from '../../components/dfir/VerdictChip';
 import { recordHistory } from '../../lib/dfir/history';
 import { RelatedActors } from '../../components/dfir/RelatedActors';
+
+interface NextStep {
+  tone: 'malicious' | 'suspicious' | 'clean';
+  title: string;
+  steps: string[];
+}
+
+function buildNextSteps(verdict: string, type: string): NextStep {
+  if (verdict === 'malicious') {
+    const steps = [
+      'Block at the perimeter (firewall, DNS sinkhole, mail-gateway, or proxy ACL) immediately.',
+      'Search SIEM and proxy logs for the last 30 days of matches; pivot on any source IPs that touched it.',
+      'Scope the blast radius: which hosts, which users, which sessions resolved or connected to it?',
+    ];
+    if (type === 'url' || type === 'domain') {
+      steps.push('Submit the URL to URLhaus or PhishTank to help other defenders.');
+      steps.push('Check if your DMARC policy is set to reject — phishing campaigns abuse weak SPF/DMARC.');
+    }
+    if (type === 'ipv4' || type === 'ipv6') {
+      steps.push('Add to your perimeter blocklist; consider rate-limiting the entire ASN if abuse is widespread.');
+    }
+    if (type === 'hash' || type === 'md5' || type === 'sha1' || type === 'sha256') {
+      steps.push('Hunt the hash across EDR. Quarantine endpoints if matches found.');
+      steps.push('Pull a sample to a sandbox (Hybrid Analysis, ANY.RUN) for behavioural confirmation.');
+    }
+    return { tone: 'malicious', title: 'Confirmed malicious — recommended actions', steps };
+  }
+  if (verdict === 'suspicious') {
+    return {
+      tone: 'suspicious',
+      title: 'Mixed signals — recommended actions',
+      steps: [
+        "Treat as untrusted until cleared. Don't auto-allow if it appears in user-reported phishing or alerts.",
+        'Cross-check with other tools: Domain Lookup for registration age, Subdomain Takeover for dangling pointers, URL Preview for content inspection.',
+        'Search your logs for prior interactions; one signal in isolation is rarely enough to act on.',
+        'Re-run in 24h — providers update their feeds frequently and a "suspicious" verdict often hardens or clears within a day.',
+      ],
+    };
+  }
+  return {
+    tone: 'clean',
+    title: 'No active threat signal — operational notes',
+    steps: [
+      'Clean now does not mean clean tomorrow. Re-check periodically if this indicator stays in scope.',
+      'A clean verdict on a freshly-registered domain or recently-rotated IP is weaker evidence than for a long-established asset.',
+      'If you reached this tool because of an alert, document the false-positive context so future analysts have the trail.',
+    ],
+  };
+}
 
 export default function IocCheck(): JSX.Element {
   const [searchParams] = useSearchParams();
@@ -58,7 +107,8 @@ export default function IocCheck(): JSX.Element {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <h1 className="text-4xl font-display font-bold mb-2">IOC Checker</h1>
         <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-2xl">
-          IPs, domains, URLs, and file hashes — checked across 8 threat intel sources in parallel.
+          Check IPs, domains, URLs, and file hashes against 24 threat intelligence sources in parallel. Streaming
+          verdicts, weighted scoring, and tagged evidence for every IOC.
         </p>
       </motion.div>
 
@@ -100,25 +150,51 @@ export default function IocCheck(): JSX.Element {
         )}
       </form>
 
-      {summary && (
-        <section className="mb-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
-          <div className="flex items-baseline justify-between mb-2">
-            <h2 className="font-display font-bold text-2xl">Composite verdict</h2>
-            <VerdictChip verdict={summary.verdict} />
-          </div>
-          <div className="flex items-center gap-4 font-mono text-sm text-slate-600 dark:text-slate-400">
-            <span>
-              score: <span className="text-slate-900 dark:text-slate-100">{summary.score}</span> / 100
-            </span>
-            <span>
-              confidence: <span className="text-slate-900 dark:text-slate-100">{summary.confidence}</span>
-            </span>
-            <span>
-              {summary.contributing} of {eligible.length} responding
-            </span>
-          </div>
-        </section>
-      )}
+      {summary &&
+        (() => {
+          const next = buildNextSteps(summary.verdict, detectedType);
+          const toneStyles =
+            next.tone === 'malicious'
+              ? 'border-rose-300 bg-rose-50/50 dark:border-rose-800 dark:bg-rose-900/15 text-rose-900 dark:text-rose-200'
+              : next.tone === 'suspicious'
+                ? 'border-amber-300 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/15 text-amber-900 dark:text-amber-200'
+                : 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-900/15 text-emerald-900 dark:text-emerald-200';
+          const Icon = next.tone === 'malicious' ? ShieldAlert : next.tone === 'suspicious' ? AlertCircle : ShieldCheck;
+          return (
+            <>
+              <section className="mb-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
+                <div className="flex items-baseline justify-between mb-2">
+                  <h2 className="font-display font-bold text-2xl">Composite verdict</h2>
+                  <VerdictChip verdict={summary.verdict} />
+                </div>
+                <div className="flex items-center gap-4 font-mono text-sm text-slate-600 dark:text-slate-400">
+                  <span>
+                    score: <span className="text-slate-900 dark:text-slate-100">{summary.score}</span> / 100
+                  </span>
+                  <span>
+                    confidence: <span className="text-slate-900 dark:text-slate-100">{summary.confidence}</span>
+                  </span>
+                  <span>
+                    {summary.contributing} of {eligible.length} responding
+                  </span>
+                </div>
+              </section>
+              <section className={`mb-8 rounded-2xl border p-5 ${toneStyles}`}>
+                <h3 className="font-display font-semibold text-base mb-3 inline-flex items-center gap-2">
+                  <Icon size={16} aria-hidden="true" /> {next.title}
+                </h3>
+                <ul className="space-y-1.5 text-sm leading-relaxed">
+                  {next.steps.map((s) => (
+                    <li key={s} className="flex gap-2">
+                      <span className="opacity-50 select-none">→</span>
+                      <span>{s}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </>
+          );
+        })()}
 
       {(streaming || results.length > 0) && (
         <section>

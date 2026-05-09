@@ -10,11 +10,10 @@ export interface Env {
   VT_API_KEY?: string;
   ABUSEIPDB_API_KEY?: string;
   SHODAN_API_KEY?: string;
-  GREYNOISE_API_KEY?: string;
   OTX_API_KEY?: string;
   URLSCAN_API_KEY?: string;
   HYBRID_ANALYSIS_API_KEY?: string;
-  PULSEDIVE_API_KEY?: string;
+  ABUSECH_AUTH_KEY?: string;
 }
 
 const SECURITY_HEADERS: Record<string, string> = {

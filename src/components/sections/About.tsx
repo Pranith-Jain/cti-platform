@@ -1,13 +1,9 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { Terminal, ArrowRight } from 'lucide-react';
 import { stats } from '../../data/content';
 
-const CYBERSECURITY_IMAGE_URL =
-  'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=900';
-
 export function About() {
-  const [imageError, setImageError] = useState(false);
-
   return (
     <section id="about" className="mt-32 scroll-mt-24">
       <div className="grid items-center gap-16 lg:grid-cols-2">
@@ -26,12 +22,8 @@ export function About() {
           </h2>
           <div className="mt-8 space-y-6 text-lg text-slate-700 dark:text-slate-300 leading-relaxed">
             <p>
-              My approach starts with the alert. I&apos;ve investigated{' '}
-              <span className="font-bold text-slate-900 dark:text-white">
-                250+ phishing, BEC, and malware incidents
-              </span>
-              —from suspicious email headers to payload analysis. Each investigation taught me how attackers think, what
-              patterns they follow, and where defenses fail.
+              My approach starts with the alert. Every phishing, BEC, and malware investigation taught me how attackers
+              think, what patterns they follow, and where defenses fail.
             </p>
             <p>
               That hands-on experience shaped how I build automation. Using{' '}
@@ -40,12 +32,21 @@ export function About() {
               across campaigns, and continuously tune detection to minimize false positives.
             </p>
             <p>
+              I also ship the tools I use. There's a free DFIR toolkit on Cloudflare Workers that anyone can try.{' '}
+              <Link
+                to="/dfir"
+                className="text-brand-700 dark:text-brand-400 font-semibold underline-offset-4 hover:underline inline-flex items-center gap-1"
+              >
+                Try it at /dfir <ArrowRight size={14} />
+              </Link>
+              .
+            </p>
+            <p>
               Currently expanding into{' '}
               <span className="text-brand-700 dark:text-brand-400 font-semibold">
                 AI security and NHI (Non-Human Identity) governance
               </span>
-              , applying the same investigation-first mindset to emerging attack vectors. My work bridges technical
-              controls with business-critical trust signals across 150+ global brands.
+              , applying the same investigation-first mindset to emerging attack vectors.
             </p>
             <p>
               I am currently seeking new security challenges where I can leverage my expertise in email defense,
@@ -70,32 +71,50 @@ export function About() {
           </motion.div>
         </motion.div>
 
-        {/* Right Content - Image */}
+        {/* Right Content - On-brand visual */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.1 }}
           className="relative"
+          aria-hidden="true"
         >
-          <div className="glass relative z-10 overflow-hidden rounded-[3rem] p-2 shadow-2xl">
-            {!imageError ? (
-              <img
-                src={CYBERSECURITY_IMAGE_URL}
-                alt="Pranith Jain — security analyst portfolio"
-                loading="lazy"
-                decoding="async"
-                onError={() => setImageError(true)}
-                className="rounded-[2.5rem] grayscale hover:grayscale-0 hover:scale-[1.02] transition-all duration-700 w-full"
-              />
-            ) : (
-              <div className="rounded-[2.5rem] w-full aspect-video bg-gradient-to-br from-brand-500/20 to-slate-800/20 flex items-center justify-center">
-                <div className="text-center p-8">
-                  <div className="text-4xl mb-2">🛡️</div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">Cybersecurity Visualization</p>
-                </div>
+          <div className="glass relative z-10 overflow-hidden rounded-[3rem] p-8 shadow-2xl bg-gradient-to-br from-slate-900 to-brand-950">
+            {/* Terminal-style mock showing the toolkit in action */}
+            <div className="rounded-2xl bg-slate-950 p-5 font-mono text-xs text-slate-300 shadow-inner border border-white/5">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-500/80" />
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
+                <span className="ml-3 text-slate-500">pranithjain.qzz.io/dfir</span>
               </div>
-            )}
+              <div className="space-y-1.5">
+                <div className="text-slate-500">$ curl /api/v1/ioc/check?indicator=8.8.8.8</div>
+                <div className="text-emerald-400">event: meta</div>
+                <div>{'{"providers": ["virustotal","abuseipdb","feodo",...]}'}</div>
+                <div className="text-emerald-400">event: result</div>
+                <div className="text-slate-400">virustotal · clean · 0/92</div>
+                <div className="text-slate-400">abuseipdb · clean · 0%</div>
+                <div className="text-slate-400">feodo · clean · 0/list</div>
+                <div className="text-slate-400">spamhaus · clean · 0/1626</div>
+                <div className="text-slate-500">…14 more sources…</div>
+                <div className="text-emerald-400">event: done</div>
+                <div>{'{"verdict":"clean","contributing":18}'}</div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-between">
+              <div className="text-xs uppercase tracking-[0.2em] text-brand-300 font-semibold">Live Demo</div>
+              <Link
+                to="/dfir"
+                className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-1.5 text-xs font-mono text-white hover:bg-white/20 transition"
+                aria-label="Open the DFIR toolkit"
+              >
+                <Terminal size={12} aria-hidden="true" />
+                /dfir
+              </Link>
+            </div>
           </div>
           <div className="absolute -right-8 -top-8 -z-10 h-64 w-64 rounded-full bg-brand-500/10 blur-3xl"></div>
           <div className="absolute -bottom-8 -left-8 -z-10 h-40 w-40 rounded-full bg-emerald-500/10 blur-2xl"></div>

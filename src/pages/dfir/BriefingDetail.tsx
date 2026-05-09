@@ -333,7 +333,7 @@ export default function BriefingDetail(): JSX.Element {
       {/* Footer */}
       <footer className="mt-12 pt-6 border-t border-slate-200 dark:border-slate-800 text-xs font-mono text-slate-500">
         <p>
-          Sources: {briefing.sources.join(', ') || 'none'}. Reference only — verify all indicators in your own
+          Sources: {briefing.sources.join(', ') || 'none'}. Reference only. Verify all indicators in your own
           environment. Generated {new Date(briefing.generated_at).toUTCString()}.
         </p>
       </footer>

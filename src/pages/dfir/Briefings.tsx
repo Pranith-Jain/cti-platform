@@ -146,7 +146,7 @@ export default function Briefings(): JSX.Element {
         )}
         {!loading && !error && filtered.length === 0 && (
           <p className="text-sm font-mono text-slate-400 py-10 text-center">
-            No briefings yet — the first daily briefing publishes at 00:05 UTC tomorrow.
+            No briefings yet. The first daily briefing publishes at 00:05 UTC tomorrow.
           </p>
         )}
 
@@ -213,7 +213,7 @@ export default function Briefings(): JSX.Element {
       <div className="mt-16 flex items-center gap-3 p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60">
         <Rss size={16} className="text-slate-400 shrink-0" />
         <p className="text-sm font-mono text-slate-500">
-          RSS feed coming soon — subscribe to get briefings in your favourite reader.
+          RSS feed coming soon. Subscribe to get briefings in your favourite reader.
         </p>
       </div>
     </div>

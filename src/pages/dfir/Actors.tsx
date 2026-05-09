@@ -61,10 +61,35 @@ export default function Actors(): JSX.Element {
       )}
 
       <p className="mt-12 text-xs font-mono text-slate-500">
-        Showing {filtered.length} of {threatActors.length} actors. Have a STIX 2.1 bundle to ingest? POST it (raw JSON
-        body, max 1MB) to <code>/api/v1/cti/parse</code> — top-level shape:{' '}
-        <code>{'{ "type": "bundle", "objects": [ ... ] }'}</code>.
+        Showing {filtered.length} of {threatActors.length} actors.
       </p>
+
+      <section className="mt-6 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-5">
+        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 mb-2">
+          Have a STIX 2.1 bundle?
+        </h2>
+        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+          Open the{' '}
+          <Link to="/dfir/stix" className="text-brand-600 dark:text-brand-400 hover:underline font-semibold">
+            STIX Viewer
+          </Link>{' '}
+          to paste a bundle and explore the relationship graph in your browser.
+        </p>
+        <details className="mt-3 text-xs font-mono text-slate-600 dark:text-slate-400">
+          <summary className="cursor-pointer hover:text-brand-600 dark:hover:text-brand-400">
+            API for power users
+          </summary>
+          <div className="mt-2 pl-3 border-l-2 border-slate-300 dark:border-slate-700">
+            POST a raw JSON body (max 1MB) to{' '}
+            <code className="bg-slate-200 dark:bg-slate-800 px-1 rounded">/api/v1/cti/parse</code> to extract actors
+            programmatically. Top-level shape:{' '}
+            <code className="bg-slate-200 dark:bg-slate-800 px-1 rounded">
+              {'{ "type": "bundle", "objects": [ ... ] }'}
+            </code>
+            .
+          </div>
+        </details>
+      </section>
     </div>
   );
 }

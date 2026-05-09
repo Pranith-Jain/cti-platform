@@ -1,8 +1,11 @@
 export const personalInfo = {
   name: 'Pranith Jain',
-  title: 'Security Analyst – Threat Intel, Security Automation',
+  // Long form, used in headlines, SEO, and structured-data schema.
+  title: 'Security Analyst & Detection Engineer. Threat Intel, Email Defense, Edge-native Tooling',
+  // Short form, used in tight UI like the profile card to avoid overflow.
+  shortTitle: 'Security Analyst & Detection Engineer',
   headline: '"Most phishing investigations end at the alert. Mine start there."',
-  description: `I'm Pranith Jain — I investigate phishing incidents starting at the alert: suspicious emails, BEC attempts, and malware payloads. Currently defending communication integrity for 150+ global brands, I've expanded my focus into AI security and NHI (Non-Human Identity) governance, building automated pipelines that correlate threat intelligence at scale.`,
+  description: `a security analyst and detection engineer. I investigate phishing, BEC, and malware incidents for 150+ global brands, and ship the tools I use. There's a free DFIR toolkit on Cloudflare Workers (24 tools, 22 threat intel sources, no signup) at /dfir. Currently expanding into AI security and NHI (Non-Human Identity) governance.`,
   currentFocus: 'Threat intel, email defense, and cloud identity security',
   currentlyLearning: 'NHI Security & Advanced Threat Hunting',
   availability: 'Open for Consultations & Strategy Calls',
@@ -136,7 +139,7 @@ export const experiences = [
     title: 'Security Analyst – Threat Intel, Security Automation',
     company: 'Qubit Capital',
     location: 'Remote',
-    period: 'Jul 2024 — Present',
+    period: 'Jul 2024 - Present',
     badge: '250+ Incidents • <75min Response',
     sections: [
       {
@@ -180,7 +183,7 @@ export const experiences = [
     title: 'Tech Associate – Infrastructure & Email Security',
     company: 'UnifyCX',
     location: 'Mysore',
-    period: 'Sep 2023 — Jul 2024',
+    period: 'Sep 2023 - Jul 2024',
     items: [
       'Restored 95% inbox placement across 200+ enterprise domains by resolving IP blacklisting and strengthening SMTP authentication controls, reducing delivery failures by over 40%.',
       'Hardened 60+ web assets by removing malware, tuning WAF rules, and preventing XSS exploitation, achieving a 98% remediation success rate.',
@@ -191,7 +194,7 @@ export const experiences = [
     title: 'Associate Software Developer',
     company: 'TekWorks',
     location: 'Vijayawada, India',
-    period: 'Mar 2023 — Sep 2023',
+    period: 'Mar 2023 - Sep 2023',
     items: [
       'Engineered "Arogya", a comprehensive Hospital Management System, improving patient record accessibility and streamlining administrative workflows.',
       'Developed responsive web interfaces and integrated RESTful APIs to enhance user experience and system interoperability.',
@@ -202,7 +205,7 @@ export const experiences = [
     title: 'AIML Intern',
     company: 'AiROBOSOFT',
     location: 'Remote',
-    period: 'Jul 2022 — Aug 2022',
+    period: 'Jul 2022 - Aug 2022',
     items: [
       'Developed machine learning models for predictive analytics using Python.',
       'Processed and analyzed large datasets using Scikit-learn and Pandas.',
@@ -224,11 +227,8 @@ export const certifications = {
     { title: 'Data Loss Prevention (DLP) Survival Guide', issuer: 'Fortra', year: '2026', featured: true },
     { title: 'Social Media Intelligence (SOCMINT)', issuer: 'CyberSudo', year: 'Mar 2026', featured: true },
     { title: 'Certified AI Security Expert', issuer: 'Virtual Cyber Labs', year: 'Mar 2026', featured: true },
-    { title: 'Certified AI Security Professional (CAISP)', issuer: 'CertNexus', year: '2025', featured: true },
-    { title: 'Advanced Threat Hunting Specialist', issuer: 'InfoSec Institute', year: '2025', featured: true },
   ],
   training: [
-    { title: 'OWASP LLM Security Top 10 Training', issuer: 'OWASP Foundation', year: '2025' },
     { title: 'IntelVan 2025 Threat Intelligence & OSINT Masterclass', issuer: 'The OSINTion', year: '2025' },
     { title: 'CTRL. ALT. ACT. (Advanced OSINT Training)', issuer: 'Cyber Secured India', year: '2025' },
     { title: 'OpSec – Privacy for Security Professionals', issuer: 'Just Hacking', year: '2025' },
@@ -258,16 +258,18 @@ interface Project {
   tags: string[];
   github?: string;
   badge?: string;
+  /** Internal SPA route (rendered as <Link>) — e.g. "/dfir". */
   href?: string;
-  link?: string;
+  /** External URL (rendered as <a target=_blank>) — e.g. "https://example.com". */
+  externalUrl?: string;
 }
 
 export const projects: Project[] = [
   {
     title: 'DFIR Toolkit',
     description:
-      'A live, Cloudflare-Workers-hosted security toolkit at /dfir on this site. IOC checker (8 threat-intel providers via SSE), domain lookup (RDAP + DoH + email-auth), phishing email analyzer, exposure scanner, file hash analyzer, knowledge base, threat actor catalog, and privacy/browser-fingerprint inspector. Same-origin API at /api/v1/* with rate limiting, security headers, and STIX 2.1 ingest.',
-    tags: ['Cloudflare Workers', 'Hono', 'TypeScript', 'SSE', 'STIX 2.1', 'May 2026 – Present'],
+      'A live, Cloudflare-Workers-hosted security toolkit at /dfir on this site. 22 tools across IOC analysis (24 threat intel sources via SSE, including VirusTotal, AbuseIPDB, Shodan, OTX, URLScan, the abuse.ch trio of ThreatFox, URLhaus, MalwareBazaar, plus Feodo, Spamhaus, Tor exits, OpenPhish, PhishStats, CINS Army, CIRCL Hashlookup, Cloudflare DoH, Quad9, Hybrid Analysis, Bitwire, Blocklist.de, Binary Defense, Ipsum, Phishing Army, and TweetFeed), IOC extraction from text, subdomain takeover detection across 15 service fingerprints, STIX 2.1 viewer with interactive relationship graph, JWT inspection, IDN homograph detection, domain lookup with RDAP, DoH, and email auth, phishing email analyzer, exposure scanner, file hash analyzer, MITRE ATT&CK matrix, threat actor catalog, daily and weekly intel briefings, knowledge base, and privacy and browser fingerprint inspector. Same-origin API at /api/v1/* with rate limiting, security headers, KV caching, and STIX 2.1 ingest.',
+    tags: ['Cloudflare Workers', 'Hono', 'TypeScript', 'SSE', 'STIX 2.1', 'May 2026 - Present'],
     github: 'https://github.com/Pranith-Jain/Pranith-Jain.github.io',
     badge: 'Live · /dfir',
     href: '/dfir',
@@ -276,32 +278,32 @@ export const projects: Project[] = [
     title: 'CTI STIX Connector',
     description:
       'Containerized Python CLI that ingests JSON campaign + CSV IOC feeds, classifies and enriches indicators, and emits valid STIX 2.1 bundles. Docker, non-root container (UID 1000), strict-mode entrypoint, 38 pytest unit tests. Integrated with this portfolio at /dfir/actors and /api/v1/cti/parse.',
-    tags: ['Python', 'STIX 2.1', 'Docker', 'CTI', 'Apr 2026 – Present'],
+    tags: ['Python', 'STIX 2.1', 'Docker', 'CTI', 'Apr 2026 - Present'],
     github: 'https://github.com/Pranith-Jain/cti-stix-connector',
   },
   {
     title: 'Email Infrastructure Automation Platform',
     description:
       'Automated end-to-end domain onboarding across 1,300+ domains, cutting per-domain setup time from several hours to under 10 minutes. Built a Smartlead MCP server with 23 custom analytics tools, consolidating warmup monitoring, deliverability tracking, and campaign analytics for 2,700+ inboxes.',
-    tags: ['n8n', 'MCP', 'Smartlead', 'Automation', 'Analytics', 'Jan 2026 – Present'],
+    tags: ['n8n', 'MCP', 'Smartlead', 'Automation', 'Analytics', 'Jan 2026 - Present'],
     github: 'https://github.com/Pranith-Jain/Email-Infrastructure-Automation-Platform',
   },
   {
     title: 'Portfolio (Personal)',
     description: 'Vibe coded personal portfolio and hosted on Cloudflare pages, with email routing.',
-    tags: ['React', 'Vite', 'Tailwind', 'Cloudflare Pages', 'Nov 2025 – Present'],
+    tags: ['React', 'Vite', 'Tailwind', 'Cloudflare Pages', 'Nov 2025 - Present'],
   },
   {
     title: 'MindStudio AI Agents',
     description: 'AI Agent Portfolio showcasing various AI agents and integrations.',
-    tags: ['AI', 'Agents', 'MindStudio', 'Aug 2025 – Sep 2025'],
+    tags: ['AI', 'Agents', 'MindStudio', 'Aug 2025 - Sep 2025'],
     github: 'https://github.com/Pranith-Jain/AI-Agent-Portfolio',
   },
   {
     title: 'Secure Patient Data Platform on Google Cloud (Capstone)',
     description:
       'Distinguished Capstone Project (Grade A, 93/100). Zero Trust environment on GCP, HIPAA-aligned patient data platform with comprehensive security controls.',
-    tags: ['GCP', 'Zero Trust', 'HIPAA', 'Capstone', 'Jul 2025 – Aug 2025'],
+    tags: ['GCP', 'Zero Trust', 'HIPAA', 'Capstone', 'Jul 2025 - Aug 2025'],
     github: 'https://github.com/Pranith-Jain/Secure-Patient-Data-Platform-on-Google-Cloud-Capstone-',
     badge: 'Grade A (93/100)',
   },
@@ -309,7 +311,7 @@ export const projects: Project[] = [
     title: 'Cloud-Based Ransomware Detection and Recovery System (GCP)',
     description:
       'A cloud security capstone focused on detection signals, recovery workflow design, and protective controls (logging, monitoring, and network hardening).',
-    tags: ['GCP', 'Detection Engineering', 'Cloud Logging', 'Recovery', 'Jun 2025 – Jul 2025'],
+    tags: ['GCP', 'Detection Engineering', 'Cloud Logging', 'Recovery', 'Jun 2025 - Jul 2025'],
   },
   {
     title: 'Detection Playbooks',
@@ -321,13 +323,13 @@ export const projects: Project[] = [
     title: 'Tracelay Internship',
     description:
       'SOC Analyst Intern experience working on security monitoring, incident response, and threat intelligence.',
-    tags: ['SOC', 'Internship', 'Monitoring', 'Jul 2024 – Oct 2024'],
+    tags: ['SOC', 'Internship', 'Monitoring', 'Jul 2024 - Oct 2024'],
   },
   {
     title: 'Detecting Bots on Twitter Using Machine Learning',
     description:
       'Machine learning project to detect automated bot accounts on Twitter using feature engineering and classification algorithms.',
-    tags: ['ML', 'Python', 'NLP', 'Twitter', 'Dec 2022 – Apr 2023'],
+    tags: ['ML', 'Python', 'NLP', 'Twitter', 'Dec 2022 - Apr 2023'],
   },
   {
     title: 'CTF Writeups',
@@ -385,7 +387,7 @@ export const memberships = [
   {
     name: 'UK OSINT Community',
     abbreviation: 'UK',
-    period: 'Jan 2026 – Present · 2 mos',
+    period: 'Jan 2026 - Present · 2 mos',
     description:
       'Active contributor to one of the premier Open Source Intelligence communities, collaborating with investigators and researchers to advance ethical tradecraft.',
     details: [
@@ -407,7 +409,7 @@ export const memberships = [
   {
     name: 'Messaging, Malware, Mobile Anti-Abuse Working Group',
     abbreviation: 'M3',
-    period: 'Feb 2026 – Present · 1 mo',
+    period: 'Feb 2026 - Present · 1 mo',
     description:
       'Member of the M3AAWG, a global industry collaboration working to fight messaging abuse, malware, and mobile threats.',
     color: 'emerald',
@@ -415,7 +417,7 @@ export const memberships = [
   {
     name: 'emailexpert',
     abbreviation: 'E',
-    period: 'Jun 2025 – Present · 9 mos',
+    period: 'Jun 2025 - Present · 9 mos',
     description:
       'Member of the emailexpert community, collaborating with email industry professionals on deliverability, authentication, and email security best practices.',
     color: 'cyan',

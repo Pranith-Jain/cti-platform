@@ -7,11 +7,25 @@ import { ProviderCache } from '../lib/cache';
 import { virustotal } from '../providers/virustotal';
 import { abuseipdb } from '../providers/abuseipdb';
 import { shodan } from '../providers/shodan';
-import { greynoise } from '../providers/greynoise';
 import { otx } from '../providers/otx';
 import { urlscan } from '../providers/urlscan';
 import { hybridanalysis } from '../providers/hybridanalysis';
-import { pulsedive } from '../providers/pulsedive';
+import { feodo } from '../providers/feodo';
+import { spamhaus } from '../providers/spamhaus';
+import { tor } from '../providers/tor';
+import { doh } from '../providers/doh';
+import { openphish } from '../providers/openphish';
+import { threatfox } from '../providers/threatfox';
+import { urlhaus } from '../providers/urlhaus';
+import { malwarebazaar } from '../providers/malwarebazaar';
+import { hashlookup } from '../providers/hashlookup';
+import { cinsarmy } from '../providers/cinsarmy';
+import { bitwire } from '../providers/bitwire';
+import { blocklistde } from '../providers/blocklistde';
+import { binarydefense } from '../providers/binarydefense';
+import { ipsum } from '../providers/ipsum';
+import { phishingArmy } from '../providers/phishingArmy';
+import { tweetfeed } from '../providers/tweetfeed';
 import {
   PROVIDER_SUPPORT,
   PROVIDER_TIMEOUT_MS,
@@ -24,11 +38,25 @@ const ADAPTERS: Record<ProviderId, ProviderAdapter> = {
   virustotal,
   abuseipdb,
   shodan,
-  greynoise,
   otx,
   urlscan,
   hybridanalysis,
-  pulsedive,
+  feodo,
+  spamhaus,
+  tor,
+  doh,
+  openphish,
+  threatfox,
+  urlhaus,
+  malwarebazaar,
+  hashlookup,
+  cinsarmy,
+  bitwire,
+  blocklistde,
+  binarydefense,
+  ipsum,
+  phishingArmy,
+  tweetfeed,
 };
 
 export async function iocCheckHandler(c: Context<{ Bindings: Env }>) {
@@ -50,11 +78,10 @@ export async function iocCheckHandler(c: Context<{ Bindings: Env }>) {
       VT_API_KEY: c.env.VT_API_KEY ?? '',
       ABUSEIPDB_API_KEY: c.env.ABUSEIPDB_API_KEY ?? '',
       SHODAN_API_KEY: c.env.SHODAN_API_KEY ?? '',
-      GREYNOISE_API_KEY: c.env.GREYNOISE_API_KEY ?? '',
       OTX_API_KEY: c.env.OTX_API_KEY ?? '',
       URLSCAN_API_KEY: c.env.URLSCAN_API_KEY ?? '',
       HYBRID_ANALYSIS_API_KEY: c.env.HYBRID_ANALYSIS_API_KEY ?? '',
-      PULSEDIVE_API_KEY: c.env.PULSEDIVE_API_KEY ?? '',
+      ABUSECH_AUTH_KEY: c.env.ABUSECH_AUTH_KEY,
     };
 
     const collected: ProviderResult[] = [];

@@ -3,7 +3,19 @@
  */
 
 export type IocType = 'url' | 'domain' | 'ipv4' | 'hash' | 'cve';
-export type SourceId = 'urlhaus' | 'malwarebazaar' | 'threatfox' | 'feodo' | 'openphish' | 'cisa-kev';
+export type SourceId =
+  | 'urlhaus'
+  | 'malwarebazaar'
+  | 'threatfox'
+  | 'feodo'
+  | 'openphish'
+  | 'cisa-kev'
+  | 'blocklist-de'
+  | 'binary-defense'
+  | 'ipsum'
+  | 'phishing-army'
+  | 'tweetfeed'
+  | 'bitwire';
 
 export interface IocEntry {
   type: IocType;
@@ -35,6 +47,12 @@ export const FEED_SOURCES: FeedSourceMeta[] = [
   { id: 'feodo', label: 'Feodo Tracker', iocType: 'ipv4' },
   { id: 'openphish', label: 'OpenPhish', iocType: 'url' },
   { id: 'cisa-kev', label: 'CISA KEV', iocType: 'cve' },
+  { id: 'blocklist-de', label: 'Blocklist.de', iocType: 'ipv4' },
+  { id: 'binary-defense', label: 'Binary Defense', iocType: 'ipv4' },
+  { id: 'ipsum', label: 'Ipsum (consensus)', iocType: 'ipv4' },
+  { id: 'phishing-army', label: 'Phishing Army', iocType: 'domain' },
+  { id: 'tweetfeed', label: 'TweetFeed', iocType: 'mixed' },
+  { id: 'bitwire', label: 'Bitwire Blocklist', iocType: 'ipv4' },
 ];
 
 export async function fetchIocFeed(source: SourceId): Promise<IocFeedSummary> {

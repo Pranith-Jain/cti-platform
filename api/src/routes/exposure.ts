@@ -13,11 +13,9 @@ export async function exposureScanHandler(c: Context<{ Bindings: Env }>) {
     VT_API_KEY: c.env.VT_API_KEY ?? '',
     ABUSEIPDB_API_KEY: c.env.ABUSEIPDB_API_KEY ?? '',
     SHODAN_API_KEY: c.env.SHODAN_API_KEY ?? '',
-    GREYNOISE_API_KEY: c.env.GREYNOISE_API_KEY ?? '',
     OTX_API_KEY: c.env.OTX_API_KEY ?? '',
     URLSCAN_API_KEY: c.env.URLSCAN_API_KEY ?? '',
     HYBRID_ANALYSIS_API_KEY: c.env.HYBRID_ANALYSIS_API_KEY ?? '',
-    PULSEDIVE_API_KEY: c.env.PULSEDIVE_API_KEY ?? '',
   };
 
   const result = await aggregateExposure(raw, env);

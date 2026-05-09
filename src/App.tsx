@@ -29,6 +29,14 @@ const Breach = lazy(() => import('./pages/dfir/Breach'));
 const ExifParse = lazy(() => import('./pages/dfir/ExifParse'));
 const MitreMatrix = lazy(() => import('./pages/dfir/MitreMatrix'));
 const UrlPreview = lazy(() => import('./pages/dfir/UrlPreview'));
+const IocExtractor = lazy(() => import('./pages/dfir/IocExtractor'));
+const JwtInspect = lazy(() => import('./pages/dfir/JwtInspect'));
+const Punycode = lazy(() => import('./pages/dfir/Punycode'));
+const Takeover = lazy(() => import('./pages/dfir/Takeover'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+const StixViewer = lazy(() => import('./pages/dfir/StixViewer'));
+const DarkWeb = lazy(() => import('./pages/dfir/DarkWeb'));
+const ThreatMap = lazy(() => import('./pages/dfir/ThreatMap'));
 
 function TechniqueRedirect() {
   const params = new URLSearchParams(window.location.search);
@@ -269,7 +277,71 @@ export function AppContent() {
                 </Suspense>
               }
             />
+            <Route
+              path="/dfir/extract"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <IocExtractor />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/jwt"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <JwtInspect />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/punycode"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <Punycode />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/takeover"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <Takeover />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/stix"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <StixViewer />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/darkweb"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <DarkWeb />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/threat-map"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <ThreatMap />
+                </Suspense>
+              }
+            />
             <Route path="/difr" element={<Navigate to="/dfir" replace />} />
+            <Route
+              path="*"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <NotFound />
+                </Suspense>
+              }
+            />
           </Routes>
         </Layout>
       </main>

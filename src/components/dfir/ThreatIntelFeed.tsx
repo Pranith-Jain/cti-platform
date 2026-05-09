@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ExternalLink, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { fetchMultipleFeeds, formatRelativeTime, type FeedItem } from '../../services/rssService';
+import { fetchFeedsProgressive, formatRelativeTime, type FeedItem } from '../../services/rssService';
 import { defaultFeeds } from '../../data/rssFeeds';
 import { extractIndicators, type ExtractedIndicator } from '../../lib/dfir/indicator-client';
 
-const MAX_ITEMS = 12;
-const MAX_PER_SOURCE = 2;
+const MAX_ITEMS = 30;
+const MAX_PER_SOURCE = 3;
 const MAX_IOCS_PER_ITEM = 4;
 
 function IocChip({ iocs }: { iocs: ExtractedIndicator[] }): JSX.Element | null {
@@ -34,31 +34,37 @@ export function ThreatIntelFeed(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sourceCount, setSourceCount] = useState(0);
+  const [totalSources] = useState(defaultFeeds.length);
 
   const fetchFeeds = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const resultsMap = await fetchMultipleFeeds(defaultFeeds);
+    setItems([]);
+    setSourceCount(0);
 
-      // Group by source, cap each, then flatten
-      const all: FeedItem[] = [];
-      let activeSources = 0;
-      resultsMap.forEach((result) => {
-        if (!result.error && result.items.length > 0) {
-          activeSources++;
-          all.push(...result.items.slice(0, MAX_PER_SOURCE));
+    let active = 0;
+    let firstSeen = false;
+
+    try {
+      await fetchFeedsProgressive(defaultFeeds, (_id, result) => {
+        if (result.error || result.items.length === 0) return;
+        active++;
+        setSourceCount(active);
+        setItems((prev) => {
+          const merged = [...prev, ...result.items.slice(0, MAX_PER_SOURCE)];
+          merged.sort((a, b) => {
+            const dateA = new Date(a.pubDate).getTime() || 0;
+            const dateB = new Date(b.pubDate).getTime() || 0;
+            return dateB - dateA;
+          });
+          return merged.slice(0, MAX_ITEMS);
+        });
+        // Unblock the UI as soon as the first feed resolves.
+        if (!firstSeen) {
+          firstSeen = true;
+          setLoading(false);
         }
       });
-      setSourceCount(activeSources);
-
-      all.sort((a, b) => {
-        const dateA = new Date(a.pubDate).getTime() || 0;
-        const dateB = new Date(b.pubDate).getTime() || 0;
-        return dateB - dateA;
-      });
-
-      setItems(all.slice(0, MAX_ITEMS));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'feed unavailable');
     } finally {
@@ -87,7 +93,8 @@ export function ThreatIntelFeed(): JSX.Element {
         <h2 className="font-display font-bold text-xl text-slate-900 dark:text-slate-100">Threat Intel</h2>
         <div className="flex items-center gap-3">
           <span className="text-xs font-mono text-slate-600 dark:text-slate-400">
-            {sourceCount} sources · {totalIocs > 0 ? `${totalIocs} IOCs found · ` : ''}live
+            {sourceCount} of {totalSources} sources · {totalIocs > 0 ? `${totalIocs} IOCs found · ` : ''}
+            {loading ? 'streaming…' : 'live'}
           </span>
           <button
             type="button"
@@ -102,10 +109,12 @@ export function ThreatIntelFeed(): JSX.Element {
         </div>
       </header>
 
-      {loading && <p className="font-mono text-sm text-slate-600 dark:text-slate-400">Fetching…</p>}
+      {loading && items.length === 0 && (
+        <p className="font-mono text-sm text-slate-600 dark:text-slate-400">Fetching…</p>
+      )}
       {error && <p className="font-mono text-sm text-rose-600 dark:text-rose-400">error: {error}</p>}
 
-      {!loading && !error && (
+      {!error && items.length > 0 && (
         <ul className="space-y-3">
           {itemsWithIocs.map(({ item: it, iocs }) => (
             <li

@@ -19,11 +19,25 @@ export const urlscan: ProviderAdapter = async (indicator, env, signal) => {
   if (!supports.has(indicator.type)) return base('unsupported');
 
   try {
-    const url = `https://urlscan.io/api/v1/search/?q=${encodeURIComponent(indicator.value)}`;
-    const res = await fetch(url, {
-      headers: { 'API-Key': env.URLSCAN_API_KEY },
-      signal,
-    });
+    // urlscan.io expects a Lucene query, not a raw URL. Build the right field
+    // selector based on the indicator type so we don't ship malformed queries.
+    const q =
+      indicator.type === 'url'
+        ? `page.url:"${indicator.value.replace(/"/g, '\\"')}"`
+        : `page.domain:${indicator.value}`;
+    const url = `https://urlscan.io/api/v1/search/?q=${encodeURIComponent(q)}&size=10`;
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (env.URLSCAN_API_KEY) headers['API-Key'] = env.URLSCAN_API_KEY;
+
+    const res = await fetch(url, { headers, signal });
+    if (res.status === 401 || res.status === 403) {
+      return base('ok', {
+        score: 0,
+        verdict: 'unknown',
+        tags: ['urlscan-no-access'],
+        raw_summary: { reason: `${res.status} from URLScan` },
+      });
+    }
     if (!res.ok) return base('error', { error: `${res.status} ${res.statusText}`.trim() });
 
     const json = (await res.json()) as {

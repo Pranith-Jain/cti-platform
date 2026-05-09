@@ -106,7 +106,7 @@ export default function CveLookup(): JSX.Element {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <h1 className="text-4xl font-display font-bold mb-2">CVE Lookup</h1>
         <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-2xl">
-          Query NVD for CVE details — CVSS score, EPSS exploit likelihood, CISA KEV status, and references.
+          Query NVD for CVE details. Get CVSS score, EPSS exploit likelihood, CISA KEV status, and references.
         </p>
       </motion.div>
 
@@ -209,7 +209,7 @@ export default function CveLookup(): JSX.Element {
           {/* EPSS */}
           {result.epss && (
             <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
-              <h3 className="font-display font-semibold text-lg mb-3">EPSS — Exploit Prediction</h3>
+              <h3 className="font-display font-semibold text-lg mb-3">EPSS, Exploit Prediction</h3>
               <div className="flex gap-8 font-mono">
                 <div>
                   <div className="text-2xl font-bold">{(result.epss.score * 100).toFixed(2)}%</div>
@@ -231,7 +231,7 @@ export default function CveLookup(): JSX.Element {
           {result.kev.in_kev && (
             <section className="rounded-2xl border border-rose-200 dark:border-rose-900/40 bg-rose-50 dark:bg-rose-900/10 p-6">
               <h3 className="font-display font-semibold text-lg mb-3 text-rose-800 dark:text-rose-300">
-                CISA KEV — Known Exploited
+                CISA KEV, Known Exploited
               </h3>
               <div className="grid sm:grid-cols-3 gap-4 font-mono text-sm">
                 {result.kev.date_added && (

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Shield, Eye, Check, X } from 'lucide-react';
 import {
   gatherFingerprint,
+  gatherAsyncFingerprint,
   fingerprintHash,
   detectWebRtcLeaks,
   getNetworkInfo,
@@ -73,12 +74,13 @@ export default function Privacy(): JSX.Element {
     setScanning(true);
     setError(null);
     try {
-      const [serverInfo, webrtcLeak, batt] = await Promise.all([
+      const [serverInfo, webrtcLeak, batt, asyncFp] = await Promise.all([
         fetch('/api/v1/privacy/inspect').then((r) => (r.ok ? (r.json() as Promise<ServerInfo>) : null)),
         detectWebRtcLeaks(),
         getBattery(),
+        gatherAsyncFingerprint(),
       ]);
-      const data = gatherFingerprint();
+      const data: FingerprintData = { ...gatherFingerprint(), ...asyncFp };
       setServer(serverInfo);
       setFp(data);
       setFpHash(fingerprintHash(data));
@@ -126,8 +128,8 @@ export default function Privacy(): JSX.Element {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <h1 className="text-4xl font-display font-bold mb-2">Privacy Check</h1>
         <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-2xl">
-          Your browser reveals more than you think — IP, location, DNS, fingerprint, WebRTC leaks. All checks run in
-          your browser; only one lightweight API call reveals your public IP.
+          Your browser reveals more than you think. IP, location, DNS, fingerprint, WebRTC leaks, and more. All checks
+          run in your browser; only one lightweight API call reveals your public IP.
         </p>
       </motion.div>
       <div className="flex items-center gap-3 mb-10">

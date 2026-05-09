@@ -112,7 +112,7 @@ export default function UrlPreview(): JSX.Element {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <h1 className="text-4xl font-display font-bold mb-2">URL Preview</h1>
         <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-2xl">
-          Fetch metadata from a URL server-side — title, meta description, Open Graph, and Twitter Card tags. No
+          Fetch metadata from a URL server-side. Get title, meta description, Open Graph, and Twitter Card tags. No
           JavaScript execution, no rendering.
         </p>
       </motion.div>
@@ -123,8 +123,8 @@ export default function UrlPreview(): JSX.Element {
         <div>
           <span className="font-bold">Privacy &amp; Security:</span> URLs resolving to private/loopback IPs are refused.
           Redirects are NOT followed. Body capped at 128KB. Only{' '}
-          <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded">&lt;head&gt;</code> metadata is parsed — the
-          page is not rendered.
+          <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded">&lt;head&gt;</code> metadata is parsed, while
+          the page is not rendered.
         </div>
       </div>
 
@@ -245,7 +245,7 @@ export default function UrlPreview(): JSX.Element {
                     }}
                   />
                   <p className="mt-1 text-[11px] font-mono text-slate-400">
-                    Note: image loaded from the queried site — referer may be visible to that server.
+                    Note: image loaded from the queried site, so referer may be visible to that server.
                   </p>
                 </div>
               )}

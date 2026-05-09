@@ -677,14 +677,33 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
   const startMs = rangeStart.getTime();
   const endMs = rangeEnd.getTime();
 
-  // Fetch in parallel
-  const [kev, urlhaus, malwarebazaar, threatfox, openphish, feodo] = await Promise.all([
+  // Fetch in parallel. Each feed is independent; one failure should not break the briefing.
+  const [
+    kev,
+    urlhaus,
+    malwarebazaar,
+    threatfox,
+    openphish,
+    feodo,
+    blocklistDe,
+    binaryDefense,
+    ipsum,
+    phishingArmy,
+    tweetfeed,
+    bitwire,
+  ] = await Promise.all([
     fetchKev().catch(() => [] as KevEntry[]),
-    fetchAbuseFeed('urlhaus'),
-    fetchAbuseFeed('malwarebazaar'),
-    fetchAbuseFeed('threatfox'),
-    fetchAbuseFeed('openphish'),
-    fetchAbuseFeed('feodo'),
+    fetchAbuseFeed('urlhaus').catch(() => [] as IocEntry[]),
+    fetchAbuseFeed('malwarebazaar').catch(() => [] as IocEntry[]),
+    fetchAbuseFeed('threatfox').catch(() => [] as IocEntry[]),
+    fetchAbuseFeed('openphish').catch(() => [] as IocEntry[]),
+    fetchAbuseFeed('feodo').catch(() => [] as IocEntry[]),
+    fetchAbuseFeed('blocklist-de').catch(() => [] as IocEntry[]),
+    fetchAbuseFeed('binary-defense').catch(() => [] as IocEntry[]),
+    fetchAbuseFeed('ipsum').catch(() => [] as IocEntry[]),
+    fetchAbuseFeed('phishing-army').catch(() => [] as IocEntry[]),
+    fetchAbuseFeed('tweetfeed').catch(() => [] as IocEntry[]),
+    fetchAbuseFeed('bitwire').catch(() => [] as IocEntry[]),
   ]);
 
   // Filter KEV to window
@@ -692,10 +711,23 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
   const nvdMap = await fetchNvdByIds(kevWindow.map((k) => k.cveID));
   const findings = kevWindow.map((k) => findingFromKev(k, nvdMap.get(k.cveID)));
 
-  // Filter IOCs to window (timestamps from feeds are best-effort; some lack tz, accept)
-  const allIocs = [...urlhaus, ...malwarebazaar, ...threatfox, ...openphish, ...feodo].filter((e) =>
+  // Windowed feeds — entries carry per-IOC timestamps, so we can date-filter them.
+  const windowedIocs = [...urlhaus, ...malwarebazaar, ...threatfox, ...openphish, ...feodo, ...tweetfeed].filter((e) =>
     e.timestamp ? withinRange(e.timestamp.replace(' ', 'T'), startMs, endMs) : false
   );
+
+  // Snapshot feeds — current-state blocklists with no per-entry timestamp.
+  // Treat them as "live indicators at briefing time" and cap so they do not drown the windowed signal.
+  const SNAPSHOT_PER_FEED = 30;
+  const snapshotIocs = [
+    ...blocklistDe.slice(0, SNAPSHOT_PER_FEED),
+    ...binaryDefense.slice(0, SNAPSHOT_PER_FEED),
+    ...ipsum.slice(0, SNAPSHOT_PER_FEED),
+    ...phishingArmy.slice(0, SNAPSHOT_PER_FEED),
+    ...bitwire.slice(0, SNAPSHOT_PER_FEED),
+  ];
+
+  const allIocs = [...windowedIocs, ...snapshotIocs];
 
   const iocs = bucketIocs(allIocs);
   const iocsTotal = iocs.urls.length + iocs.domains.length + iocs.ipv4s.length + iocs.hashes.length;
@@ -714,6 +746,12 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
   if (threatfox.length > 0) sources.push('ThreatFox');
   if (openphish.length > 0) sources.push('OpenPhish');
   if (feodo.length > 0) sources.push('Feodo Tracker');
+  if (blocklistDe.length > 0) sources.push('Blocklist.de');
+  if (binaryDefense.length > 0) sources.push('Binary Defense');
+  if (ipsum.length > 0) sources.push('Ipsum');
+  if (phishingArmy.length > 0) sources.push('Phishing Army');
+  if (tweetfeed.length > 0) sources.push('TweetFeed');
+  if (bitwire.length > 0) sources.push('Bitwire');
 
   return {
     slug,

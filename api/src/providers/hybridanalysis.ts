@@ -44,6 +44,16 @@ export const hybridanalysis: ProviderAdapter = async (indicator, env, signal) =>
       body,
       signal,
     });
+    // 401 / 403 = the Hybrid Analysis tier doesn't permit this lookup. Don't
+    // pollute the IOC verdict with a permission error; return a graceful no-data.
+    if (res.status === 401 || res.status === 403) {
+      return base('ok', {
+        score: 0,
+        verdict: 'unknown',
+        tags: ['hybridanalysis-no-access'],
+        raw_summary: { reason: `${res.status} from Hybrid Analysis` },
+      });
+    }
     if (!res.ok) return base('error', { error: `${res.status} ${res.statusText}`.trim() });
 
     const json = (await res.json()) as Array<{

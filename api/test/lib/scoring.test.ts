@@ -22,15 +22,15 @@ describe('compositeScore', () => {
   });
 
   it('weights IP-focused providers higher for IP indicators', () => {
-    // For an IP, AbuseIPDB and GreyNoise weigh more than VirusTotal/OTX
-    const heavy = compositeScore('ipv4', [ok('abuseipdb', 90), ok('greynoise', 80)]);
+    // For an IP, AbuseIPDB (w=4) and Shodan (w=2) weigh more than VirusTotal/OTX (w=1)
+    const heavy = compositeScore('ipv4', [ok('abuseipdb', 90), ok('shodan', 80)]);
     const light = compositeScore('ipv4', [ok('virustotal', 90), ok('otx', 80)]);
     expect(heavy.score).toBeGreaterThan(light.score);
   });
 
   it('weights hash-focused providers higher for hash indicators', () => {
     const heavy = compositeScore('hash', [ok('virustotal', 90), ok('hybridanalysis', 80)]);
-    const light = compositeScore('hash', [ok('otx', 90), ok('pulsedive', 80)]);
+    const light = compositeScore('hash', [ok('otx', 80)]);
     expect(heavy.score).toBeGreaterThan(light.score);
   });
 
@@ -39,7 +39,7 @@ describe('compositeScore', () => {
       ok('virustotal', 30),
       ok('abuseipdb', 30),
       ok('shodan', 30),
-      ok('greynoise', 30),
+      ok('feodo', 30),
       ok('otx', 30),
     ]);
     const med = compositeScore('ipv4', [ok('virustotal', 30), ok('abuseipdb', 30), ok('shodan', 30)]);

@@ -128,7 +128,7 @@ async function fetchFeedWithProxy(feed: RSSFeed): Promise<FeedResult> {
     // Same-origin URLs (synthesised feeds like /api/v1/feeds/abuse-rss?source=urlhaus)
     // are fetched directly. Cross-origin URLs go through the SSRF-safe proxy.
     const url = feed.url.startsWith('/') ? feed.url : `/api/v1/feeds/proxy?url=${encodeURIComponent(feed.url)}`;
-    const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const response = await fetch(url, { signal: AbortSignal.timeout(6000) });
     if (!response.ok) {
       result.error = `proxy returned ${response.status}`;
       return result;
@@ -156,6 +156,24 @@ export async function fetchMultipleFeeds(feedIds: string[]): Promise<Map<string,
   );
 
   return results;
+}
+
+/**
+ * Stream feed results as each fetch resolves. The callback runs on every
+ * settled feed, letting callers update the UI progressively instead of
+ * waiting for all feeds to finish.
+ */
+export async function fetchFeedsProgressive(
+  feedIds: string[],
+  onResult: (id: string, result: FeedResult) => void
+): Promise<void> {
+  const feeds = rssFeeds.filter((f) => feedIds.includes(f.id));
+  await Promise.all(
+    feeds.map(async (feed) => {
+      const result = await fetchFeedWithProxy(feed);
+      onResult(feed.id, result);
+    })
+  );
 }
 
 // Get all feeds

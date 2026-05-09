@@ -1,11 +1,43 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Cloud, Github, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ToolGrid } from '../components/dfir/ToolGrid';
 import { ThreatIntelFeed } from '../components/dfir/ThreatIntelFeed';
 import { TechNewsFeed } from '../components/dfir/TechNewsFeed';
+import { personalInfo } from '../data/content';
 
-const PROVIDERS = ['VirusTotal', 'AbuseIPDB', 'Shodan', 'GreyNoise', 'OTX', 'URLScan', 'Hybrid Analysis', 'Pulsedive'];
+const PROVIDER_GROUPS: { label: string; items: string[] }[] = [
+  {
+    label: 'Commercial (key required)',
+    items: ['VirusTotal', 'AbuseIPDB', 'Shodan', 'OTX', 'URLScan', 'Hybrid Analysis'],
+  },
+  {
+    label: 'abuse.ch (one shared free key)',
+    items: ['ThreatFox', 'URLhaus', 'MalwareBazaar'],
+  },
+  {
+    label: 'Public lists & DoH (no signup)',
+    items: [
+      'Feodo Tracker',
+      'Spamhaus',
+      'Tor Exit',
+      'OpenPhish',
+      'PhishStats',
+      'CINS Army',
+      'CIRCL Hashlookup',
+      'Cloudflare DoH',
+      'Quad9',
+      'Bitwire',
+      'Blocklist.de',
+      'Binary Defense',
+      'Ipsum',
+      'Phishing Army',
+      'TweetFeed',
+      'crt.sh',
+      'RDAP',
+    ],
+  },
+];
 
 export default function DFIRPage(): JSX.Element {
   return (
@@ -20,23 +52,28 @@ export default function DFIRPage(): JSX.Element {
           DFIR Toolkit
         </span>
         <h1 className="text-5xl sm:text-6xl font-display font-bold text-slate-900 dark:text-slate-100 mb-4 leading-tight">
-          Practical security tools, served from one URL.
+          A working DFIR toolkit on the edge.
         </h1>
         <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mb-6 leading-relaxed">
-          IOC checks across 8 sources, domain health, phishing email parsing, exposure mapping, file hash lookups, and a
-          working knowledge base. All on the Cloudflare free tier.
+          Real DFIR tools, not screenshots. Sub-200ms IOC checks across 22 threat intelligence sources, with no signup
+          required. The whole stack runs on Cloudflare Workers, free at the edge.
         </p>
-        <div className="flex items-center gap-4 text-sm font-mono text-slate-600 dark:text-slate-400">
+        <div className="flex flex-wrap items-center gap-4 text-sm font-mono text-slate-600 dark:text-slate-400">
           <span>
-            <span className="text-slate-900 dark:text-slate-100 text-base">19</span> tools
+            <span className="text-slate-900 dark:text-slate-100 text-base">24</span> tools
           </span>
           <span aria-hidden="true">·</span>
           <span>
-            <span className="text-slate-900 dark:text-slate-100 text-base">8</span> data sources
+            <span className="text-slate-900 dark:text-slate-100 text-base">22</span> data sources
           </span>
           <span aria-hidden="true">·</span>
           <span>
             <span className="text-slate-900 dark:text-slate-100 text-base">0</span> credits required
+          </span>
+          <span aria-hidden="true">·</span>
+          <span className="inline-flex items-center gap-1">
+            <Cloud size={12} aria-hidden="true" />
+            edge, last build {__BUILD_DATE__}
           </span>
         </div>
       </motion.header>
@@ -80,30 +117,59 @@ export default function DFIRPage(): JSX.Element {
         <TechNewsFeed />
       </motion.section>
 
-      <footer className="mt-20 pt-10 border-t border-slate-200 dark:border-slate-800">
-        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 font-mono mb-3">
+      <section className="mt-20 pt-10 border-t border-slate-200 dark:border-slate-800">
+        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 font-mono mb-6">
           Data Sources
         </h3>
-        <div className="flex flex-wrap gap-2">
-          {PROVIDERS.map((p) => (
-            <span
-              key={p}
-              className="text-xs font-mono px-2 py-1 rounded border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
-            >
-              {p}
-            </span>
+        <div className="space-y-5">
+          {PROVIDER_GROUPS.map((group) => (
+            <div key={group.label}>
+              <div className="text-[11px] font-mono uppercase tracking-wider text-slate-500 mb-2">{group.label}</div>
+              <div className="flex flex-wrap gap-2">
+                {group.items.map((p) => (
+                  <span
+                    key={p}
+                    className="text-xs font-mono px-2 py-1 rounded border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
+                  >
+                    {p}
+                  </span>
+                ))}
+              </div>
+            </div>
           ))}
-          <span className="text-xs font-mono px-2 py-1 rounded border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400">
-            crt.sh
-          </span>
-          <span className="text-xs font-mono px-2 py-1 rounded border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400">
-            RDAP
-          </span>
-          <span className="text-xs font-mono px-2 py-1 rounded border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400">
-            Cloudflare DoH
-          </span>
         </div>
-      </footer>
+      </section>
+
+      <section className="mt-16 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8">
+        <h3 className="font-display font-bold text-xl mb-2">Built by Pranith Jain</h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-5 leading-relaxed">
+          Security analyst and detection engineer. I defend email integrity for 150+ startups, with 1,300+ domains under
+          active monitoring. Open to collaboration on DFIR tooling, threat intelligence platforms, and edge-native
+          security infrastructure.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            to="/about"
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 dark:bg-brand-500 text-white px-4 py-2 text-sm font-mono font-semibold hover:bg-brand-700 dark:hover:bg-brand-400 transition-colors"
+          >
+            About me <ArrowRight size={14} />
+          </Link>
+          <a
+            href={`mailto:${personalInfo.email}`}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 px-4 py-2 text-sm font-mono text-slate-700 dark:text-slate-300 hover:border-brand-500/40 transition-colors"
+          >
+            <Mail size={14} /> Get in touch
+          </a>
+          <a
+            href={personalInfo.githubUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 px-4 py-2 text-sm font-mono text-slate-700 dark:text-slate-300 hover:border-brand-500/40 transition-colors"
+          >
+            <Github size={14} /> GitHub
+          </a>
+        </div>
+      </section>
     </div>
   );
 }

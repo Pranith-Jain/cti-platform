@@ -4,6 +4,11 @@ import { resolveAllStandard, resolveRecord } from '../lib/dns';
 import { rdapLookup } from '../lib/rdap';
 import { ctLogs } from '../lib/crt-sh';
 import { parseSpf, parseDmarc, parseBimi, parseMtaSts, parseTlsRpt, evaluateEmailAuth } from '../lib/email-auth';
+import { phishingArmy } from '../providers/phishingArmy';
+import { tweetfeed } from '../providers/tweetfeed';
+import { threatfox } from '../providers/threatfox';
+import { urlhaus } from '../providers/urlhaus';
+import type { ProviderEnv, ProviderResult } from '../providers/types';
 
 const DOMAIN_RE = /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
 const COMMON_DKIM_SELECTORS = [
@@ -89,6 +94,53 @@ export async function domainLookupHandler(c: Context<{ Bindings: Env }>) {
     dkimSelectorsFound,
   });
 
+  // Threat intelligence cross-check (parallel, isolated from DNS / RDAP failures)
+  const tiEnv: ProviderEnv = {
+    VT_API_KEY: c.env.VT_API_KEY ?? '',
+    ABUSEIPDB_API_KEY: c.env.ABUSEIPDB_API_KEY ?? '',
+    SHODAN_API_KEY: c.env.SHODAN_API_KEY ?? '',
+    OTX_API_KEY: c.env.OTX_API_KEY ?? '',
+    URLSCAN_API_KEY: c.env.URLSCAN_API_KEY ?? '',
+    HYBRID_ANALYSIS_API_KEY: c.env.HYBRID_ANALYSIS_API_KEY ?? '',
+    ABUSECH_AUTH_KEY: c.env.ABUSECH_AUTH_KEY,
+  };
+  const tiSignal = AbortSignal.timeout(8000);
+  const tiIndicator = { type: 'domain' as const, value: raw };
+  const tiProviders = [phishingArmy, tweetfeed, threatfox, urlhaus];
+  const tiResults: ProviderResult[] = await Promise.all(
+    tiProviders.map((p) =>
+      p(tiIndicator, tiEnv, tiSignal).catch(
+        (err): ProviderResult => ({
+          source: 'phishingArmy',
+          status: 'error',
+          score: 0,
+          verdict: 'unknown',
+          raw_summary: {},
+          tags: [],
+          error: err instanceof Error ? err.message : String(err),
+          fetched_at: new Date().toISOString(),
+          cached: false,
+        })
+      )
+    )
+  );
+  const tiHits = tiResults.filter(
+    (r) => r.status === 'ok' && (r.verdict === 'malicious' || r.verdict === 'suspicious')
+  );
+  const threat_intel = {
+    queried: tiResults.length,
+    responding: tiResults.filter((r) => r.status === 'ok').length,
+    hits: tiHits.length,
+    verdict:
+      tiHits.length >= 2 ? ('malicious' as const) : tiHits.length === 1 ? ('suspicious' as const) : ('clean' as const),
+    sources: tiResults.map((r) => ({
+      source: r.source,
+      status: r.status,
+      verdict: r.verdict,
+      tags: r.tags,
+    })),
+  };
+
   const anyError =
     !!rdap.error ||
     ['A', 'AAAA', 'NS', 'MX', 'TXT', 'CNAME', 'SOA', 'CAA'].some((t) => dns[t as keyof typeof dns]?.error);
@@ -112,6 +164,7 @@ export async function domainLookupHandler(c: Context<{ Bindings: Env }>) {
         evaluation,
       },
       certificates: ct,
+      threat_intel,
     },
     200,
     { 'Cache-Control': cacheControl }

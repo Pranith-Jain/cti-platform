@@ -49,12 +49,12 @@ describe('GET /api/v1/ioc/check', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
     const r = await SELF.fetch('https://x/api/v1/ioc/check?indicator=example.com');
     const text = await r.text();
-    // domain supports: virustotal, urlscan, otx, pulsedive, shodan
+    // domain supports: virustotal, urlscan, otx, shodan, doh, openphish, threatfox, urlhaus
     const meta = text.match(/event: meta\ndata: (.+)/)?.[1];
     expect(meta).toBeTruthy();
     const m = JSON.parse(meta!);
     expect(m.type).toBe('domain');
-    expect(m.providers).toEqual(expect.arrayContaining(['virustotal', 'urlscan', 'otx', 'pulsedive', 'shodan']));
+    expect(m.providers).toEqual(expect.arrayContaining(['virustotal', 'urlscan', 'otx', 'shodan']));
     expect(m.providers).not.toContain('abuseipdb'); // doesn't support domain
   });
 });

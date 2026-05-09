@@ -108,7 +108,7 @@ export default function Decode(): JSX.Element {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <h1 className="text-4xl font-display font-bold mb-2">Decoder</h1>
         <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-2xl">
-          Base64 and URL decode — auto-detect, multi-pass chaining for nested encodings.
+          Base64 and URL decode with auto-detect and multi-pass chaining for nested encodings.
         </p>
       </motion.div>
 

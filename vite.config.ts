@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig(({ mode }) => ({
+  define: {
+    __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+  },
   plugins: [
     react(),
     mode === 'analyze' &&

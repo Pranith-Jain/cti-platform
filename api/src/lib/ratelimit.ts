@@ -1,9 +1,14 @@
 import type { Context, Next } from 'hono';
 import type { Env } from '../env';
 
-const LIMIT = 30; // requests per minute
+const LIMIT = 30; // requests per minute, applied to every /api/v1/* route below
 const WINDOW_SEC = 60;
 const TTL = 120; // KV TTL > window so the bucket survives
+// Paths exempt from the KV-backed bucket. `/feeds/proxy` was bypassed for
+// quota reasons: the ThreatIntelFeed widget batch-fetches ~38 feeds per
+// /dfir page load, which previously consumed the bulk of our daily KV writes
+// on the free tier. The SSRF allow-list in routes/feeds.ts is the actual
+// defense for the proxy; counting hits in KV gave us no real protection.
 const BYPASS_PATHS = ['/api/v1/health', '/api/v1/feeds/proxy'];
 
 export async function rateLimit(c: Context<{ Bindings: Env }>, next: Next): Promise<Response | void> {

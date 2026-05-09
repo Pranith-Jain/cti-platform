@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { Linkedin, Github, Mail } from 'lucide-react';
+import { Linkedin, Github, Mail, Terminal } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { personalInfo, stats } from '../../data/content';
 
 const containerVariants = {
@@ -57,8 +58,8 @@ export function Hero() {
             I&apos;m{' '}
             <span className="font-bold text-slate-900 dark:text-white underline decoration-brand-500/30 underline-offset-4">
               Pranith Jain
-            </span>{' '}
-            — {personalInfo.description}
+            </span>
+            , {personalInfo.description}
           </p>
 
           {/* Current Focus */}
@@ -98,6 +99,12 @@ export function Hero() {
             >
               Book Strategy Call
             </a>
+            <Link
+              to="/dfir"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-brand-300/60 bg-brand-50/70 px-8 py-4 text-base font-bold text-brand-700 shadow-sm transition hover:shadow-md hover:scale-105 active:scale-95 dark:border-brand-700/60 dark:bg-brand-900/30 dark:text-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+            >
+              <Terminal className="h-4 w-4" aria-hidden="true" /> Try the DFIR Toolkit
+            </Link>
             <a
               href="#skills"
               className="inline-flex items-center justify-center rounded-2xl border border-slate-200/60 bg-white/70 px-8 py-4 text-base font-bold text-slate-800 shadow-sm transition hover:shadow-md hover:scale-105 active:scale-95 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
@@ -203,7 +210,9 @@ export function Hero() {
                 </div>
                 <div>
                   <div className="text-xl font-bold text-slate-900 dark:text-white">{personalInfo.name}</div>
-                  <div className="text-sm font-medium text-brand-600 dark:text-brand-400">{personalInfo.title}</div>
+                  <div className="text-sm font-medium text-brand-600 dark:text-brand-400">
+                    {personalInfo.shortTitle}
+                  </div>
                 </div>
               </div>
 

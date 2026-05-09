@@ -48,11 +48,25 @@ export type ProviderId =
   | 'virustotal'
   | 'abuseipdb'
   | 'shodan'
-  | 'greynoise'
   | 'otx'
   | 'urlscan'
   | 'hybridanalysis'
-  | 'pulsedive';
+  | 'feodo'
+  | 'spamhaus'
+  | 'tor'
+  | 'doh'
+  | 'openphish'
+  | 'threatfox'
+  | 'urlhaus'
+  | 'malwarebazaar'
+  | 'hashlookup'
+  | 'cinsarmy'
+  | 'bitwire'
+  | 'blocklistde'
+  | 'binarydefense'
+  | 'ipsum'
+  | 'phishingArmy'
+  | 'tweetfeed';
 
 export interface ProviderResultWire {
   source: ProviderId;

@@ -15,6 +15,14 @@ export interface FingerprintData {
   canvasHash: string;
   webglVendor?: string;
   webglRenderer?: string;
+  // Browserleaks-style additions
+  audioFingerprint?: string;
+  mediaDevicesCount?: number;
+  speechVoicesCount?: number;
+  permissions?: Record<string, string>;
+  webglExtensionsCount?: number;
+  touchSupport?: { points: number; touchEvent: boolean };
+  storageQuotaMB?: number;
 }
 
 export interface WebRtcLeak {
@@ -38,7 +46,7 @@ export interface PrivacyReport {
 }
 
 export function gatherFingerprint(): FingerprintData {
-  const nav = navigator as Navigator & { deviceMemory?: number };
+  const nav = navigator as Navigator & { deviceMemory?: number; maxTouchPoints?: number };
   const scr = window.screen;
   return {
     userAgent: nav.userAgent,
@@ -55,8 +63,119 @@ export function gatherFingerprint(): FingerprintData {
     pixelRatio: window.devicePixelRatio,
     vendor: nav.vendor ?? '',
     canvasHash: getCanvasHash(),
+    touchSupport: {
+      points: nav.maxTouchPoints ?? 0,
+      touchEvent: 'ontouchstart' in window,
+    },
     ...getWebGLInfo(),
   };
+}
+
+/** Async detections that can't run inside the synchronous gatherFingerprint() call. */
+export async function gatherAsyncFingerprint(): Promise<{
+  audioFingerprint?: string;
+  mediaDevicesCount?: number;
+  speechVoicesCount?: number;
+  permissions?: Record<string, string>;
+  storageQuotaMB?: number;
+}> {
+  const [audio, media, voices, permissions, storage] = await Promise.all([
+    getAudioFingerprint().catch(() => undefined),
+    getMediaDevicesCount().catch(() => undefined),
+    getSpeechVoicesCount().catch(() => undefined),
+    getPermissionsState().catch(() => undefined),
+    getStorageQuotaMB().catch(() => undefined),
+  ]);
+  return {
+    audioFingerprint: audio,
+    mediaDevicesCount: media,
+    speechVoicesCount: voices,
+    permissions,
+    storageQuotaMB: storage,
+  };
+}
+
+/**
+ * Audio fingerprint: synth a short DynamicsCompressor-shaped signal in an
+ * OfflineAudioContext, hash the resulting buffer. The output varies per
+ * device + audio stack and is one of the strongest fingerprint vectors.
+ */
+async function getAudioFingerprint(): Promise<string | undefined> {
+  type Ctor = new (channels: number, length: number, sampleRate: number) => OfflineAudioContext;
+  const Ctor =
+    (window as unknown as { OfflineAudioContext?: Ctor; webkitOfflineAudioContext?: Ctor }).OfflineAudioContext ??
+    (window as unknown as { webkitOfflineAudioContext?: Ctor }).webkitOfflineAudioContext;
+  if (!Ctor) return undefined;
+  const ctx = new Ctor(1, 44100, 44100);
+  const oscillator = ctx.createOscillator();
+  oscillator.type = 'triangle';
+  oscillator.frequency.setValueAtTime(10000, ctx.currentTime);
+  const compressor = ctx.createDynamicsCompressor();
+  compressor.threshold.setValueAtTime(-50, ctx.currentTime);
+  compressor.knee.setValueAtTime(40, ctx.currentTime);
+  compressor.ratio.setValueAtTime(12, ctx.currentTime);
+  compressor.attack.setValueAtTime(0, ctx.currentTime);
+  compressor.release.setValueAtTime(0.25, ctx.currentTime);
+  oscillator.connect(compressor);
+  compressor.connect(ctx.destination);
+  oscillator.start(0);
+  const buf = await ctx.startRendering();
+  // Sum a slice of samples for a compact, stable fingerprint
+  let sum = 0;
+  const data = buf.getChannelData(0);
+  for (let i = 4500; i < 5000; i++) sum += Math.abs(data[i]);
+  return djb2(sum.toString());
+}
+
+async function getMediaDevicesCount(): Promise<number | undefined> {
+  if (!navigator.mediaDevices?.enumerateDevices) return undefined;
+  try {
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    return devs.length;
+  } catch {
+    return undefined;
+  }
+}
+
+async function getSpeechVoicesCount(): Promise<number | undefined> {
+  if (typeof window.speechSynthesis === 'undefined') return undefined;
+  // Voices may load asynchronously on some browsers; try once, then retry after
+  // 100 ms if the list is empty.
+  const initial = window.speechSynthesis.getVoices();
+  if (initial.length > 0) return initial.length;
+  await new Promise((r) => setTimeout(r, 100));
+  return window.speechSynthesis.getVoices().length;
+}
+
+async function getPermissionsState(): Promise<Record<string, string> | undefined> {
+  if (!navigator.permissions?.query) return undefined;
+  const names: PermissionName[] = [
+    'geolocation',
+    'notifications',
+    'camera',
+    'microphone',
+    'clipboard-read',
+  ] as PermissionName[];
+  const out: Record<string, string> = {};
+  for (const name of names) {
+    try {
+      const res = await navigator.permissions.query({ name });
+      out[String(name)] = res.state;
+    } catch {
+      /* permission name not supported in this browser */
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+async function getStorageQuotaMB(): Promise<number | undefined> {
+  if (!navigator.storage?.estimate) return undefined;
+  try {
+    const est = await navigator.storage.estimate();
+    return est.quota ? Math.round(est.quota / (1024 * 1024)) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function getCanvasHash(): string {
@@ -80,17 +199,21 @@ function getCanvasHash(): string {
   }
 }
 
-function getWebGLInfo(): { webglVendor?: string; webglRenderer?: string } {
+function getWebGLInfo(): { webglVendor?: string; webglRenderer?: string; webglExtensionsCount?: number } {
   try {
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl') as WebGLRenderingContext | null;
     if (!gl) return {};
     const ext = gl.getExtension('WEBGL_debug_renderer_info');
-    if (!ext) return {};
-    return {
-      webglVendor: gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) as string,
-      webglRenderer: gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) as string,
+    const exts = gl.getSupportedExtensions();
+    const out: { webglVendor?: string; webglRenderer?: string; webglExtensionsCount?: number } = {
+      webglExtensionsCount: exts?.length,
     };
+    if (ext) {
+      out.webglVendor = gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) as string;
+      out.webglRenderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) as string;
+    }
+    return out;
   } catch {
     return {};
   }
@@ -287,6 +410,52 @@ export function computeOpsecScore(args: {
       weight: 3,
       hit: fp.languages.length > 1,
       advice: 'navigator.languages leaks UI locale list — set one language to reduce uniqueness.',
+    },
+    {
+      id: 'audio-fingerprint',
+      label: 'Audio context fingerprint readable',
+      weight: 8,
+      hit: !!fp.audioFingerprint,
+      advice:
+        'OfflineAudioContext + DynamicsCompressor produces a stable per-device hash. Brave randomises it; Tor blocks the API.',
+    },
+    {
+      id: 'media-devices',
+      label: 'Media device count exposed',
+      weight: 4,
+      hit: !!fp.mediaDevicesCount && fp.mediaDevicesCount > 0,
+      advice:
+        'enumerateDevices() leaks how many cameras/mics/speakers you have without permission. Disable the API in privacy-resistant browsers.',
+    },
+    {
+      id: 'speech-voices',
+      label: 'Speech synthesis voices enumerable',
+      weight: 3,
+      hit: !!fp.speechVoicesCount && fp.speechVoicesCount > 0,
+      advice:
+        'Installed system voices are highly stable per-OS — combined with timezone they uniquely identify many devices.',
+    },
+    {
+      id: 'permissions-leak',
+      label: 'Permissions API state queryable',
+      weight: 4,
+      hit: !!fp.permissions && Object.keys(fp.permissions).length > 0,
+      advice:
+        'Sites can probe permission state for camera, mic, geolocation, etc. without prompting. Use a browser that blocks Permissions API queries.',
+    },
+    {
+      id: 'webgl-extensions',
+      label: 'WebGL extension list discloses GPU',
+      weight: 4,
+      hit: !!fp.webglExtensionsCount && fp.webglExtensionsCount > 0,
+      advice: 'getSupportedExtensions() returns 30-60 strings that vary per GPU/driver. Tor disables WebGL by default.',
+    },
+    {
+      id: 'touch-support',
+      label: 'Touch capabilities exposed',
+      weight: 2,
+      hit: !!fp.touchSupport && (fp.touchSupport.points > 0 || fp.touchSupport.touchEvent),
+      advice: 'Mobile vs desktop is leaked via maxTouchPoints. Hard to mitigate without a hardened browser profile.',
     },
   ];
 
