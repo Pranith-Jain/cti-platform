@@ -47,6 +47,7 @@ import {
   History,
   AlertTriangle,
   Coins,
+  Radio,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -245,8 +246,14 @@ const SECTIONS: Section[] = [
       {
         path: '/dfir/tech-ai-news',
         label: 'Tech & AI News',
-        desc: 'AI labs · cyber-vendor funding · M&A · general tech · 13 sources, threat-intel kept separate',
+        desc: 'AI labs · cyber-vendor funding · M&A · general tech · HN/YC · 16 sources, threat-intel kept separate',
         icon: Sparkles,
+      },
+      {
+        path: '/dfir/threat-feeds',
+        label: 'Threat Feeds',
+        desc: 'CISA · vendor labs · IR write-ups · Reddit infosec · CVE/Exploit-DB · security press · 40 sources',
+        icon: Radio,
       },
       { path: '/dfir/actors', label: 'Threat Actors', desc: 'APT catalog · STIX-aware', icon: Users },
       {

@@ -71,6 +71,7 @@ const OsintFramework = lazy(() => import('./pages/dfir/OsintFramework'));
 const ScamWatch = lazy(() => import('./pages/dfir/ScamWatch'));
 const CryptoTrace = lazy(() => import('./pages/dfir/CryptoTrace'));
 const TechAiNews = lazy(() => import('./pages/dfir/TechAiNews'));
+const ThreatFeeds = lazy(() => import('./pages/dfir/ThreatFeeds'));
 
 function TechniqueRedirect() {
   const params = new URLSearchParams(window.location.search);
@@ -585,6 +586,14 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <TechAiNews />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/threat-feeds"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <ThreatFeeds />
                 </Suspense>
               }
             />

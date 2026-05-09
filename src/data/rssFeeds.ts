@@ -887,10 +887,71 @@ export const landingIndustryFeeds = [
   'gnews-infosec-startup',
 ];
 
-export const landingGeneralTechFeeds = ['ars-tech', 'mit-tech-review', 'hn-frontpage', 'hn-ai', 'yc-blog'];
+export const landingGeneralTechFeeds = [
+  'ars-tech',
+  'mit-tech-review',
+  'hn-frontpage',
+  'hn-ai',
+  'hn-ask',
+  'hn-show',
+  'hn-cybersecurity',
+  'yc-blog',
+];
 
 /** Backward-compat alias retained for any older callers. */
 export const defaultTechFeeds = landingGeneralTechFeeds;
+
+/**
+ * Threat-feeds surface — used by both the /dfir landing widget
+ * (ThreatIntelFeed) and the dedicated /dfir/threat-feeds page. Six
+ * sections, hand-picked so each tab has a coherent identity.
+ */
+export const landingThreatGovernment = ['cisa-alerts', 'cisa-medical-advisories'];
+
+export const landingThreatVendor = [
+  'talos',
+  'eset',
+  'kaspersky-securelist',
+  'crowdstrike',
+  'sentinelone-labs',
+  'google-project-zero',
+  'checkpoint-research',
+  'sophos-xops',
+  'malwarebytes-labs',
+  'huntress',
+  'red-canary',
+  'malware-traffic-analysis',
+  'doublepulsar',
+  'dfir-lab',
+  'dfir-radar',
+  'sans-isc',
+];
+
+export const landingThreatInvestigation = [
+  'dfir-report',
+  'the-record',
+  'curated-intel',
+  'darkwebinformer',
+  'ransomware-live',
+  'databreaches',
+  'mitre-attack-medium',
+];
+
+export const landingThreatReddit = ['reddit-netsec', 'reddit-malware', 'reddit-blueteamsec', 'reddit-threatintel'];
+
+export const landingThreatVulns = ['cvedetails', 'exploitdb'];
+
+export const landingThreatNews = [
+  'krebsonsecurity',
+  'hackernews',
+  'bleepingcomputer',
+  'securityweek',
+  'schneier',
+  'wired-security',
+  'theregister-security',
+  'helpnetsecurity',
+  'csoconline',
+];
 
 // Feed categories for filtering
 export const feedCategories = [
