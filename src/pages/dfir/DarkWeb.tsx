@@ -272,6 +272,8 @@ export default function DarkWeb(): JSX.Element {
         </p>
       </motion.div>
 
+      <RansomwareActivityPanel />
+
       <BreachDisclosuresPanel />
 
       {/* Search + filters */}
@@ -678,6 +680,158 @@ function BreachDisclosuresPanel(): JSX.Element {
             className="hover:text-brand-600 dark:hover:text-brand-400 inline-flex items-center gap-1"
           >
             full HIBP list <ExternalLink size={10} />
+          </a>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Recent Ransomware Activity panel — pulls Ransomlook.io's leak-site posts
+// ─────────────────────────────────────────────────────────────────────────
+
+interface RansomwareVictim {
+  victim: string;
+  group: string;
+  discovered: string;
+  description?: string;
+  source_url: string;
+}
+
+interface RansomwareResponse {
+  generated_at: string;
+  source: string;
+  count: number;
+  groups: Array<{ group: string; count: number }>;
+  victims: RansomwareVictim[];
+}
+
+function RansomwareActivityPanel(): JSX.Element {
+  const [data, setData] = useState<RansomwareResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [groupFilter, setGroupFilter] = useState<string | 'all'>('all');
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/v1/ransomware-recent');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = (await res.json()) as RansomwareResponse;
+        if (!cancelled) setData(json);
+      } catch (e) {
+        if (!cancelled) setError((e as Error).message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredVictims = useMemo(() => {
+    if (!data) return [];
+    if (groupFilter === 'all') return data.victims;
+    return data.victims.filter((v) => v.group === groupFilter);
+  }, [data, groupFilter]);
+
+  const visible = filteredVictims.slice(0, expanded ? filteredVictims.length : 12);
+
+  return (
+    <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-3 mb-3">
+        <h2 className="font-display font-semibold text-lg inline-flex items-center gap-2">
+          Recent ransomware activity
+          <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300">
+            ransomlook.io
+          </span>
+        </h2>
+        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-500">
+          {loading ? 'loading…' : data ? `${data.count} leak-site posts · cached 1 h` : ''}
+        </span>
+      </div>
+
+      {error && (
+        <p className="text-sm font-mono text-rose-600 dark:text-rose-400">Could not load ransomware feed: {error}</p>
+      )}
+
+      {data && data.groups.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          <button
+            onClick={() => setGroupFilter('all')}
+            className={`text-[11px] font-mono px-2 py-1 rounded border transition-colors ${
+              groupFilter === 'all'
+                ? 'border-brand-500/60 bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-500/40'
+            }`}
+          >
+            All <span className="opacity-60">· {data.count}</span>
+          </button>
+          {data.groups.map((g) => (
+            <button
+              key={g.group}
+              onClick={() => setGroupFilter(g.group)}
+              className={`text-[11px] font-mono px-2 py-1 rounded border transition-colors ${
+                groupFilter === g.group
+                  ? 'border-rose-500/60 bg-rose-500/15 text-rose-700 dark:text-rose-300'
+                  : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-rose-500/40'
+              }`}
+            >
+              {g.group} <span className="opacity-60">· {g.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {visible.length > 0 && (
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {visible.map((v, i) => (
+            <li
+              key={`${v.group}-${v.victim}-${i}`}
+              className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2.5"
+            >
+              <div className="flex flex-wrap items-baseline gap-2 mb-1">
+                <a
+                  href={v.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-display font-semibold text-sm text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 break-words"
+                >
+                  {v.victim}
+                </a>
+                <span className="text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300">
+                  {v.group}
+                </span>
+              </div>
+              <div className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-1">
+                claimed {formatRelativeTime(v.discovered)}
+              </div>
+              {v.description && (
+                <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2">
+                  {v.description}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {filteredVictims.length > 12 && (
+        <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-500">
+          <button onClick={() => setExpanded((v) => !v)} className="text-brand-600 dark:text-brand-400 hover:underline">
+            {expanded ? 'Show fewer' : `Show all ${filteredVictims.length}`}
+          </button>
+          <a
+            href="https://www.ransomlook.io/recent"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-brand-600 dark:hover:text-brand-400 inline-flex items-center gap-1"
+          >
+            full Ransomlook feed <ExternalLink size={10} />
           </a>
         </div>
       )}
