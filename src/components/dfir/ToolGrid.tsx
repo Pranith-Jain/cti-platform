@@ -29,6 +29,9 @@ import {
   Bell,
   Globe2,
   FileCode,
+  ShieldCheck,
+  Sparkles,
+  Plug,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -85,6 +88,24 @@ const FEATURED: Tool[] = [
     label: 'Detection Rules',
     desc: 'Sigma · YARA · Elastic · Splunk · KQL · Suricata · live commit feeds',
     icon: FileCode,
+  },
+  {
+    path: '/dfir/owasp',
+    label: 'OWASP Top 10',
+    desc: 'Web 2021 · API 2023 · LLM 2025 · self-assessment + MITRE links',
+    icon: ShieldCheck,
+  },
+  {
+    path: '/dfir/prompt-injection',
+    label: 'Prompt Injection Detector',
+    desc: '25+ injection / jailbreak patterns · highlight + severity score',
+    icon: Sparkles,
+  },
+  {
+    path: '/dfir/mcp-audit',
+    label: 'MCP Server Auditor',
+    desc: 'Audit MCP configs for tool poisoning · hardcoded secrets · excessive agency',
+    icon: Plug,
   },
   {
     path: '/dfir/briefings',

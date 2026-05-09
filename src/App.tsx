@@ -49,6 +49,9 @@ const StixViewer = lazy(() => import('./pages/dfir/StixViewer'));
 const DarkWeb = lazy(() => import('./pages/dfir/DarkWeb'));
 const ThreatMap = lazy(() => import('./pages/dfir/ThreatMap'));
 const Rules = lazy(() => import('./pages/dfir/Rules'));
+const Owasp = lazy(() => import('./pages/dfir/Owasp'));
+const PromptInjection = lazy(() => import('./pages/dfir/PromptInjection'));
+const McpAudit = lazy(() => import('./pages/dfir/McpAudit'));
 
 function TechniqueRedirect() {
   const params = new URLSearchParams(window.location.search);
@@ -385,6 +388,30 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <Rules />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/owasp"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <Owasp />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/prompt-injection"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <PromptInjection />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/mcp-audit"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <McpAudit />
                 </Suspense>
               }
             />
