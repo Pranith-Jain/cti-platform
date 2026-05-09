@@ -46,9 +46,9 @@ export function Hero() {
 
           {/* Headline */}
           <h1 className="text-3xl font-extrabold leading-[1.2] tracking-tight sm:text-4xl lg:text-5xl text-slate-900 dark:text-white">
-            &quot;Most phishing investigations end at the alert.{' '}
+            &quot;Investigating attacks at human scale.{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-brand-400 dark:from-brand-400 dark:to-brand-200">
-              Mine start there.
+              Building defenders at AI scale.
             </span>
             &quot;
           </h1>

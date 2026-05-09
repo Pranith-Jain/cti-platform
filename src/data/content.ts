@@ -4,7 +4,7 @@ export const personalInfo = {
   title: 'Security Analyst & Detection Engineer. Threat Intel, Email Defense, Edge-native Tooling',
   // Short form, used in tight UI like the profile card to avoid overflow.
   shortTitle: 'Security Analyst & Detection Engineer',
-  headline: '"Most phishing investigations end at the alert. Mine start there."',
+  headline: '"Investigating attacks at human scale. Building defenders at AI scale."',
   description: `a security analyst and detection engineer. I investigate phishing, BEC, and malware incidents for 150+ global brands, and ship the tools I use. There's a free DFIR toolkit on Cloudflare Workers (24 tools, 22 threat intel sources, no signup) at /dfir. Currently expanding into AI security and NHI (Non-Human Identity) governance.`,
   currentFocus: 'Threat intel, email defense, and cloud identity security',
   currentlyLearning: 'NHI Security & Advanced Threat Hunting',
