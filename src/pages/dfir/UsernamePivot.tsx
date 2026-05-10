@@ -328,10 +328,10 @@ export default function UsernamePivot(): JSX.Element {
               breach checker
             </Link>{' '}
             and{' '}
-            <Link to="/dfir/github-osint" className="text-brand-600 dark:text-brand-400 hover:underline">
-              GitHub Recon
+            <Link to="/dfir/socmint" className="text-brand-600 dark:text-brand-400 hover:underline">
+              SOCMINT pivots
             </Link>{' '}
-            for that account.
+            for that handle.
           </li>
         </ul>
       </section>

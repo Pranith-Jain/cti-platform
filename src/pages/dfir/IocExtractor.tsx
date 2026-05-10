@@ -180,8 +180,13 @@ export default function IocExtractor(): JSX.Element {
   useEffect(() => {
     const from = searchParams.get('from');
     if (!from) return;
+    // Sister tools all share the same sessionStorage slot — only one
+    // pipe at a time matters. Each `from` value carries a friendly label
+    // for the banner.
     const KEYS: Record<string, { storage: string; label: string }> = {
       'ps-deob': { storage: 'ioc-extractor-pipe', label: 'PowerShell Deobfuscator' },
+      phishing: { storage: 'ioc-extractor-pipe', label: 'Phishing Analyzer' },
+      decoder: { storage: 'ioc-extractor-pipe', label: 'Decoder' },
     };
     const cfg = KEYS[from];
     if (!cfg) return;

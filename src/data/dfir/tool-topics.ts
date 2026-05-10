@@ -68,6 +68,7 @@ export const TOOL_TOPICS: ToolTopic[] = [
   // OSINT
   { term: 'OSINT', href: '/dfir/osint-framework', blurb: 'Open-source intelligence framework' },
   { term: 'Wayback Machine', href: '/dfir/wayback', blurb: 'Wayback Machine timeline pivot' },
-  { term: 'GitHub recon', href: '/dfir/github', blurb: 'Profile metadata + commit-email leak scan' },
   { term: 'EXIF', href: '/dfir/exif', blurb: 'EXIF metadata parser for images' },
+  { term: 'SOCMINT', href: '/dfir/socmint', blurb: 'Categorised OSINT pivots for email/domain/handle/name' },
+  { term: 'IP geolocation', href: '/dfir/ip-geo', blurb: 'Country, ASN, ISP + AbuseIPDB reputation' },
 ];

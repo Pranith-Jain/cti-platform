@@ -192,10 +192,10 @@ export default function Socmint(): JSX.Element {
             Domain Inspector
           </Link>{' '}
           (SPF/DKIM/DMARC), and{' '}
-          <Link to="/dfir/github-osint" className="text-brand-600 dark:text-brand-400 hover:underline">
-            GitHub Recon
+          <Link to="/dfir/username" className="text-brand-600 dark:text-brand-400 hover:underline">
+            Username Pivot
           </Link>{' '}
-          (commit-email leak). Paid tools tagged with <Lock size={9} className="inline" />.
+          (50+ services). Paid tools tagged with <Lock size={9} className="inline" />.
         </p>
       </motion.div>
 
@@ -234,6 +234,16 @@ export default function Socmint(): JSX.Element {
           ))}
         </div>
       </section>
+
+      {value && kind === 'email' && (
+        <div className="mb-4 rounded border border-amber-500/30 bg-amber-500/5 p-3 text-[12px] font-mono text-amber-700 dark:text-amber-300">
+          <strong>Email → LinkedIn is heuristic.</strong> There is no free, deterministic, TOS-compliant way to map an
+          email to a LinkedIn profile. The pivots below derive a probable name from the email local-part (e.g.{' '}
+          <code>jane.doe@acme.com</code> → "Jane Doe" + company "acme") and generate Google site-search dorks + probable
+          LinkedIn URL guesses. <strong>Verify before quoting.</strong> Paid services (Hunter, ContactOut, RocketReach,
+          Apollo) under "B2B / data brokers" do this properly.
+        </div>
+      )}
 
       {value && categoriesAvailable.length > 0 && (
         <section className="flex flex-wrap items-center gap-2 mb-4">

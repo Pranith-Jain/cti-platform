@@ -139,12 +139,6 @@ const SECTIONS: Section[] = [
         icon: History,
       },
       {
-        path: '/dfir/github-osint',
-        label: 'GitHub Recon',
-        desc: 'Profile · top repos · languages · activity · opt-in commit-author email scan',
-        icon: Github,
-      },
-      {
         path: '/dfir/ip-geo',
         label: 'IP Geolocation',
         desc: 'Country · ASN · ISP · proxy/VPN/hosting flags · AbuseIPDB confidence + report count · OpenStreetMap pin',

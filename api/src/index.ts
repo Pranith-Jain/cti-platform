@@ -23,7 +23,6 @@ import { ransomwareRecentHandler } from './routes/ransomware-recent';
 import { cryptoTraceHandler } from './routes/crypto-trace';
 import { abuseRssHandler } from './routes/abuse-rss';
 import { waybackCdxHandler } from './routes/wayback';
-import { githubReconHandler } from './routes/github-recon';
 import { ipGeoHandler } from './routes/ip-geo';
 import { stixFetchHandler } from './routes/stix-fetch';
 import {
@@ -67,7 +66,6 @@ app.get('/api/v1/breach-disclosures', breachDisclosuresHandler);
 app.get('/api/v1/ransomware-recent', ransomwareRecentHandler);
 app.get('/api/v1/crypto-trace', cryptoTraceHandler);
 app.get('/api/v1/wayback/cdx', waybackCdxHandler);
-app.get('/api/v1/github-recon', githubReconHandler);
 app.get('/api/v1/ip-geo', ipGeoHandler);
 app.get('/api/v1/stix/fetch', stixFetchHandler);
 app.get('/api/v1/briefings/list', listBriefingsHandler);

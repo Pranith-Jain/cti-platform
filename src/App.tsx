@@ -66,7 +66,6 @@ const DataClassification = lazy(() => import('./pages/dfir/DataClassification'))
 const PrivacyHub = lazy(() => import('./pages/dfir/PrivacyHub'));
 const UsernamePivot = lazy(() => import('./pages/dfir/UsernamePivot'));
 const Wayback = lazy(() => import('./pages/dfir/Wayback'));
-const GithubOsint = lazy(() => import('./pages/dfir/GithubOsint'));
 const IpGeo = lazy(() => import('./pages/dfir/IpGeo'));
 const LogParser = lazy(() => import('./pages/dfir/LogParser'));
 const Socmint = lazy(() => import('./pages/dfir/Socmint'));
@@ -549,14 +548,6 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <Wayback />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/dfir/github-osint"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <GithubOsint />
                 </Suspense>
               }
             />

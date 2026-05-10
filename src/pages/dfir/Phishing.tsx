@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { motion } from 'framer-motion';
-import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ScanText } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, ScanText, Search } from 'lucide-react';
 import type { PhishingAnalysisResponse } from '../../lib/dfir/types';
 import { VerdictChip } from '../../components/dfir/VerdictChip';
 import { HeaderTable } from '../../components/dfir/HeaderTable';
@@ -12,11 +12,22 @@ import { RelatedActors } from '../../components/dfir/RelatedActors';
 
 export default function Phishing(): JSX.Element {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const initialInput = searchParams.get('q') ?? '';
   const [input, setInput] = useState(initialInput);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PhishingAnalysisResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const sendToExtractor = () => {
+    if (!input.trim()) return;
+    try {
+      sessionStorage.setItem('ioc-extractor-pipe', input);
+    } catch {
+      /* sessionStorage unavailable — silent */
+    }
+    navigate('/dfir/extract?from=phishing');
+  };
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -86,9 +97,19 @@ export default function Phishing(): JSX.Element {
       {result && (
         <div className="space-y-6">
           <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
-            <div className="flex items-baseline justify-between mb-3">
+            <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
               <h2 className="font-display font-bold text-2xl">Risk verdict</h2>
-              <VerdictChip verdict={result.verdict} />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={sendToExtractor}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2 py-1 rounded border border-brand-500/40 bg-brand-500/10 text-brand-700 dark:text-brand-300 hover:bg-brand-500/20"
+                  title="Send the raw email body to the IOC Extractor for full URL/IP/domain/hash extraction"
+                >
+                  <Search size={11} /> extract IOCs from raw →
+                </button>
+                <VerdictChip verdict={result.verdict} />
+              </div>
             </div>
             <div className="font-mono text-sm text-slate-600 dark:text-slate-400">
               score: <span className="text-slate-900 dark:text-slate-100">{result.score}</span> / 100

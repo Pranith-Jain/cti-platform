@@ -47,6 +47,45 @@ const domainOf = (email: string): string => {
 };
 const handleOf = (s: string): string => s.replace(/^@/, '').trim();
 
+/**
+ * Derive a probable human name from an email local-part.
+ *   john.doe@x      → "John Doe"
+ *   jdoe@x          → "Jdoe" (low confidence)
+ *   john_doe123@x   → "John Doe"
+ *   firstname.lastname.middle@x → "Firstname Lastname Middle"
+ * Strips trailing digits, splits on . / _ / -, drops empty tokens, titlecases.
+ * Heuristic only — never confirms, only proposes.
+ */
+function inferredName(email: string): string {
+  const local = email.split('@')[0] ?? '';
+  const cleaned = local.replace(/\d+$/, '').replace(/\+.*$/, '');
+  const parts = cleaned
+    .split(/[._-]+/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
+  return parts.join(' ') || local;
+}
+
+/** Slugify the inferred name to LinkedIn /in/<slug> shape — hyphenated lowercase. */
+function inferredSlug(email: string, joiner = '-'): string {
+  const local = email.split('@')[0] ?? '';
+  return local
+    .replace(/\d+$/, '')
+    .replace(/\+.*$/, '')
+    .toLowerCase()
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .join(joiner);
+}
+
+/** Bare company name — strip TLD + common suffixes. acme.com → "acme" */
+function companyFromDomain(domain: string): string {
+  const root = domain.replace(/\.(com|net|org|io|co|ai|tech|app|dev|inc|corp|ltd|llc).*$/i, '');
+  const parts = root.split('.');
+  return parts[parts.length - 1] ?? root;
+}
+
 /** Gravatar takes a normalised lowercase MD5 of the email. We compute
  *  this client-side via SubtleCrypto in the page layer; here we just
  *  pass the email through the public lookup-by-email URL which Gravatar
@@ -207,6 +246,38 @@ export const PIVOTS: PivotLink[] = [
     blurb: 'Google site-search for LinkedIn profiles tied to a domain',
     build: (v) =>
       `https://www.google.com/search?q=${enc(`site:linkedin.com/in "${v.includes('@') ? domainOf(v) : v}"`)}`,
+  },
+  {
+    category: 'social',
+    appliesTo: ['email'],
+    label: 'LinkedIn — inferred name + company dork',
+    blurb: 'Heuristic: derive name from email local-part + company from domain → Google site-search',
+    build: (v) => {
+      const name = inferredName(v);
+      const company = companyFromDomain(domainOf(v));
+      return `https://www.google.com/search?q=${enc(`site:linkedin.com/in "${name}" "${company}"`)}`;
+    },
+  },
+  {
+    category: 'social',
+    appliesTo: ['email'],
+    label: 'LinkedIn — probable URL (hyphen)',
+    blurb: 'Heuristic guess: linkedin.com/in/<first-last>. Verify before quoting.',
+    build: (v) => `https://www.linkedin.com/in/${enc(inferredSlug(v, '-'))}`,
+  },
+  {
+    category: 'social',
+    appliesTo: ['email'],
+    label: 'LinkedIn — probable URL (no separator)',
+    blurb: 'Heuristic guess: linkedin.com/in/<firstlast>. Some users use this slug shape.',
+    build: (v) => `https://www.linkedin.com/in/${enc(inferredSlug(v, ''))}`,
+  },
+  {
+    category: 'social',
+    appliesTo: ['email'],
+    label: 'LinkedIn — email-as-leak dork',
+    blurb: 'Some profiles leak the email address itself in the bio/contact panel',
+    build: (v) => `https://www.google.com/search?q=${enc(`site:linkedin.com "${v}"`)}`,
   },
   {
     category: 'social',

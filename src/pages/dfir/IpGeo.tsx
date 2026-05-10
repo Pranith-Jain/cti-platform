@@ -146,11 +146,11 @@ export default function IpGeo(): JSX.Element {
         </p>
         <p className="text-xs text-slate-500 dark:text-slate-500 font-mono mb-8">
           Pairs with{' '}
-          <Link to="/dfir/asn-lookup" className="text-brand-600 dark:text-brand-400 hover:underline">
+          <Link to="/dfir/asn" className="text-brand-600 dark:text-brand-400 hover:underline">
             ASN Lookup
           </Link>{' '}
           for BGP/prefix data and{' '}
-          <Link to="/dfir/ioc" className="text-brand-600 dark:text-brand-400 hover:underline">
+          <Link to="/dfir/ioc-check" className="text-brand-600 dark:text-brand-400 hover:underline">
             IOC Checker
           </Link>{' '}
           for full multi-provider scoring.
@@ -359,7 +359,7 @@ export default function IpGeo(): JSX.Element {
                     <span className="text-slate-900 dark:text-slate-100">
                       {data.geo.asn ? (
                         <Link
-                          to={`/dfir/asn-lookup?ip=${encodeURIComponent(data.ip)}`}
+                          to={`/dfir/asn?ip=${encodeURIComponent(data.ip)}`}
                           className="text-brand-600 dark:text-brand-400 hover:underline"
                         >
                           {data.geo.asn} {data.geo.asname && `(${data.geo.asname})`}
