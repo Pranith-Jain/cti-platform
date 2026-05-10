@@ -3,6 +3,7 @@ import { GitCommit, Network, Bug, Database, Shield, ExternalLink } from 'lucide-
 import { SnapshotCard, type SnapshotAccent } from './SnapshotCard';
 import { useWatchlist, watchHits } from './useWatchlist';
 import { shortRel } from '../../lib/relativeTime';
+import { decodeHtml } from '../../lib/htmlDecode';
 
 /**
  * Live snapshot for /dfir/rules — buckets the recent_commits returned by
@@ -59,17 +60,6 @@ const CARDS: CardSpec[] = [
     matches: ['Splunk SPL', 'Elastic', 'KQL'],
   },
 ];
-
-function decodeHtml(s: string): string {
-  // Commit messages come back HTML-encoded (e.g. &#39; for apostrophes).
-  // GitHub's API helpfully escapes them; we de-escape just the common ones.
-  return s
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>');
-}
 
 export function RulesSnapshotPanel(): JSX.Element {
   const [data, setData] = useState<RulesResp | null>(null);

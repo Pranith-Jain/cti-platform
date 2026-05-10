@@ -16,6 +16,7 @@ import { type AggregatedFeedResponse } from '../../services/rssService';
 import { SnapshotCard } from './SnapshotCard';
 import { useWatchlist, watchHits } from './useWatchlist';
 import { shortRel } from '../../lib/relativeTime';
+import { decodeHtml } from '../../lib/htmlDecode';
 
 /**
  * Live "right now" snapshot of dark-web + Telegram + .onion + scam activity.
@@ -858,9 +859,9 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="truncate text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 flex-1 min-w-0"
-                        title={`${cm.title} — ${cm.source_label}`}
+                        title={`${decodeHtml(cm.title)} — ${cm.source_label}`}
                       >
-                        {cm.title}
+                        {decodeHtml(cm.title)}
                       </a>
                       <span className="text-slate-500 shrink-0">{shortRel(cm.pubDate)}</span>
                     </li>
@@ -901,8 +902,12 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                 <ul className="space-y-1.5 mt-1">
                   {briefings.items.slice(0, itemLimit).map((b) => {
                     const m = b.metadata;
-                    const findings = m.stats?.findings ?? 0;
-                    const iocs = m.stats?.iocs ?? 0;
+                    const stats = m.stats ?? {};
+                    const findings = stats.findings ?? 0;
+                    const iocs = stats.iocs ?? 0;
+                    const critical = stats.critical ?? 0;
+                    // Prefer date_range; fall back to slug-derived date.
+                    const label = m.date_range ?? m.date ?? b.slug.replace(/^(daily|weekly)-/, '');
                     return (
                       <li key={b.slug} className="flex items-baseline gap-2 text-[11px] font-mono py-0.5">
                         <span
@@ -917,12 +922,15 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                         <Link
                           to={`/dfir/briefings/${b.slug}`}
                           className="truncate text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 flex-1 min-w-0"
-                          title={m.title}
+                          title={m.title ?? b.slug}
                         >
-                          {m.date_range ?? m.date ?? b.slug}
+                          {label}
                         </Link>
-                        <span className="text-slate-500 shrink-0">
-                          {findings}f · {iocs}i
+                        <span
+                          className="text-slate-500 shrink-0 tabular-nums"
+                          title={`${findings} findings · ${iocs} IOCs · ${critical} critical`}
+                        >
+                          {findings}f·{iocs}i{critical > 0 ? `·${critical}!` : ''}
                         </span>
                       </li>
                     );

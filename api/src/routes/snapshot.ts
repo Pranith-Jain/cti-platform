@@ -85,8 +85,10 @@ async function safe<T>(fn: () => Promise<T>): Promise<SourcePayload<T>> {
 
 export async function snapshotHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   const cache = (caches as unknown as { default: Cache }).default;
-  // v3: added rules + briefings + threat_map source payloads.
-  const cacheKey = new Request('https://snapshot-cache.internal/v3');
+  // v4: bust the v3 cache that captured an empty threat_map.countries
+  // payload from a transient ip-api outage; v4 also adds the retry fallback
+  // when threat_map.countries is empty but total_ips > 0.
+  const cacheKey = new Request('https://snapshot-cache.internal/v4');
   const cached = await cache.match(cacheKey);
   if (cached) return cached;
 
@@ -123,8 +125,14 @@ export async function snapshotHandler(c: Context<{ Bindings: Env }>): Promise<Re
       return { items };
     }),
     // Trim threat-map — snapshot card only uses total_ips + top countries.
+    // If geolocation came back empty (ip-api flaky / cold cache), retry once
+    // before giving up — the underlying handler caches its own result so
+    // the second call is fast either way.
     safe(async () => {
-      const t = await fetchThreatMap();
+      let t = await fetchThreatMap();
+      if (t.countries.length === 0 && t.total_ips > 0) {
+        t = await fetchThreatMap();
+      }
       return {
         generated_at: t.generated_at,
         total_ips: t.total_ips,
