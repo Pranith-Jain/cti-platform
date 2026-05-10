@@ -97,7 +97,7 @@ export const LISTS: AwesomeList[] = [
     focus: ['threat-intel'],
     stars: 'site',
     badge: 'reference',
-    why: 'Wired into /threatintel/ransom-library — the only public source I have found that ships per-group ransom-note transcripts AND leak-site screenshots together.',
+    why: 'The only public source I have found that ships per-group ransom-note transcripts AND leak-site screenshots together — linked from the External Sources block on /threatintel.',
   },
 
   // ─── OSINT ───────────────────────────────────────────────────────────────

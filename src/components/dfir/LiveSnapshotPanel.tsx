@@ -408,7 +408,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
           showNewBadge={lastVisit > 0}
           rightAction={
             <Link
-              to="/threatintel/darkweb#ransomware"
+              to="/threatintel/ransomware-activity"
               className="text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-0.5"
             >
               feed <ExternalLink size={9} />
@@ -471,9 +471,10 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
           )}
         </SnapshotCard>
 
-        {/* Cybersec Telegram firehose — links to the DarkWeb panel which has the
-            full filterable view; the Telegram catalog (/threatintel/telegram-watch) is
-            the channel-discovery surface, not the message stream. */}
+        {/* Cybersec Telegram firehose — links to the dedicated /threatintel/cybersec
+            page which has the full filterable view; the Telegram catalog
+            (/threatintel/telegram-watch) is the channel-discovery surface, not the
+            message stream. */}
         <SnapshotCard
           accent="sky"
           icon={Send}
@@ -484,7 +485,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
           showNewBadge={lastVisit > 0}
           rightAction={
             <Link
-              to="/threatintel/darkweb#telegram"
+              to="/threatintel/cybersec"
               className="text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-0.5"
             >
               full feed <ExternalLink size={9} />

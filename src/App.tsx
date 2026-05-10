@@ -85,7 +85,10 @@ const OnionWatch = lazy(() => import('./pages/dfir/OnionWatch'));
 const TelegramWatch = lazy(() => import('./pages/dfir/TelegramWatch'));
 const AwesomeLists = lazy(() => import('./pages/dfir/AwesomeLists'));
 const ThreatIntelHome = lazy(() => import('./pages/threatintel/Home'));
-const RansomLibrary = lazy(() => import('./pages/threatintel/RansomLibrary'));
+const IocFeed = lazy(() => import('./pages/threatintel/IocFeed'));
+const CveList = lazy(() => import('./pages/threatintel/CveList'));
+const PhishingUrlsPage = lazy(() => import('./pages/threatintel/PhishingUrls'));
+const MalwareSamplesPage = lazy(() => import('./pages/threatintel/MalwareSamples'));
 
 function TechniqueRedirect() {
   const params = new URLSearchParams(window.location.search);
@@ -434,6 +437,94 @@ export function AppContent() {
               }
             />
             <Route
+              path="/threatintel/ransomware-activity"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <DarkWeb singleSection="ransomware" />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/threatintel/cybersec"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <DarkWeb singleSection="telegram" />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/threatintel/breach"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <DarkWeb singleSection="breach" />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/threatintel/urls"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <IocFeed kind="url" />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/threatintel/domains"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <IocFeed kind="domain" />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/threatintel/hashs"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <IocFeed kind="hash" />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/threatintel/malicious-urls"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <IocFeed kind="malicious-url" />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/threatintel/iocs-by-type"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <IocFeed kind="all" />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/threatintel/cve-list"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <CveList />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/threatintel/phishing-urls"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <PhishingUrlsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/threatintel/malware-samples"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <MalwareSamplesPage />
+                </Suspense>
+              }
+            />
+            <Route
               path="/threatintel/threat-map"
               element={
                 <Suspense fallback={<SectionLoader />}>
@@ -737,14 +828,10 @@ export function AppContent() {
                 </Suspense>
               }
             />
-            <Route
-              path="/threatintel/ransom-library"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <RansomLibrary />
-                </Suspense>
-              }
-            />
+            {/* Ransom Note Library was removed 2026-05-11; mythreatintel.com is now
+                an external-source link only on the /threatintel landing. Old bookmarks
+                land on the External Sources block via the threatintel landing. */}
+            <Route path="/threatintel/ransom-library" element={<Navigate to="/threatintel" replace />} />
             {/* Discord Watch was removed 2026-05-11; redirect bookmarks to Awesome Lists. */}
             <Route path="/dfir/discord-watch" element={<Navigate to="/threatintel/awesome-lists" replace />} />
             {/* Old path renamed; preserve any in-flight links. */}

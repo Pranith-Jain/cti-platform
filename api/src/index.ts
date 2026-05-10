@@ -29,7 +29,9 @@ import { certSearchHandler } from './routes/cert-search';
 import { webScanHandler } from './routes/web-scan';
 import { onionWatchHandler } from './routes/onion-watch';
 import { telegramFeedHandler } from './routes/telegram-feed';
-import { ransomLibraryHandler, ransomNoteHandler } from './routes/ransom-library';
+import { cveRecentHandler } from './routes/cve-recent';
+import { phishingUrlsHandler } from './routes/phishing-urls';
+import { malwareSamplesHandler } from './routes/malware-samples';
 import {
   listBriefingsHandler,
   getBriefingHandler,
@@ -80,8 +82,9 @@ app.get('/api/v1/cert-search', certSearchHandler);
 app.get('/api/v1/web-scan', webScanHandler);
 app.get('/api/v1/onion-watch', onionWatchHandler);
 app.get('/api/v1/telegram-feed', telegramFeedHandler);
-app.get('/api/v1/ransom-library', ransomLibraryHandler);
-app.get('/api/v1/ransom-note', ransomNoteHandler);
+app.get('/api/v1/cve-recent', cveRecentHandler);
+app.get('/api/v1/phishing-urls', phishingUrlsHandler);
+app.get('/api/v1/malware-samples', malwareSamplesHandler);
 app.get('/api/v1/snapshot', snapshotHandler);
 app.get('/api/v1/ioc-snapshot', iocSnapshotHandler);
 app.get('/api/v1/briefings/list', listBriefingsHandler);

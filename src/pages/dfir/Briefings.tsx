@@ -85,7 +85,7 @@ export default function Briefings(): JSX.Element {
           abuse.ch / OpenPhish feeds. Daily briefings publish at 00:05 UTC; weekly at 00:15 UTC Monday. Reference only —
           verify all indicators in your own environment. For real-time activity, see the live snapshot on{' '}
           <Link to="/threatintel" className="text-brand-600 dark:text-brand-400 hover:underline">
-            /dfir
+            /threatintel
           </Link>
           .
         </p>

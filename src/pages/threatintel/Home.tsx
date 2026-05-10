@@ -1,17 +1,21 @@
 import { Link } from 'react-router-dom';
 import {
+  AlertTriangle,
   ArrowRight,
   Bell,
   BookOpen,
+  BookText,
   Briefcase,
+  Bug,
   Compass,
   ExternalLink,
   FileCode,
-  FileText,
+  Fish,
   Github,
   Globe,
   Globe2,
   Grid3x3,
+  Hash,
   Layers,
   Microscope,
   Newspaper,
@@ -19,9 +23,8 @@ import {
   Send,
   ShieldAlert,
   Sparkles,
+  Tag,
   Users,
-  AlertTriangle,
-  BookText,
   type LucideIcon,
 } from 'lucide-react';
 import { LiveSnapshotPanel } from '../../components/dfir/LiveSnapshotPanel';
@@ -31,8 +34,9 @@ import { LiveSnapshotPanel } from '../../components/dfir/LiveSnapshotPanel';
  * news, briefings, and curated catalogues. /dfir keeps the interactive
  * tools; /threatintel keeps everything you READ.
  *
- * The pages themselves still live at their /dfir/<slug> URLs (no migration
- * churn) — this landing just curates them under intel-flavoured sections.
+ * The pages themselves now live at /threatintel/<slug>; old /dfir/<slug>
+ * URLs redirect via `MovedRedirect` in App.tsx so existing bookmarks keep
+ * resolving (query string + hash preserved).
  *
  * If you add a new SOURCE / FEED / CATALOG, add the tile here AND remove
  * any matching tile from src/components/dfir/ToolGrid.tsx so the two
@@ -78,7 +82,7 @@ const SECTIONS: Section[] = [
       },
       {
         to: '/threatintel/telegram-watch',
-        label: 'Telegram Watch',
+        label: 'Telegram Catalog',
         desc: 'Curated index of public threat-intel + cybercrime channels · category + language filters',
         icon: Send,
       },
@@ -119,13 +123,6 @@ const SECTIONS: Section[] = [
         desc: 'Daily + weekly digest · auto-generated from feeds · ransomware claims · breach disclosures · IOCs of the day',
         icon: Briefcase,
       },
-      {
-        to: '/threatintel/ransom-library',
-        label: 'Ransom Note Library',
-        desc: '180+ ransomware groups · transcript of each ransom note + leak-site landing-page screenshot · sourced from mythreatintel.com',
-        icon: FileText,
-        badge: 'new',
-      },
     ],
   },
   {
@@ -159,16 +156,69 @@ const SECTIONS: Section[] = [
         icon: FileCode,
       },
       {
-        to: '/dfir/cve',
-        label: 'CVE Lookup',
-        desc: 'NVD · CVSS · EPSS · KEV · combined patch-priority score with rationale',
-        icon: ShieldAlert,
-      },
-      {
         to: '/threatintel/cve-resources',
         label: 'CVE Resources Catalog',
         desc: '~70 curated CVE sources — databases · exploit/PoC · vendor PSIRTs · scoring · research labs · alert feeds',
         icon: BookText,
+      },
+    ],
+  },
+  {
+    id: 'ioc-feeds',
+    label: 'Live IOC Feeds',
+    blurb: 'Curated streams of fresh indicators — pull, ingest, or pivot to IOC Checker.',
+    tools: [
+      {
+        to: '/threatintel/cve-list',
+        label: 'Recent CVE updates',
+        desc: 'NVD modified-CVE feed (last 7 days) · severity + CVSS score · click to drill into CVE Lookup',
+        icon: ShieldAlert,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/malware-samples',
+        label: 'Recent malware samples',
+        desc: 'MalwareBazaar latest · family signature · file type · size · reporter · link to Bazaar sample page',
+        icon: Bug,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/phishing-urls',
+        label: 'Recent phishing URLs',
+        desc: 'PhishTank + OpenPhish · target brand + verification flag · pivot to IOC Checker',
+        icon: Fish,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/malicious-urls',
+        label: 'Malicious URLs (URLhaus)',
+        desc: 'URLhaus malware-distribution URLs · refreshed hourly · per-entry timestamp + context tag',
+        icon: Globe,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/urls',
+        label: 'Recent URLs (all sources)',
+        desc: 'URLhaus + ThreatFox aggregate · per-entry timestamp + source + context',
+        icon: Globe,
+      },
+      {
+        to: '/threatintel/domains',
+        label: 'Recent domains',
+        desc: 'Malicious domains from ThreatFox · per-entry timestamp showing when upstream first saw it',
+        icon: Globe,
+      },
+      {
+        to: '/threatintel/hashs',
+        label: 'Recent file hashes',
+        desc: 'MalwareBazaar + ThreatFox hashes · per-entry timestamp · click hash to run through IOC Checker',
+        icon: Hash,
+      },
+      {
+        to: '/threatintel/iocs-by-type',
+        label: 'IOCs by type',
+        desc: 'Combined view — URLs + domains + hashes side-by-side from all upstream feeds',
+        icon: Tag,
       },
     ],
   },
@@ -211,7 +261,7 @@ const SECTIONS: Section[] = [
       {
         to: 'https://www.mythreatintel.com/?lang=en',
         label: 'My Threat Intel',
-        desc: 'Live ransomware dashboard · country / sector / timeline charts · the upstream of /threatintel/ransom-library',
+        desc: 'Live ransomware dashboard · country / sector / timeline charts · 180+ ransomware groups with ransom-note transcripts and leak-site screenshots',
         icon: ExternalLink,
         external: true,
       },
@@ -373,8 +423,8 @@ export default function ThreatIntelHome(): JSX.Element {
           here. Use the top nav to switch between them.
         </p>
         <p className="text-xs text-slate-500 dark:text-slate-500 font-mono">
-          Pages still resolve at their existing /dfir/&lt;slug&gt; URLs (no broken bookmarks). The /threatintel landing
-          is the curated entry point that surfaces them grouped by intel use-case.
+          Old /dfir/&lt;slug&gt; bookmarks for moved pages 302 to the new /threatintel/&lt;slug&gt; URL (query string
+          and hash preserved), so existing links keep working without doubling up on routes.
         </p>
       </section>
     </div>

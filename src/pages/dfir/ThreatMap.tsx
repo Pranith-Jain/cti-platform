@@ -418,45 +418,56 @@ export default function ThreatMap(): JSX.Element {
             </section>
           )}
 
-          {/* Other IOC types (URLs / Domains / Hashes) — same upstreams, no geo */}
-          {data.iocs_by_type?.map((bucket) => (
-            <section key={bucket.type} className="mt-8">
-              <div className="flex items-baseline justify-between mb-3">
-                <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">
-                  Recent {bucket.type === 'url' ? 'URLs' : bucket.type === 'domain' ? 'Domains' : 'File hashes'}
-                </h3>
-                <span className="text-xs font-mono text-slate-500">
-                  {bucket.count} unique ·{' '}
-                  {Object.entries(bucket.source_counts)
-                    .map(([k, n]) => `${k} ${n}`)
-                    .join(' · ')}
-                </span>
-              </div>
-              <div className="grid sm:grid-cols-2 gap-2">
-                {bucket.recent.slice(0, 20).map((it, i) => (
-                  <Link
-                    key={`${bucket.type}-${i}`}
-                    to={`/dfir/ioc-check?indicator=${encodeURIComponent(it.value)}`}
-                    className="block rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 hover:border-brand-500/40 transition-colors"
-                  >
-                    <div className="font-mono text-xs text-slate-900 dark:text-slate-100 truncate" title={it.value}>
-                      {it.value}
-                    </div>
-                    <div className="text-[11px] font-mono text-slate-500 flex items-center gap-2 mt-0.5">
-                      <span className="text-brand-600 dark:text-brand-400">{it.source}</span>
-                      {it.context && <span className="truncate">{it.context}</span>}
-                    </div>
-                  </Link>
-                ))}
+          {/* IOC tables (URLs / Domains / Hashes) moved to dedicated pages 2026-05-11.
+              The same upstream snapshot drives them — no extra fetch cost. */}
+          {data.iocs_by_type && data.iocs_by_type.length > 0 && (
+            <section className="mt-8 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+              <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 mb-3">
+                Per-type IOC feeds
+              </h3>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs font-mono">
+                {data.iocs_by_type.map((bucket) => {
+                  const slug = bucket.type === 'url' ? 'urls' : bucket.type === 'domain' ? 'domains' : 'hashs';
+                  const label =
+                    bucket.type === 'url'
+                      ? 'Recent URLs'
+                      : bucket.type === 'domain'
+                        ? 'Recent Domains'
+                        : 'Recent File hashes';
+                  return (
+                    <Link
+                      key={bucket.type}
+                      to={`/threatintel/${slug}`}
+                      className="rounded border border-slate-200 dark:border-slate-800 px-3 py-2 hover:border-brand-500/40 transition-colors"
+                    >
+                      <div className="text-slate-900 dark:text-slate-100 font-display font-semibold text-sm">
+                        {label} →
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {bucket.count} unique · /threatintel/{slug}
+                      </div>
+                    </Link>
+                  );
+                })}
+                <Link
+                  to="/threatintel/iocs-by-type"
+                  className="rounded border border-slate-200 dark:border-slate-800 px-3 py-2 hover:border-brand-500/40 transition-colors"
+                >
+                  <div className="text-slate-900 dark:text-slate-100 font-display font-semibold text-sm">
+                    All IOC types →
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">URLs + domains + hashes in one view</div>
+                </Link>
               </div>
             </section>
-          ))}
+          )}
 
           <IocSnapshotPanel />
 
           <footer className="mt-8 text-xs font-mono text-slate-500">
-            IPs refresh hourly. Geolocation via ip-api.com (free, no key). URLs / domains / hashes come from the same
-            upstream feeds and aren't geolocated. Click any IOC to run it through the IOC Checker.
+            IPs refresh hourly. Geolocation via ip-api.com (free, no key). URLs / domains / hashes are surfaced on their
+            own dedicated pages above (same upstream snapshot, no extra fetch). Click any IOC anywhere on the site to
+            run it through the IOC Checker.
           </footer>
         </>
       )}
