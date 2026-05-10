@@ -85,10 +85,10 @@ async function safe<T>(fn: () => Promise<T>): Promise<SourcePayload<T>> {
 
 export async function snapshotHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   const cache = (caches as unknown as { default: Cache }).default;
-  // v5: snapshot now reads the threat-map handler's own cache instead of
-  // always doing fresh upstream fetches — was producing 0/0 payloads when
-  // the snapshot's first call to fetchThreatMap raced ip-api flakiness.
-  const cacheKey = new Request('https://snapshot-cache.internal/v5');
+  // v6: cache.match now uses a URL string (more reliable than wrapping in
+  // new Request); throws on empty threat-map so the panel surfaces an
+  // error instead of caching misleading 0s.
+  const cacheKey = new Request('https://snapshot-cache.internal/v6');
   const cached = await cache.match(cacheKey);
   if (cached) return cached;
 
@@ -124,20 +124,30 @@ export async function snapshotHandler(c: Context<{ Bindings: Env }>): Promise<Re
       const items = await listBriefings(kv, { limit: 5 });
       return { items };
     }),
-    // Trim threat-map — snapshot card only uses total_ips + top countries.
-    // Read the threat-map handler's own cache first; fall back to a fresh
-    // upstream fetch on miss. Calling fetchThreatMap() directly always does
-    // ~7 upstream IOC-feed fetches + an ip-api geolocation batch, which is
-    // both slow and prone to per-request flakes — the handler-side cache is
-    // 1 h TTL, so reading it first means we usually get a 290-IP / 32-country
-    // payload instantly instead of risking a 0-IP cold-call.
+    // Threat-map: read the handler's own cache first; only fall through to
+    // a fresh upstream fetch on miss. fetchThreatMap() does ~7 IOC-feed
+    // fetches + an ip-api geolocation batch — slow and prone to per-request
+    // flakes. Reading the handler-side cache (1 h TTL) is instant when
+    // populated. Cache.match accepts a URL string directly per spec.
     safe(async () => {
-      const cached = await cache.match(new Request(THREAT_MAP_CACHE_KEY));
-      let t = cached ? ((await cached.json()) as Awaited<ReturnType<typeof fetchThreatMap>>) : await fetchThreatMap();
-      // Defensive retry if the cached payload (or fresh call) shows the
-      // ip-api outage signature (IPs counted but no countries geolocated).
-      if (t.countries.length === 0 && t.total_ips > 0) {
+      let t: Awaited<ReturnType<typeof fetchThreatMap>>;
+      const cachedRes = await cache.match(THREAT_MAP_CACHE_KEY);
+      if (cachedRes) {
+        t = (await cachedRes.json()) as Awaited<ReturnType<typeof fetchThreatMap>>;
+      } else {
         t = await fetchThreatMap();
+      }
+      // If the result has IPs but no countries (ip-api outage signature),
+      // try once more — fetchThreatMap is the only path that can give us
+      // fresh geolocation. Throw on second failure so the card surfaces a
+      // real error instead of misleading 0s.
+      if (t.total_ips > 0 && t.countries.length === 0) {
+        t = await fetchThreatMap();
+      }
+      // Reject empty results so the snapshot envelope reports `ok: false` +
+      // an error string. Better than showing fake "0 IPs / 0 countries".
+      if (t.total_ips === 0) {
+        throw new Error('threat-map upstream returned no IPs');
       }
       return {
         generated_at: t.generated_at,
