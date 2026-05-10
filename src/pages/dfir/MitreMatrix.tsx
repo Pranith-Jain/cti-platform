@@ -39,13 +39,54 @@ function actorsByTechnique(id: string): typeof threatActors {
   return threatActors.filter((a) => a.techniques.includes(id));
 }
 
+/**
+ * Per-tile coverage marker. localStorage-backed so analysts can stage a
+ * SIEM coverage map without a backend. Cycle order on click:
+ *   none → covered → partial → uncovered → none
+ * — represents "have we got detection for this technique." This is the
+ * "placeholder for user-defined coverage config" — a real deployment
+ * would seed this from a Sigma/Sentinel ruleset audit.
+ */
+type Coverage = 'covered' | 'partial' | 'uncovered';
+const COVERAGE_KEY = 'mitre-matrix-coverage:v1';
+const COVERAGE_NEXT: Record<Coverage | 'none', Coverage | 'none'> = {
+  none: 'covered',
+  covered: 'partial',
+  partial: 'uncovered',
+  uncovered: 'none',
+};
+const COVERAGE_DOT: Record<Coverage, string> = {
+  covered: 'bg-emerald-500',
+  partial: 'bg-amber-500',
+  uncovered: 'bg-rose-500',
+};
+const COVERAGE_LABEL: Record<Coverage, string> = {
+  covered: 'covered',
+  partial: 'partial',
+  uncovered: 'uncovered',
+};
+
+function loadCoverage(): Record<string, Coverage> {
+  try {
+    const raw = localStorage.getItem(COVERAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, Coverage>;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function MitreMatrix(): JSX.Element {
-  const [query, setQuery] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
+  const [query, setQuery] = useState(searchParams.get('q') ?? '');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<TechniqueResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [coverage, setCoverage] = useState<Record<string, Coverage>>(() => loadCoverage());
+  const [coverageMode, setCoverageMode] = useState(false);
+  const [showGapsOnly, setShowGapsOnly] = useState(false);
 
   const openTechnique = useCallback(
     (id: string) => {
@@ -115,25 +156,87 @@ export default function MitreMatrix(): JSX.Element {
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedId, closeDrawer]);
 
-  const filteredMatrix = useMemo(() => {
+  // Persist coverage edits.
+  useEffect(() => {
+    try {
+      localStorage.setItem(COVERAGE_KEY, JSON.stringify(coverage));
+    } catch {
+      /* quota exceeded / private mode — silently skip */
+    }
+  }, [coverage]);
+
+  // Sync search query into URL so links share state.
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (query.trim()) next.set('q', query.trim());
+        else next.delete('q');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [query, setSearchParams]);
+
+  const cycleCoverage = useCallback((id: string) => {
+    setCoverage((prev) => {
+      const cur = prev[id] ?? 'none';
+      const next = COVERAGE_NEXT[cur];
+      const out = { ...prev };
+      if (next === 'none') delete out[id];
+      else out[id] = next;
+      return out;
+    });
+  }, []);
+
+  const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return mitreMatrix;
+    if (!q) return null;
+    const set = new Set<string>();
+    for (const tactic of mitreMatrix) {
+      for (const t of tactic.techniques) {
+        if (
+          t.id.toLowerCase().includes(q) ||
+          t.name.toLowerCase().includes(q) ||
+          (t.description ?? '').toLowerCase().includes(q) ||
+          (t.subtechniques ?? []).some((s) => s.id.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))
+        ) {
+          set.add(t.id);
+        }
+      }
+    }
+    return set;
+  }, [query]);
+
+  // Apply highlight+gap-mode to produce the visible matrix. Search
+  // highlights rather than filters (keeps tactic columns intact) — the
+  // explicit "show gaps only" toggle is the filter pathway.
+  const visibleMatrix = useMemo(() => {
+    if (!showGapsOnly) return mitreMatrix;
     return mitreMatrix
       .map((tactic) => ({
         ...tactic,
-        techniques: tactic.techniques.filter(
-          (t) =>
-            t.id.toLowerCase().includes(q) ||
-            t.name.toLowerCase().includes(q) ||
-            (t.description ?? '').toLowerCase().includes(q) ||
-            (t.subtechniques ?? []).some((s) => s.id.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))
-        ),
+        techniques: tactic.techniques.filter((t) => {
+          const c = coverage[t.id];
+          return c === 'uncovered' || c === 'partial' || c === undefined;
+        }),
       }))
       .filter((tactic) => tactic.techniques.length > 0);
-  }, [query]);
+  }, [coverage, showGapsOnly]);
 
   const totalTactics = mitreMatrix.length;
   const totalTechniques = mitreMatrix.reduce((acc, t) => acc + t.techniques.length, 0);
+  const coverageStats = useMemo(() => {
+    let covered = 0;
+    let partial = 0;
+    let uncovered = 0;
+    for (const v of Object.values(coverage)) {
+      if (v === 'covered') covered++;
+      else if (v === 'partial') partial++;
+      else if (v === 'uncovered') uncovered++;
+    }
+    return { covered, partial, uncovered, untagged: totalTechniques - covered - partial - uncovered };
+  }, [coverage, totalTechniques]);
 
   return (
     <div className="max-w-full px-8 py-12 text-slate-900 dark:text-slate-100">
@@ -152,7 +255,7 @@ export default function MitreMatrix(): JSX.Element {
             platforms, data sources, detection guidance, related techniques, and tracked actors that use it. Highlighted
             tiles indicate techniques observed in actor tradecraft.
           </p>
-          <div className="flex items-center gap-4 text-sm font-mono text-slate-500 mb-8">
+          <div className="flex flex-wrap items-center gap-4 text-sm font-mono text-slate-500 mb-3">
             <span>
               <span className="text-slate-900 dark:text-slate-100">{totalTactics}</span> tactics
             </span>
@@ -164,29 +267,102 @@ export default function MitreMatrix(): JSX.Element {
             <span>
               <span className="text-slate-900 dark:text-slate-100">{usedByActors.size}</span> actor-tracked IDs
             </span>
+            {coverageStats.covered + coverageStats.partial + coverageStats.uncovered > 0 && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    {coverageStats.covered}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    {coverageStats.partial}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    {coverageStats.uncovered}
+                  </span>
+                  <span className="text-slate-500">tagged</span>
+                </span>
+              </>
+            )}
+            {matches && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="text-cyan-600 dark:text-cyan-400">{matches.size} matches</span>
+              </>
+            )}
           </div>
         </motion.div>
 
-        {/* Search */}
-        <div className="relative mb-8 max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter by technique ID or name…"
-            className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-mono text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
-          />
+        {/* Search + coverage toolbar */}
+        <div className="flex flex-wrap items-center gap-2 mb-8">
+          <div className="relative flex-1 min-w-[260px] max-w-md">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search ID, name, or description — matches highlight, others dim…"
+              className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-mono text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
+              aria-label="Search MITRE ATT&CK techniques"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setCoverageMode((v) => !v)}
+            className={`text-xs font-mono px-3 py-2 rounded border transition-colors ${
+              coverageMode
+                ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-emerald-500/40'
+            }`}
+            title="In coverage mode, clicking a tile cycles its detection-coverage tag instead of opening the drawer."
+          >
+            {coverageMode ? 'coverage mode: ON' : 'coverage mode'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowGapsOnly((v) => !v)}
+            className={`text-xs font-mono px-3 py-2 rounded border transition-colors ${
+              showGapsOnly
+                ? 'border-rose-500/60 bg-rose-500/15 text-rose-700 dark:text-rose-300'
+                : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-rose-500/40'
+            }`}
+            title="Show only techniques tagged uncovered/partial or untagged — your detection gap."
+          >
+            gaps only
+          </button>
+          {Object.keys(coverage).length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Clear all coverage tags?')) setCoverage({});
+              }}
+              className="text-xs font-mono px-3 py-2 rounded border border-slate-300 dark:border-slate-700 text-slate-500 hover:border-rose-500/40 hover:text-rose-600 dark:hover:text-rose-400"
+            >
+              clear tags
+            </button>
+          )}
         </div>
 
-        {filteredMatrix.length === 0 && (
-          <p className="font-mono text-slate-500 text-sm">No techniques match "{query}".</p>
+        {coverageMode && (
+          <p className="text-[11px] font-mono text-emerald-700 dark:text-emerald-300 mb-4">
+            Click a tile to cycle: <span className="text-slate-500">none →</span>{' '}
+            <span className="text-emerald-600">covered →</span> <span className="text-amber-600">partial →</span>{' '}
+            <span className="text-rose-600">uncovered →</span> <span className="text-slate-500">none</span>. Saved to
+            this browser's localStorage.
+          </p>
+        )}
+
+        {visibleMatrix.length === 0 && (
+          <p className="font-mono text-slate-500 text-sm">No techniques to show with current filters.</p>
         )}
 
         {/* Matrix — horizontally scrollable */}
         <div className="overflow-x-auto pb-4">
           <div className="flex gap-3 min-w-max">
-            {filteredMatrix.map((tactic) => (
+            {visibleMatrix.map((tactic) => (
               <div key={tactic.id} className="w-52 flex-shrink-0">
                 {/* Tactic header */}
                 <div className="mb-2 px-2">
@@ -213,21 +389,38 @@ export default function MitreMatrix(): JSX.Element {
                     const actors = actorsByTechnique(technique.id);
                     const isUsed = actors.length > 0;
                     const isSelected = selectedId === technique.id;
+                    const cov = coverage[technique.id];
+                    const isMatch = matches ? matches.has(technique.id) : true;
+                    const isDimmed = matches !== null && !isMatch;
+                    const isHighlighted = matches !== null && isMatch;
 
                     return (
                       <button
                         key={technique.id}
                         type="button"
-                        onClick={() => openTechnique(technique.id)}
+                        onClick={() => (coverageMode ? cycleCoverage(technique.id) : openTechnique(technique.id))}
                         className={[
-                          'group block w-full rounded-md border px-2.5 py-2 text-left transition-all hover:shadow-sm',
+                          'group relative block w-full rounded-md border px-2.5 py-2 text-left transition-all hover:shadow-sm',
                           isSelected ? 'ring-2 ring-brand-500/60 dark:ring-brand-400/60' : '',
+                          isHighlighted ? 'ring-2 ring-cyan-500/60 dark:ring-cyan-400/60' : '',
+                          isDimmed ? 'opacity-30' : '',
                           isUsed
                             ? 'bg-brand-500/10 border-brand-500/40 hover:bg-brand-500/20 dark:bg-brand-400/10 dark:border-brand-400/40 dark:hover:bg-brand-400/20'
                             : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700',
                         ].join(' ')}
-                        title={technique.description ?? technique.name}
+                        title={
+                          coverageMode
+                            ? `Click to cycle coverage. Currently: ${cov ?? 'none'}`
+                            : (technique.description ?? technique.name)
+                        }
                       >
+                        {cov && (
+                          <span
+                            className={`absolute top-1 right-1 w-2 h-2 rounded-full ${COVERAGE_DOT[cov]}`}
+                            title={`coverage: ${COVERAGE_LABEL[cov]}`}
+                            aria-label={`coverage: ${COVERAGE_LABEL[cov]}`}
+                          />
+                        )}
                         <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">{technique.id}</div>
                         <div className="text-xs font-medium text-slate-800 dark:text-slate-200 leading-tight line-clamp-2 mt-0.5">
                           {technique.name}

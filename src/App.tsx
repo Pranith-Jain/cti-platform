@@ -67,6 +67,7 @@ const PrivacyHub = lazy(() => import('./pages/dfir/PrivacyHub'));
 const UsernamePivot = lazy(() => import('./pages/dfir/UsernamePivot'));
 const Wayback = lazy(() => import('./pages/dfir/Wayback'));
 const GithubOsint = lazy(() => import('./pages/dfir/GithubOsint'));
+const IpGeo = lazy(() => import('./pages/dfir/IpGeo'));
 const OsintFramework = lazy(() => import('./pages/dfir/OsintFramework'));
 const ScamWatch = lazy(() => import('./pages/dfir/ScamWatch'));
 const CryptoTrace = lazy(() => import('./pages/dfir/CryptoTrace'));
@@ -554,6 +555,14 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <GithubOsint />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/ip-geo"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <IpGeo />
                 </Suspense>
               }
             />

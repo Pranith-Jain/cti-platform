@@ -1,8 +1,30 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Terminal, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Copy, Check } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Terminal,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Check,
+  Search,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { deobfuscate, findRisks, type Step } from '../../lib/dfir/powershell-deobf';
+
+// Quick-and-loose IOC presence check for the "send to extractor" button.
+// We don't actually parse here — just decide whether the button is worth
+// showing. The IOC Extractor itself does the precise extraction.
+function hasIocCandidates(text: string): boolean {
+  if (!text) return false;
+  if (/\bhttps?:\/\//i.test(text)) return true;
+  if (/\b(?:\d{1,3}\.){3}\d{1,3}\b/.test(text)) return true;
+  if (/\b[a-f0-9]{32,64}\b/i.test(text)) return true;
+  if (/\b[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:[a-z]{2,63})\b/i.test(text)) return true;
+  return false;
+}
 
 const SAMPLES: { label: string; value: string }[] = [
   {
@@ -111,6 +133,7 @@ function Diff({ before, after }: { before: string; after: string }): JSX.Element
 export default function PowershellDeobf(): JSX.Element {
   const [input, setInput] = useState('');
   const [showSteps, setShowSteps] = useState(true);
+  const navigate = useNavigate();
 
   const result = useMemo(() => {
     if (!input.trim()) return null;
@@ -118,6 +141,17 @@ export default function PowershellDeobf(): JSX.Element {
   }, [input]);
 
   const risks = useMemo(() => (result ? findRisks(result.output) : []), [result]);
+  const hasIocs = result ? hasIocCandidates(result.output) : false;
+
+  const sendToExtractor = () => {
+    if (!result) return;
+    try {
+      sessionStorage.setItem('ioc-extractor-pipe', result.output);
+    } catch {
+      // sessionStorage can throw in private-mode/quota-exceeded; fall back to URL param truncation
+    }
+    navigate('/dfir/extract?from=ps-deob');
+  };
   const collapsedSteps = (steps: Step[]): Step[] => {
     // Keep only the last per-pass collapse if the same pass fired repeatedly back-to-back.
     const out: Step[] = [];
@@ -203,6 +237,16 @@ export default function PowershellDeobf(): JSX.Element {
                   {result.steps.length} transform{result.steps.length === 1 ? '' : 's'} · {result.iterations} iter ·{' '}
                   {result.fixedPoint ? 'fixed point' : 'max iter reached'}
                 </span>
+                {hasIocs && (
+                  <button
+                    type="button"
+                    onClick={sendToExtractor}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2 py-1 rounded border border-brand-500/40 bg-brand-500/10 text-brand-700 dark:text-brand-300 hover:bg-brand-500/20"
+                    title="Send decoded output to IOC Extractor"
+                  >
+                    <Search size={11} /> extract IOCs →
+                  </button>
+                )}
                 <CopyChip value={result.output} />
               </div>
             </div>

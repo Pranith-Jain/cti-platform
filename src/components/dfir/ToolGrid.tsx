@@ -145,6 +145,12 @@ const SECTIONS: Section[] = [
         icon: Github,
       },
       {
+        path: '/dfir/ip-geo',
+        label: 'IP Geolocation',
+        desc: 'Country · ASN · ISP · proxy/VPN/hosting flags · AbuseIPDB confidence + report count · OpenStreetMap pin',
+        icon: Globe2,
+      },
+      {
         path: '/dfir/osint-framework',
         label: 'OSINT Framework',
         desc: '70+ curated OSINT tools across 15 categories · pricing-tier + category filter · search',

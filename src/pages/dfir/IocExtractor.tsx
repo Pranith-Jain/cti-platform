@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, ClipboardCopy, Check } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, ClipboardCopy, Check, ShieldAlert, Terminal } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 type IocBucket = 'ipv4' | 'ipv6' | 'domain' | 'url' | 'md5' | 'sha1' | 'sha256' | 'email';
@@ -28,13 +28,89 @@ const LABELS: Record<IocBucket, string> = {
   email: 'Emails',
 };
 
-function refang(input: string): string {
-  return input
-    .replace(/\[\.\]/g, '.')
-    .replace(/\(\.\)/g, '.')
-    .replace(/\[:\]/g, ':')
-    .replace(/hxxps?:\/\//gi, (m) => m.replace(/x/g, 't'))
-    .replace(/\[at\]/gi, '@');
+/**
+ * Cyrillic/Greek lookalikes that defenders use to "defang" (or that
+ * attackers use to bypass naive scanners). Folded back to ASCII when
+ * the homograph-normalize toggle is on. Confined to the most common
+ * confusables — overzealous folding mangles legitimate non-Latin text.
+ */
+const HOMOGRAPHS: Record<string, string> = {
+  а: 'a',
+  А: 'A', // Cyrillic а / А
+  е: 'e',
+  Е: 'E', // Cyrillic е / Е
+  о: 'o',
+  О: 'O', // Cyrillic о / О
+  р: 'p',
+  Р: 'P', // Cyrillic р / Р
+  с: 'c',
+  С: 'C', // Cyrillic с / С
+  х: 'x',
+  Х: 'X', // Cyrillic х / Х
+  ѕ: 's',
+  Ѕ: 'S', // Cyrillic ѕ / Ѕ
+  і: 'i',
+  І: 'I', // Cyrillic і / І
+  ο: 'o',
+  Ο: 'O', // Greek ο / Ο
+  α: 'a',
+  Α: 'A', // Greek α / Α
+  ρ: 'p',
+  Ρ: 'P', // Greek ρ / Ρ
+  υ: 'u', // Greek υ
+  '．': '.', // fullwidth full stop
+  '。': '.', // ideographic full stop
+  '·': '.', // middle dot (sometimes used as a separator)
+};
+
+function foldHomographs(s: string): string {
+  let out = '';
+  for (const ch of s) out += HOMOGRAPHS[ch] ?? ch;
+  return out;
+}
+
+/**
+ * Refang attacker/defender obfuscation patterns back to live indicators.
+ * Applied iteratively until the string stabilises so nested defangs
+ * (e.g. "[[.]]" or "h[xx]ps[://]") collapse fully.
+ *
+ * Patterns covered:
+ *   - dots:   [.] (.) {.} [dot] (dot) {dot} [도트] [DOT] [punto]
+ *   - colons: [:] [colon] [숫자콜론]
+ *   - at:     [at] (at) {at} [@]
+ *   - schemes: hxxp/hxxps (and variants htxp, htxxp, http5), html:// → http://
+ *   - separators: [://] [/] [\] [-] (only when adjacent to a domain shape)
+ *   - whitespace inside brackets: [ . ] [ : ] [ at ]
+ *   - unicode: fullwidth dot, ideographic dot, middle dot
+ *
+ * If `normaliseHomographs` is true, common Cyrillic/Greek confusables
+ * are folded to ASCII before extraction.
+ */
+function refang(input: string, normaliseHomographs: boolean): string {
+  let s = normaliseHomographs ? foldHomographs(input) : input;
+
+  // Iterate to fixed-point so nested defangs collapse.
+  for (let pass = 0; pass < 5; pass++) {
+    const before = s;
+
+    // Bracketed/parenthesised dot, including word forms with optional whitespace.
+    s = s.replace(/[[({]\s*(?:\.|dot|punto|점)\s*[\])}]/gi, '.');
+    // Bracketed colon, word form too.
+    s = s.replace(/[[({]\s*(?::|colon)\s*[\])}]/gi, ':');
+    // Bracketed @ — also "[at]" / "(at)" / "{at}" with optional whitespace.
+    s = s.replace(/[[({]\s*(?:@|at)\s*[\])}]/gi, '@');
+    // Bracketed scheme separator and slashes.
+    s = s.replace(/[[({]\s*:\/\/\s*[\])}]/g, '://');
+    s = s.replace(/[[({]\s*\/\s*[\])}]/g, '/');
+    s = s.replace(/[[({]\s*\\\s*[\])}]/g, '\\');
+
+    // Scheme defangs: hxxp / hxxps / htxp / htxxp / http5 (rare) / html:// → http(s)://
+    s = s.replace(/\bh(?:xx|tx|txx|xt)p(s?)\s*:\s*\/\s*\/\s*/gi, 'http$1://');
+    s = s.replace(/\bhtml\s*:\s*\/\s*\/\s*/gi, 'http://');
+
+    if (s === before) break;
+  }
+  return s;
 }
 
 function defang(s: string, type: IocBucket): string {
@@ -48,8 +124,8 @@ interface ExtractResult {
   values: string[];
 }
 
-function extract(text: string): ExtractResult[] {
-  const refanged = refang(text);
+function extract(text: string, normaliseHomographs: boolean): ExtractResult[] {
+  const refanged = refang(text, normaliseHomographs);
   const consumed = new Set<string>(); // hash matches dedupe by string; keep order
 
   // Order matters: hashes first (longest), then URLs, then ipv4, then ipv6, then email, then domain (last to avoid eating others)
@@ -93,10 +169,46 @@ function extract(text: string): ExtractResult[] {
 export default function IocExtractor(): JSX.Element {
   const [input, setInput] = useState('');
   const [defanged, setDefanged] = useState(false);
+  const [normaliseHomographs, setNormaliseHomographs] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [pipedFrom, setPipedFrom] = useState<string | null>(null);
 
-  const results = useMemo(() => extract(input), [input]);
+  // Sister-tool pipe: PowerShell Deobfuscator (and others later) drops
+  // its decoded output into sessionStorage and navigates here. Read
+  // once on mount, prefill, then clear so a refresh doesn't re-pipe.
+  useEffect(() => {
+    const from = searchParams.get('from');
+    if (!from) return;
+    const KEYS: Record<string, { storage: string; label: string }> = {
+      'ps-deob': { storage: 'ioc-extractor-pipe', label: 'PowerShell Deobfuscator' },
+    };
+    const cfg = KEYS[from];
+    if (!cfg) return;
+    try {
+      const piped = sessionStorage.getItem(cfg.storage);
+      if (piped) {
+        setInput(piped);
+        setPipedFrom(cfg.label);
+        sessionStorage.removeItem(cfg.storage);
+      }
+    } catch {
+      /* sessionStorage unavailable — silently skip */
+    }
+    // Drop the ?from param so the URL is clean after the pipe.
+    const next = new URLSearchParams(searchParams);
+    next.delete('from');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const results = useMemo(() => extract(input, normaliseHomographs), [input, normaliseHomographs]);
   const totalCount = results.reduce((acc, r) => acc + r.values.length, 0);
+  const refangedPreview = useMemo(
+    () => (input.trim() ? refang(input, normaliseHomographs) : ''),
+    [input, normaliseHomographs]
+  );
+  const refangChanged = refangedPreview && refangedPreview !== input;
 
   const renderValue = (b: IocBucket, v: string) => (defanged ? defang(v, b) : v);
 
@@ -123,23 +235,61 @@ export default function IocExtractor(): JSX.Element {
         </p>
       </motion.div>
 
+      {pipedFrom && (
+        <div className="mb-3 rounded border border-cyan-500/30 bg-cyan-500/5 p-2.5 text-[12px] font-mono text-cyan-700 dark:text-cyan-300 inline-flex items-center gap-2">
+          <Terminal size={12} /> Pre-filled from {pipedFrom} output. Edit freely below or
+          <button
+            type="button"
+            onClick={() => {
+              setInput('');
+              setPipedFrom(null);
+            }}
+            className="underline hover:text-cyan-900 dark:hover:text-cyan-100"
+          >
+            clear
+          </button>
+          .
+        </div>
+      )}
+
       <textarea
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        placeholder="Paste your text here…"
-        rows={10}
+        placeholder="Paste raw email, chat log, threat report, or any blob — refanging is automatic. Try patterns like example[.]com, hxxps://bad[.]site, 1[.]2[.]3[.]4[:]8080, [[.]] nesting, or Cyrillic homographs."
+        rows={14}
         className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-mono text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
       />
 
-      <div className="flex items-center justify-between mt-4 mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 mt-4 mb-4">
         <span className="text-sm font-mono text-slate-600 dark:text-slate-400">
           {totalCount} indicator{totalCount === 1 ? '' : 's'} extracted
         </span>
-        <label className="flex items-center gap-2 text-sm font-mono text-slate-600 dark:text-slate-400 cursor-pointer">
-          <input type="checkbox" checked={defanged} onChange={(e) => setDefanged(e.target.checked)} />
-          defang for output
-        </label>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-sm font-mono text-slate-600 dark:text-slate-400 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={normaliseHomographs}
+              onChange={(e) => setNormaliseHomographs(e.target.checked)}
+            />
+            fold Cyrillic/Greek homographs
+          </label>
+          <label className="flex items-center gap-2 text-sm font-mono text-slate-600 dark:text-slate-400 cursor-pointer">
+            <input type="checkbox" checked={defanged} onChange={(e) => setDefanged(e.target.checked)} />
+            defang for output
+          </label>
+        </div>
       </div>
+
+      {refangChanged && (
+        <details className="mb-8 rounded border border-cyan-500/30 bg-cyan-500/5 p-3">
+          <summary className="text-xs font-mono text-cyan-700 dark:text-cyan-300 cursor-pointer inline-flex items-center gap-2">
+            <ShieldAlert size={12} /> input was refanged before extraction — click to see normalised text
+          </summary>
+          <pre className="mt-2 text-[11px] font-mono text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-all max-h-40 overflow-auto">
+            {refangedPreview}
+          </pre>
+        </details>
+      )}
 
       {results.length === 0 && input.trim() && (
         <p className="text-sm font-mono text-slate-500">No indicators detected.</p>
