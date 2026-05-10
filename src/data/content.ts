@@ -442,5 +442,6 @@ export const navLinks: NavLink[] = [
   { label: 'Experience', href: '/experience' },
   { label: 'Projects', href: '/projects' },
   { label: 'DFIR', href: '/dfir' },
+  { label: 'Threat Intel', href: '/threatintel' },
   { label: 'Contact', href: '/#contact' },
 ];
