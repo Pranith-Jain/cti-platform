@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
-  Shield,
   ShieldCheck,
   ShieldAlert,
   Key,
@@ -375,14 +374,25 @@ function EmailTab({ initialQuery = '' }: { initialQuery?: string }): JSX.Element
 
   return (
     <div>
-      {/* Privacy notice */}
-      <div className="mb-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-4">
+      {/* Privacy notice — explicit about upstream forwarding */}
+      <div className="mb-6 rounded-xl border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-900/10 p-4">
         <div className="flex gap-3">
-          <Shield size={18} className="text-slate-500 dark:text-slate-400 shrink-0 mt-0.5" />
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Your email is sent to our backend and forwarded to public breach databases (XposedOrNot, LeakCheck). No
-            email data is stored. Results are cached for 1 hour.
-          </p>
+          <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-sm text-amber-900 dark:text-amber-200">
+            <p className="font-semibold mb-1">Your email is forwarded to third-party breach databases</p>
+            <p className="text-[13px]">
+              The lookup sends the address to{' '}
+              <a href="https://xposedornot.com" target="_blank" rel="noopener noreferrer" className="underline">
+                XposedOrNot
+              </a>{' '}
+              and (on cache miss){' '}
+              <a href="https://leakcheck.io" target="_blank" rel="noopener noreferrer" className="underline">
+                LeakCheck
+              </a>
+              . Cloudflare access logs record the request as standard. Results are edge-cached for 1h. The address is
+              not stored in our app database. <strong>Don't query addresses you don't own.</strong>
+            </p>
+          </div>
         </div>
       </div>
 
@@ -551,14 +561,22 @@ function DomainTab({ initialQuery = '' }: { initialQuery?: string }): JSX.Elemen
 
   return (
     <div>
-      {/* Notice */}
-      <div className="mb-6 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-900/10 p-4">
+      {/* Notice — explicit about upstream forwarding + data quality */}
+      <div className="mb-6 rounded-xl border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-900/10 p-4">
         <div className="flex gap-3">
           <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-sm text-amber-800 dark:text-amber-300">
-            Domain breach data is inherently noisy, since many breaches aggregate from many sites. Results show breaches
-            where XposedOrNot identified the domain as involved.
-          </p>
+          <div className="text-sm text-amber-900 dark:text-amber-200">
+            <p className="font-semibold mb-1">Domain forwarded to XposedOrNot — and results are noisy</p>
+            <p className="text-[13px]">
+              The domain is sent to{' '}
+              <a href="https://xposedornot.com" target="_blank" rel="noopener noreferrer" className="underline">
+                XposedOrNot
+              </a>
+              ; Cloudflare access logs record the request as standard. Edge-cached for 1h. Domain breach data aggregates
+              many third-party sites — treat any single hit as a starting point, not a verdict.{' '}
+              <strong>Don't query domains you don't have authorization for.</strong>
+            </p>
+          </div>
         </div>
       </div>
 

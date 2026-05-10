@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Terminal, ExternalLink, Search, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Terminal, ExternalLink, Search } from 'lucide-react';
+import { CopyChip } from '../../components/dfir/CopyButton';
 import { motion } from 'framer-motion';
 import {
   LOLBINS,
@@ -17,28 +18,6 @@ const SOURCE_STYLES: Record<LolbinEntry['source'], string> = {
   LOOBins: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30',
   WTFBins: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
 };
-
-function CopyButton({ value }: { value: string }): JSX.Element {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(value);
-          setDone(true);
-          setTimeout(() => setDone(false), 1200);
-        } catch {
-          /* ignore — older browsers may block clipboard */
-        }
-      }}
-      className="text-xs font-mono px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 hover:border-brand-500/40 inline-flex items-center gap-1"
-      title="Copy to clipboard"
-    >
-      {done ? <Check size={11} /> : <Copy size={11} />}
-      {done ? 'copied' : 'copy'}
-    </button>
-  );
-}
 
 export default function Lolbins(): JSX.Element {
   const [query, setQuery] = useState('');
@@ -219,7 +198,7 @@ export default function Lolbins(): JSX.Element {
                 <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-rose-600 dark:text-rose-400">
                   Abuse
                 </span>
-                <CopyButton value={b.example} />
+                <CopyChip value={b.example} />
               </div>
               <pre className="text-[12px] font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-all">
                 {b.example}

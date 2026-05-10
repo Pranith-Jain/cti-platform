@@ -171,15 +171,6 @@ async function checkMastodonSocial(username: string): Promise<CheckResult> {
   return 'error';
 }
 
-/** PyPI — /pypi/<u>/json works for packages but not users; instead use /user/<u>. */
-async function checkPyPi(username: string): Promise<CheckResult> {
-  // PyPI doesn't have a public JSON endpoint for users; the HTML page returns 200/404.
-  // We can't do HEAD across origins reliably; treat this as best-effort with no-cors mode.
-  // Drop active check — keep PyPI as manual.
-  void username;
-  return 'error';
-}
-
 export const SERVICES: Service[] = [
   // ── Active (CORS-friendly JSON) ─────────────────────────────────────
   {
@@ -270,7 +261,6 @@ export const SERVICES: Service[] = [
     category: 'developer',
     mode: 'manual',
     profileUrl: 'https://pypi.org/user/${USERNAME}/',
-    check: checkPyPi,
   },
   {
     id: 'rubygems',

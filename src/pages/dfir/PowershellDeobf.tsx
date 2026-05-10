@@ -1,19 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft,
-  Terminal,
-  AlertTriangle,
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  Check,
-  Search,
-} from 'lucide-react';
+import { ArrowLeft, Terminal, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { deobfuscate, findRisks, type Step } from '../../lib/dfir/powershell-deobf';
 import { hasIocCandidates } from '../../lib/dfir/ioc-detect';
+import { CopyChip } from '../../components/dfir/CopyButton';
 
 const SAMPLES: { label: string; value: string }[] = [
   {
@@ -46,27 +37,6 @@ const SEV_STYLES: Record<string, string> = {
   medium: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
   low: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
 };
-
-function CopyChip({ value }: { value: string }): JSX.Element {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(value);
-          setDone(true);
-          setTimeout(() => setDone(false), 1200);
-        } catch {
-          /* ignore */
-        }
-      }}
-      className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 hover:border-brand-500/40 inline-flex items-center gap-1"
-    >
-      {done ? <Check size={10} /> : <Copy size={10} />}
-      {done ? 'copied' : 'copy'}
-    </button>
-  );
-}
 
 function Diff({ before, after }: { before: string; after: string }): JSX.Element {
   // Find a common prefix/suffix so we can highlight the change region.

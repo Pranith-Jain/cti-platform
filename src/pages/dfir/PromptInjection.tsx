@@ -1,16 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  ShieldAlert,
-  AlertTriangle,
-  CheckCircle2,
-  ExternalLink,
-  ArrowLeft,
-  Copy,
-  Check,
-  Download,
-  Swords,
-} from 'lucide-react';
+import { ShieldAlert, AlertTriangle, CheckCircle2, ExternalLink, ArrowLeft, Download, Swords } from 'lucide-react';
+import { CopyChip } from '../../components/dfir/CopyButton';
 import {
   PATTERNS,
   detectInjections,
@@ -59,27 +50,6 @@ const GRADE_STYLES: Record<string, string> = {
   high: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
   critical: 'bg-rose-500/15 text-rose-700 dark:text-rose-300',
 };
-
-function CopyChip({ value, label = 'copy' }: { value: string; label?: string }): JSX.Element {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(value);
-          setDone(true);
-          setTimeout(() => setDone(false), 1200);
-        } catch {
-          /* ignore */
-        }
-      }}
-      className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 hover:border-brand-500/40 inline-flex items-center gap-1"
-    >
-      {done ? <Check size={10} /> : <Copy size={10} />}
-      {done ? 'copied' : label}
-    </button>
-  );
-}
 
 function highlight(input: string, matches: InjectionMatch[]): JSX.Element[] {
   if (matches.length === 0) {

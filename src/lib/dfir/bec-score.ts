@@ -17,9 +17,11 @@ export interface DomainApiResponse {
     mta_sts: { present: boolean; mode?: string };
     tls_rpt: { present: boolean };
   };
-  dns?: {
-    MX?: { records: Array<{ exchange: string; priority: number }>; error?: string };
-  };
+  // Note: the /api/v1/domain response also includes a `dns: { MX, ... }`
+  // block, but assess() doesn't read it — domain DNS records are surfaced
+  // separately by the Domain page. If a future BEC heuristic needs MX
+  // (e.g. "uses Google Workspace" → relax certain signal), reintroduce
+  // it here together with the assessor change.
 }
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';

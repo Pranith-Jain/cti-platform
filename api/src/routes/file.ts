@@ -10,6 +10,8 @@ import { tweetfeed } from '../providers/tweetfeed';
 import type { ProviderAdapter, ProviderEnv, ProviderResult } from '../providers/types';
 import { compositeScore } from '../lib/scoring';
 
+const MAX_BODY_BYTES = 4 * 1024; // body is just `{"hash":"<64hex>"}` — 4KB is generous
+
 interface RequestBody {
   hash?: string;
 }
@@ -22,9 +24,15 @@ function detectHashType(hash: string): 'md5' | 'sha1' | 'sha256' | null {
 }
 
 export async function fileAnalyzeHandler(c: Context<{ Bindings: Env }>) {
+  // Read raw, length-check, then parse. Cheaper than letting Workers
+  // buffer an unbounded request body before we get to discard it.
+  const raw = await c.req.text();
+  if (new Blob([raw]).size > MAX_BODY_BYTES) {
+    return c.json({ error: 'body too large (max 4KB)' }, 413);
+  }
   let parsed: RequestBody;
   try {
-    parsed = (await c.req.json()) as RequestBody;
+    parsed = JSON.parse(raw) as RequestBody;
   } catch {
     return c.json({ error: 'invalid JSON' }, 400);
   }

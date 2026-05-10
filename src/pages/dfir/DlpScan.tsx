@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ShieldAlert, AlertTriangle, CheckCircle2, Copy, Check, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
+import { CopyChip } from '../../components/dfir/CopyButton';
 import { motion } from 'framer-motion';
 import {
   PATTERNS,
@@ -73,27 +74,6 @@ Reference: alice.smith@vendor.example, phone (212) 555-0199
 Resubmitted on the same thread as before — see eyJ... for context.`,
   },
 ];
-
-function CopyChip({ value, label }: { value: string; label: string }): JSX.Element {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(value);
-          setDone(true);
-          setTimeout(() => setDone(false), 1200);
-        } catch {
-          /* ignore */
-        }
-      }}
-      className="text-xs font-mono px-2 py-1 rounded border border-slate-300 dark:border-slate-700 hover:border-brand-500/40 inline-flex items-center gap-1"
-    >
-      {done ? <Check size={12} /> : <Copy size={12} />}
-      {done ? 'copied' : label}
-    </button>
-  );
-}
 
 function highlight(input: string, findings: Finding[]): JSX.Element[] {
   if (findings.length === 0)

@@ -94,8 +94,13 @@ export default function Privacy(): JSX.Element {
     }
   };
 
+  // Intentionally NOT auto-running on mount. Fingerprinting (canvas hash,
+  // WebGL renderer, audio fingerprint, WebRTC leak detection) collects
+  // identifying signal — analysts and curious visitors should opt in
+  // explicitly. The page renders an empty disclosure-only state until
+  // the user clicks "Run scan."
   useEffect(() => {
-    void runScan();
+    /* no-op */
   }, []);
 
   const Row = ({
@@ -128,25 +133,60 @@ export default function Privacy(): JSX.Element {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <h1 className="text-4xl font-display font-bold mb-2">Privacy Check</h1>
         <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-2xl">
-          Your browser reveals more than you think. IP, location, DNS, fingerprint, WebRTC leaks, and more. All checks
-          run in your browser; only one lightweight API call reveals your public IP.
+          Your browser reveals more than you think. This tool surfaces what trackers, advertisers, and threat actors can
+          see about you — but the scan itself collects identifying signal, so it requires your explicit consent before
+          running.
         </p>
       </motion.div>
-      <div className="flex items-center gap-3 mb-10">
-        <button
-          onClick={() => void runScan()}
-          disabled={scanning}
-          className="px-5 py-3 bg-brand-600 dark:bg-brand-500 text-white font-mono font-semibold rounded-lg disabled:opacity-30 hover:bg-brand-700 dark:hover:bg-brand-400"
-        >
-          <Shield size={16} className="inline mr-2" />
-          {scanning ? 'Scanning…' : 'Scan again'}
-        </button>
-        {fpHash && (
-          <span className="font-mono text-xs text-slate-600 dark:text-slate-400">
-            fingerprint: <span className="text-brand-600 dark:text-brand-400">{fpHash}</span>
-          </span>
-        )}
-      </div>
+
+      {!fp && !scanning && (
+        <section className="mb-8 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-5">
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300 font-mono mb-3">
+            What this scan collects
+          </h2>
+          <ul className="text-sm font-mono text-slate-700 dark:text-slate-300 space-y-1.5 list-disc list-inside mb-4">
+            <li>Public IP, ASN, country (via /api/v1/privacy/inspect — one server-side call)</li>
+            <li>User-Agent, language, timezone, screen + viewport size, color depth</li>
+            <li>
+              Canvas fingerprint hash, WebGL renderer + vendor, audio context fingerprint — collectively unique enough
+              to identify your browser across sites
+            </li>
+            <li>WebRTC ICE candidates (may reveal your local LAN IP behind VPNs)</li>
+            <li>Battery level + charging state (where the browser still exposes it)</li>
+            <li>Connection type / effective bandwidth (where the browser still exposes it)</li>
+          </ul>
+          <p className="text-xs font-mono text-slate-600 dark:text-slate-400 mb-4">
+            <strong>Retention:</strong> none. Results live only in this browser tab — not stored, not logged server-side
+            beyond standard Cloudflare access logs that already exist for any visit. Refreshing the page clears
+            everything. The composite fingerprint hash is computed locally and never sent anywhere.
+          </p>
+          <button
+            onClick={() => void runScan()}
+            disabled={scanning}
+            className="px-5 py-3 bg-brand-600 dark:bg-brand-500 text-white font-mono font-semibold rounded-lg disabled:opacity-30 hover:bg-brand-700 dark:hover:bg-brand-400"
+          >
+            <Shield size={16} className="inline mr-2" />I understand — run scan
+          </button>
+        </section>
+      )}
+
+      {(fp || scanning) && (
+        <div className="flex items-center gap-3 mb-10">
+          <button
+            onClick={() => void runScan()}
+            disabled={scanning}
+            className="px-5 py-3 bg-brand-600 dark:bg-brand-500 text-white font-mono font-semibold rounded-lg disabled:opacity-30 hover:bg-brand-700 dark:hover:bg-brand-400"
+          >
+            <Shield size={16} className="inline mr-2" />
+            {scanning ? 'Scanning…' : 'Scan again'}
+          </button>
+          {fpHash && (
+            <span className="font-mono text-xs text-slate-600 dark:text-slate-400">
+              fingerprint: <span className="text-brand-600 dark:text-brand-400">{fpHash}</span>
+            </span>
+          )}
+        </div>
+      )}
 
       {error && <p className="font-mono text-sm text-rose-600 dark:text-rose-400">error: {error}</p>}
 

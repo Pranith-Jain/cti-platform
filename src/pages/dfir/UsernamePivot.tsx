@@ -1,16 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import {
-  ArrowLeft,
-  AtSign,
-  ExternalLink,
-  Search,
-  AlertTriangle,
-  CheckCircle2,
-  Loader2,
-  Copy,
-  Check,
-} from 'lucide-react';
+import { ArrowLeft, AtSign, ExternalLink, Search, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { CopyChip } from '../../components/dfir/CopyButton';
 import { motion } from 'framer-motion';
 import {
   SERVICES,
@@ -62,27 +53,6 @@ interface CheckedRow {
 }
 
 const USERNAME_RE = /^[A-Za-z0-9._-]{1,40}$/;
-
-function CopyChip({ value }: { value: string }): JSX.Element {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(value);
-          setDone(true);
-          setTimeout(() => setDone(false), 1200);
-        } catch {
-          /* ignore */
-        }
-      }}
-      className="text-[10px] font-mono px-1 py-0.5 rounded border border-slate-300 dark:border-slate-700 hover:border-brand-500/40 inline-flex items-center gap-1"
-      title="Copy URL"
-    >
-      {done ? <Check size={10} /> : <Copy size={10} />}
-    </button>
-  );
-}
 
 export default function UsernamePivot(): JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();

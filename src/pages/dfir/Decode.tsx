@@ -1,28 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Copy, Check, ChevronRight, Search } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { detectEncoding, decodeBase64, decodeUrl, decodeChain, type DecodeStep } from '../../lib/dfir/decode';
 import { hasIocCandidates } from '../../lib/dfir/ioc-detect';
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    void navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  return (
-    <button
-      onClick={copy}
-      className="p-1.5 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-      title="Copy to clipboard"
-    >
-      {copied ? <Check size={14} /> : <Copy size={14} />}
-    </button>
-  );
-}
+import { CopyButton } from '../../components/dfir/CopyButton';
 
 const FORMAT_BADGE: Record<string, string> = {
   base64: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
@@ -189,7 +171,7 @@ export default function Decode(): JSX.Element {
                   <Search size={11} /> extract IOCs →
                 </button>
               )}
-              {output && <CopyButton text={output} />}
+              {output && <CopyButton value={output} />}
             </div>
           </div>
           <div className="relative h-full">

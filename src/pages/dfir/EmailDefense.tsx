@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Mail, Search, Loader2, CheckCircle2, AlertTriangle, ExternalLink, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Mail, Search, Loader2, CheckCircle2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { CopyChip } from '../../components/dfir/CopyButton';
 import { motion } from 'framer-motion';
 import { assess, type DomainApiResponse, type Severity } from '../../lib/dfir/bec-score';
 
@@ -19,27 +20,6 @@ const GRADE_BARS: Record<string, string> = {
   high: 'bg-orange-500',
   critical: 'bg-rose-500',
 };
-
-function CopyChip({ value }: { value: string }): JSX.Element {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(value);
-          setDone(true);
-          setTimeout(() => setDone(false), 1200);
-        } catch {
-          /* ignore */
-        }
-      }}
-      className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 hover:border-brand-500/40 inline-flex items-center gap-1"
-    >
-      {done ? <Check size={10} /> : <Copy size={10} />}
-      {done ? 'copied' : 'copy'}
-    </button>
-  );
-}
 
 export default function EmailDefense(): JSX.Element {
   const [domain, setDomain] = useState('');

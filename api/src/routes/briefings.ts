@@ -51,41 +51,114 @@ export async function todayBriefingHandler(c: Context<{ Bindings: Env }>) {
 }
 
 /**
- * Trigger an on-demand briefing build. Authenticated via a static admin token
- * passed as ?token=... so the cron isn't the only path to populate KV.
+ * Constant-time string compare to avoid leaking the admin token via timing
+ * differences. Workers V8 strings still aren't truly constant-time but this
+ * removes the obvious early-exit shortcut of `===`.
+ */
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i += 1) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return mismatch === 0;
+}
+
+type AdminCtx = Context<{ Bindings: Env & { BRIEFINGS_ADMIN_TOKEN?: string } }>;
+
+/**
+ * Returns a Response on auth failure (caller `return`s it), or null on success.
+ * Prefers `Authorization: Bearer <token>`. Falls back to legacy `?token=...`
+ * for one transition window — when the legacy path is used, we set
+ * `Deprecation: true` on the eventual success response and log a warning so
+ * tooling can migrate. The legacy path will be removed in a future version.
+ */
+function requireAdmin(c: AdminCtx): { error: Response } | { ok: true; deprecated: boolean } {
+  const required = c.env.BRIEFINGS_ADMIN_TOKEN;
+  if (!required) {
+    return { error: c.json({ error: 'admin endpoint disabled (BRIEFINGS_ADMIN_TOKEN not set)' }, 403) };
+  }
+
+  const authz = c.req.header('authorization') ?? '';
+  const headerToken = /^Bearer\s+(.+)$/i.exec(authz)?.[1];
+  if (headerToken && safeEqual(headerToken, required)) {
+    return { ok: true, deprecated: false };
+  }
+
+  const queryToken = c.req.query('token');
+  if (queryToken && safeEqual(queryToken, required)) {
+    console.warn('briefing admin: legacy ?token= used — migrate to Authorization: Bearer header');
+    return { ok: true, deprecated: true };
+  }
+
+  return {
+    error: c.json(
+      {
+        error: 'unauthorized',
+        hint: 'send `Authorization: Bearer <BRIEFINGS_ADMIN_TOKEN>`',
+      },
+      401
+    ),
+  };
+}
+
+function withDeprecation<T>(c: AdminCtx, body: T, status: 200 | 207 | 500, deprecated: boolean): Response {
+  const headers: Record<string, string> = {};
+  if (deprecated) {
+    headers.Deprecation = 'true';
+    headers.Warning = '299 - "?token= is deprecated; use Authorization: Bearer header"';
+  }
+  return c.json(body as Record<string, unknown>, status, headers);
+}
+
+/**
+ * Trigger an on-demand briefing build. Authenticated via Authorization: Bearer
+ * header (legacy ?token= still accepted but deprecated).
  *
  * Set BRIEFINGS_ADMIN_TOKEN as a Worker secret. If unset, this handler is disabled.
  */
-export async function buildBriefingHandler(c: Context<{ Bindings: Env & { BRIEFINGS_ADMIN_TOKEN?: string } }>) {
+export async function buildBriefingHandler(c: AdminCtx) {
   const kv = kvOrError(c);
   if (!kv) return c.json({ error: 'briefings KV not bound' }, 503);
-  const required = (c.env as { BRIEFINGS_ADMIN_TOKEN?: string }).BRIEFINGS_ADMIN_TOKEN;
-  if (!required) return c.json({ error: 'admin endpoint disabled' }, 403);
-  const token = c.req.query('token');
-  if (token !== required) return c.json({ error: 'unauthorized' }, 401);
+  const auth = requireAdmin(c);
+  if ('error' in auth) return auth.error;
 
   const typeRaw = c.req.query('type');
   if (typeRaw !== 'daily' && typeRaw !== 'weekly') {
     return c.json({ error: 'type must be daily or weekly' }, 400);
   }
-  const briefing = await buildBriefing(typeRaw as BriefingType);
-  await writeBriefing(kv, briefing);
-  return c.json({ ok: true, slug: briefing.slug, stats: briefing.stats }, 200);
+
+  try {
+    const briefing = await buildBriefing(typeRaw as BriefingType);
+    await writeBriefing(kv, briefing);
+    return withDeprecation(c, { ok: true, slug: briefing.slug, stats: briefing.stats }, 200, auth.deprecated);
+  } catch (err) {
+    return c.json(
+      {
+        error: 'briefing build failed',
+        type: typeRaw,
+        detail: err instanceof Error ? err.message : String(err),
+      },
+      500
+    );
+  }
 }
 
 /**
  * Admin backfill — generate the past N daily briefings + last M weekly briefings.
  * Useful on first deploy to populate the list page.
  *
- * POST /api/v1/briefings/backfill?days=14&weeks=3&token=...
+ * POST /api/v1/briefings/backfill?days=14&weeks=3
+ *   Authorization: Bearer <BRIEFINGS_ADMIN_TOKEN>
+ *
+ * Per-iteration failures are tracked and reported. Status is:
+ *   200 if everything wrote/skipped cleanly,
+ *   207 if some iterations failed (the response lists which),
+ *   500 if absolutely nothing succeeded.
  */
-export async function backfillBriefingsHandler(c: Context<{ Bindings: Env & { BRIEFINGS_ADMIN_TOKEN?: string } }>) {
+export async function backfillBriefingsHandler(c: AdminCtx) {
   const kv = kvOrError(c);
   if (!kv) return c.json({ error: 'briefings KV not bound' }, 503);
-  const required = (c.env as { BRIEFINGS_ADMIN_TOKEN?: string }).BRIEFINGS_ADMIN_TOKEN;
-  if (!required) return c.json({ error: 'admin endpoint disabled' }, 403);
-  const token = c.req.query('token');
-  if (token !== required) return c.json({ error: 'unauthorized' }, 401);
+  const auth = requireAdmin(c);
+  if ('error' in auth) return auth.error;
 
   const days = Math.min(Math.max(parseInt(c.req.query('days') ?? '14', 10) || 14, 0), 21);
   const weeks = Math.min(Math.max(parseInt(c.req.query('weeks') ?? '3', 10) || 3, 0), 4);
@@ -97,6 +170,7 @@ export async function backfillBriefingsHandler(c: Context<{ Bindings: Env & { BR
   const skippedDaily: string[] = [];
   const writtenWeekly: string[] = [];
   const skippedWeekly: string[] = [];
+  const failures: Array<{ kind: 'daily' | 'weekly'; offset: number; error: string }> = [];
 
   for (let i = 0; i < days; i += 1) {
     const anchor = new Date(Date.now() - i * 86400_000);
@@ -104,8 +178,8 @@ export async function backfillBriefingsHandler(c: Context<{ Bindings: Env & { BR
       const briefing = await buildBriefing('daily', anchor);
       const result = await writeBriefing(kv, briefing, { skipIfExists: !force });
       (result.written ? writtenDaily : skippedDaily).push(briefing.slug);
-    } catch {
-      /* skip and continue */
+    } catch (err) {
+      failures.push({ kind: 'daily', offset: i, error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -115,35 +189,52 @@ export async function backfillBriefingsHandler(c: Context<{ Bindings: Env & { BR
       const briefing = await buildBriefing('weekly', anchor);
       const result = await writeBriefing(kv, briefing, { skipIfExists: !force });
       (result.written ? writtenWeekly : skippedWeekly).push(briefing.slug);
-    } catch {
-      /* skip */
+    } catch (err) {
+      failures.push({ kind: 'weekly', offset: i, error: err instanceof Error ? err.message : String(err) });
     }
   }
 
-  return c.json(
+  const totalAttempted = days + weeks;
+  const totalSucceeded = writtenDaily.length + skippedDaily.length + writtenWeekly.length + skippedWeekly.length;
+  const status: 200 | 207 | 500 = totalSucceeded === 0 && totalAttempted > 0 ? 500 : failures.length > 0 ? 207 : 200;
+
+  return withDeprecation(
+    c,
     {
-      ok: true,
+      ok: failures.length === 0,
       force,
       daily: writtenDaily,
       daily_skipped: skippedDaily,
       weekly: writtenWeekly,
       weekly_skipped: skippedWeekly,
+      failures,
     },
-    200
+    status,
+    auth.deprecated
   );
 }
 
 /** Admin sweep — delete briefings older than maxAgeDays (default 21). */
-export async function sweepBriefingsHandler(c: Context<{ Bindings: Env & { BRIEFINGS_ADMIN_TOKEN?: string } }>) {
+export async function sweepBriefingsHandler(c: AdminCtx) {
   const kv = kvOrError(c);
   if (!kv) return c.json({ error: 'briefings KV not bound' }, 503);
-  const required = (c.env as { BRIEFINGS_ADMIN_TOKEN?: string }).BRIEFINGS_ADMIN_TOKEN;
-  if (!required) return c.json({ error: 'admin endpoint disabled' }, 403);
-  const token = c.req.query('token');
-  if (token !== required) return c.json({ error: 'unauthorized' }, 401);
+  const auth = requireAdmin(c);
+  if ('error' in auth) return auth.error;
 
   const maxAgeRaw = c.req.query('max_age_days');
   const maxAge = maxAgeRaw ? Math.max(parseInt(maxAgeRaw, 10) || 21, 1) : 21;
-  const result = await sweepOldBriefings(kv, maxAge);
-  return c.json({ ok: true, max_age_days: maxAge, ...result }, 200);
+
+  try {
+    const result = await sweepOldBriefings(kv, maxAge);
+    return withDeprecation(c, { ok: true, max_age_days: maxAge, ...result }, 200, auth.deprecated);
+  } catch (err) {
+    return c.json(
+      {
+        error: 'sweep failed',
+        max_age_days: maxAge,
+        detail: err instanceof Error ? err.message : String(err),
+      },
+      500
+    );
+  }
 }

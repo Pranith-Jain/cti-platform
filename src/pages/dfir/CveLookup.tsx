@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, BookText, Copy, Check, ExternalLink, Gauge } from 'lucide-react';
+import { ArrowLeft, BookText, ExternalLink, Gauge } from 'lucide-react';
+import { CopyButton } from '../../components/dfir/CopyButton';
 import { motion } from 'framer-motion';
 import { prioritise, TIER_LABELS, TIER_STYLES, TIER_BARS } from '../../lib/dfir/cve-priority';
 
@@ -46,25 +47,6 @@ const SEVERITY_STYLES: Record<string, string> = {
   MEDIUM: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300 border-cyan-300 dark:border-cyan-700',
   LOW: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-600',
 };
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    void navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  return (
-    <button
-      onClick={copy}
-      className="ml-2 p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-      title="Copy to clipboard"
-    >
-      {copied ? <Check size={14} /> : <Copy size={14} />}
-    </button>
-  );
-}
 
 export default function CveLookup(): JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -283,7 +265,7 @@ export default function CveLookup(): JSX.Element {
 
                 <div className="mt-4 flex">
                   <CopyButton
-                    text={`${result.cve_id} — ${TIER_LABELS[p.tier]} (${p.score}/100, ${p.sla}).\n${p.rationale.map((r) => '- ' + r.replace(/\*\*/g, '')).join('\n')}`}
+                    value={`${result.cve_id} — ${TIER_LABELS[p.tier]} (${p.score}/100, ${p.sla}).\n${p.rationale.map((r) => '- ' + r.replace(/\*\*/g, '')).join('\n')}`}
                   />
                   <span className="ml-2 self-center text-[11px] font-mono text-slate-500 dark:text-slate-500">
                     Copy ticket-ready rationale
@@ -318,7 +300,7 @@ export default function CveLookup(): JSX.Element {
                   </span>
                   <div className="flex items-center mt-2 font-mono text-xs text-slate-500 break-all">
                     <span>{result.cvss.vector}</span>
-                    <CopyButton text={result.cvss.vector} />
+                    <CopyButton value={result.cvss.vector} />
                   </div>
                 </div>
               </div>
