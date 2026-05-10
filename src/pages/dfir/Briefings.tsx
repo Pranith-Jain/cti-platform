@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Rss, ChevronRight, Bell, Send, Globe2, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Rss, ChevronRight, Bell, Send, Globe2, ExternalLink, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { fetchAggregatedFeed, type AggregatedFeedResponse } from '../../services/rssService';
 
 type Filter = 'all' | 'daily' | 'weekly';
 
@@ -70,11 +71,20 @@ function withinWindow(iso: string, hours: number): boolean {
   return Date.now() - t <= hours * 3600_000;
 }
 
+/**
+ * Hand-picked subset of ScamWatch's "Official alerts" feed group. Highest
+ * signal-density entries — government / regulator advisories on active scam
+ * operations. We deliberately skip the noisier Reddit / Google News
+ * sub-feeds in this snapshot card; the full firehose is on /dfir/scam-watch.
+ */
+const SCAM_SNAPSHOT_FEED_IDS = ['ftc-consumer', 'ic3-psas'];
+
 function LiveSnapshotPanel(): JSX.Element {
   const [ransomware, setRansomware] = useState<RansomwareResp | null>(null);
   const [telegram, setTelegram] = useState<TelegramResp | null>(null);
   const [onion, setOnion] = useState<OnionResp | null>(null);
-  const [errors, setErrors] = useState<{ ransomware?: string; telegram?: string; onion?: string }>({});
+  const [scam, setScam] = useState<AggregatedFeedResponse | null>(null);
+  const [errors, setErrors] = useState<{ ransomware?: string; telegram?: string; onion?: string; scam?: string }>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -89,15 +99,20 @@ function LiveSnapshotPanel(): JSX.Element {
       }
     };
     void (async () => {
-      const [r, t, o] = await Promise.all([
+      const [r, t, o, s] = await Promise.all([
         safe<RansomwareResp>('/api/v1/ransomware-recent', 'ransomware'),
         safe<TelegramResp>('/api/v1/telegram-feed', 'telegram'),
         safe<OnionResp>('/api/v1/onion-watch', 'onion'),
+        fetchAggregatedFeed(SCAM_SNAPSHOT_FEED_IDS, { limit: 12, perSource: 6 }).catch((e: Error) => {
+          if (!cancelled) setErrors((cur) => ({ ...cur, scam: e.message }));
+          return null;
+        }),
       ]);
       if (cancelled) return;
       if (r) setRansomware(r);
       if (t) setTelegram(t);
       if (o) setOnion(o);
+      if (s) setScam(s);
     })();
     return () => {
       cancelled = true;
@@ -117,6 +132,11 @@ function LiveSnapshotPanel(): JSX.Element {
 
   const reachablePct = onion ? Math.round((onion.reachable_count / Math.max(1, onion.groups.length)) * 100) : null;
 
+  const recentScam = useMemo(() => {
+    if (!scam) return [];
+    return scam.items.slice(0, 4);
+  }, [scam]);
+
   return (
     <section className="mb-12">
       <div className="flex items-baseline justify-between mb-4">
@@ -126,7 +146,7 @@ function LiveSnapshotPanel(): JSX.Element {
         </span>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {/* Ransomware activity */}
         <div className="rounded-2xl border border-rose-500/30 bg-white dark:bg-slate-900 p-4 flex flex-col">
           <div className="flex items-baseline justify-between gap-2 mb-1">
@@ -264,6 +284,54 @@ function LiveSnapshotPanel(): JSX.Element {
             </>
           )}
         </div>
+
+        {/* Scam intel — FTC + IC3 official alerts */}
+        <div className="rounded-2xl border border-amber-500/30 bg-white dark:bg-slate-900 p-4 flex flex-col">
+          <div className="flex items-baseline justify-between gap-2 mb-1">
+            <h3 className="font-display font-semibold text-sm inline-flex items-center gap-1.5">
+              <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400" /> Scam intel
+            </h3>
+            <Link
+              to="/dfir/scam-watch"
+              className="text-[10px] font-mono text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-0.5"
+            >
+              full feed <ExternalLink size={9} />
+            </Link>
+          </div>
+          {errors.scam && <p className="text-[11px] font-mono text-rose-500">load error: {errors.scam}</p>}
+          {!scam && !errors.scam && <p className="text-[11px] font-mono text-slate-400">loading…</p>}
+          {scam && (
+            <>
+              <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2">
+                <span className="text-slate-900 dark:text-slate-100 font-bold text-base">{scam.total_items}</span>{' '}
+                official alerts · FTC + IC3
+              </p>
+              {recentScam.length === 0 ? (
+                <p className="text-[11px] font-mono text-slate-500">No recent alerts.</p>
+              ) : (
+                <ul className="space-y-1.5 mt-1">
+                  {recentScam.map((it) => (
+                    <li key={it.guid ?? it.link} className="text-[11px] font-mono">
+                      <div className="flex items-baseline gap-2">
+                        <a
+                          href={it.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-display font-semibold text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 truncate flex-1 min-w-0"
+                          title={it.title}
+                        >
+                          {it.title}
+                        </a>
+                        <span className="text-slate-400 shrink-0">{shortRel(it.pubDate)}</span>
+                      </div>
+                      <p className="text-slate-500 dark:text-slate-500 truncate">{it.source}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -345,10 +413,10 @@ export default function Briefings(): JSX.Element {
         </span>
         <h1 className="text-4xl sm:text-5xl font-display font-bold mb-4 leading-tight">Threat Intel Briefings</h1>
         <p className="text-base text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
-          Live "right now" snapshot below pulls from the ransomware leak-site feed, the cybersec Telegram firehose, and
-          the .onion reachability tracker. Underneath, auto-generated daily and weekly briefings drawn from CISA KEV,
-          NVD, and abuse.ch / OpenPhish — daily at 00:05 UTC, weekly at 00:15 UTC Monday. Reference only — verify all
-          indicators in your own environment.
+          Live "right now" snapshot below pulls from the ransomware leak-site feed, the cybersec Telegram firehose, the
+          .onion reachability tracker, and the FTC + IC3 scam alerts. Underneath, auto-generated daily and weekly
+          briefings drawn from CISA KEV, NVD, and abuse.ch / OpenPhish — daily at 00:05 UTC, weekly at 00:15 UTC Monday.
+          Reference only — verify all indicators in your own environment.
         </p>
       </motion.header>
 
