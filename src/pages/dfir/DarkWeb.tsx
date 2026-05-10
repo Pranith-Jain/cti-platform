@@ -274,6 +274,8 @@ export default function DarkWeb(): JSX.Element {
 
       <RansomwareActivityPanel />
 
+      <OnionMirrorsPanel />
+
       <BreachDisclosuresPanel />
 
       {/* Search + filters */}
@@ -834,6 +836,205 @@ function RansomwareActivityPanel(): JSX.Element {
             full Ransomlook feed <ExternalLink size={10} />
           </a>
         </div>
+      )}
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Onion Mirrors panel — surfaces .onion leak-site URLs for the most-active
+// ransomware groups, with reachability flags from Ransomlook.io's last
+// scrape. We don't fetch .onion sites ourselves — Cloudflare Workers can't
+// route through Tor — but we surface the addresses so analysts can navigate
+// via their own Tor client without rebuilding the inventory by hand.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface OnionMirror {
+  slug: string;
+  fqdn: string;
+  title?: string;
+  available: boolean;
+  updated?: string;
+  version?: number;
+  is_chat?: boolean;
+  is_fs?: boolean;
+}
+
+interface OnionGroup {
+  group: string;
+  last_active?: string;
+  any_reachable: boolean;
+  mirrors: OnionMirror[];
+}
+
+interface OnionWatchResponse {
+  generated_at: string;
+  source: string;
+  source_url: string;
+  groups: OnionGroup[];
+  reachable_count: number;
+  total_count: number;
+  warnings: string[];
+}
+
+function OnionMirrorsPanel(): JSX.Element {
+  const [data, setData] = useState<OnionWatchResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showOffline, setShowOffline] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/v1/onion-watch');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = (await res.json()) as OnionWatchResponse;
+        if (!cancelled) setData(json);
+      } catch (e) {
+        if (!cancelled) setError((e as Error).message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const visibleGroups = useMemo(() => {
+    if (!data) return [];
+    if (showOffline) return data.groups;
+    return data.groups.filter((g) => g.any_reachable);
+  }, [data, showOffline]);
+
+  return (
+    <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-3 mb-3">
+        <h2 className="font-display font-semibold text-lg inline-flex items-center gap-2">
+          Active leak-site .onion mirrors
+          <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300">
+            ransomlook.io
+          </span>
+        </h2>
+        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-500">
+          {loading
+            ? 'loading…'
+            : data
+              ? `${data.reachable_count} reachable groups · ${data.total_count} mirrors · cached 6 h`
+              : ''}
+        </span>
+      </div>
+
+      <p className="text-[12px] font-mono text-slate-500 dark:text-slate-500 mb-3 leading-relaxed">
+        Top {data?.groups.length ?? 25} most-recently-active groups. Reachability is per Ransomlook&apos;s last scrape —
+        your own Tor client may see different status. <strong>We don&apos;t fetch .onion sites from this worker</strong>{' '}
+        (Cloudflare can&apos;t route through Tor); URLs are listed for navigation in your own Tor Browser. Treat any
+        leak-site visit as opsec-sensitive.
+      </p>
+
+      {error && (
+        <p className="text-sm font-mono text-rose-600 dark:text-rose-400">Could not load .onion mirrors: {error}</p>
+      )}
+
+      {data && data.groups.length === 0 && !error && (
+        <p className="text-sm font-mono text-slate-500 dark:text-slate-500">No groups returned.</p>
+      )}
+
+      {data && data.groups.length > 0 && (
+        <>
+          <div className="flex items-center gap-3 mb-3 text-[11px] font-mono">
+            <label className="inline-flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" checked={showOffline} onChange={(e) => setShowOffline(e.target.checked)} />
+              <span className="text-slate-600 dark:text-slate-400">show offline groups</span>
+            </label>
+            <span className="text-slate-500">
+              showing {visibleGroups.length} of {data.groups.length}
+            </span>
+          </div>
+
+          <ul className="space-y-2">
+            {visibleGroups.map((g) => (
+              <li
+                key={g.group}
+                className={`rounded border p-2.5 ${
+                  g.any_reachable
+                    ? 'border-emerald-500/30 bg-emerald-500/5'
+                    : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 opacity-70'
+                }`}
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1.5">
+                  <span className="font-display font-semibold text-sm text-slate-900 dark:text-slate-100">
+                    {g.group}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {g.last_active && (
+                      <span className="text-[10px] font-mono text-slate-500 dark:text-slate-500">
+                        last claim {formatRelativeTime(g.last_active)}
+                      </span>
+                    )}
+                    <span
+                      className={`text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded border ${
+                        g.any_reachable
+                          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                          : 'border-slate-300 dark:border-slate-700 text-slate-500'
+                      }`}
+                    >
+                      {g.any_reachable ? 'reachable' : 'all offline'}
+                    </span>
+                  </div>
+                </div>
+                <ul className="space-y-1">
+                  {g.mirrors.map((m) => (
+                    <li key={m.slug} className="flex flex-wrap items-baseline gap-2 text-[11px] font-mono">
+                      <span
+                        className={`shrink-0 inline-block w-1.5 h-1.5 rounded-full ${
+                          m.available ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-slate-600'
+                        }`}
+                        aria-label={m.available ? 'reachable' : 'offline'}
+                      />
+                      <code className="text-slate-700 dark:text-slate-300 break-all flex-1">{m.fqdn}</code>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(m.slug);
+                        }}
+                        className="text-[10px] text-brand-600 dark:text-brand-400 hover:underline"
+                        title="Copy full Tor URL"
+                      >
+                        copy URL
+                      </button>
+                      {m.is_chat && (
+                        <span className="text-[9px] uppercase tracking-wider px-1 py-0.5 rounded border border-amber-500/40 text-amber-700 dark:text-amber-300">
+                          chat
+                        </span>
+                      )}
+                      {m.is_fs && (
+                        <span className="text-[9px] uppercase tracking-wider px-1 py-0.5 rounded border border-cyan-500/40 text-cyan-700 dark:text-cyan-300">
+                          fs
+                        </span>
+                      )}
+                      {m.title && (
+                        <span className="text-[10px] text-slate-500 dark:text-slate-500 italic ml-auto">
+                          “{m.title.slice(0, 40)}
+                          {m.title.length > 40 ? '…' : ''}”
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+
+          <p className="mt-3 text-[10px] font-mono text-slate-500 dark:text-slate-500">
+            Source:{' '}
+            <a href={data.source_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+              Ransomlook.io
+            </a>{' '}
+            · per-group profile API · cached 6 h at the edge.
+          </p>
+        </>
       )}
     </section>
   );

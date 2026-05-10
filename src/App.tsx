@@ -7,6 +7,7 @@ import { SkipToContent } from './components/SkipToContent';
 import { StructuredData } from './components/StructuredData';
 import { ScrollProgress, BackToTop } from './components/ui';
 import { Layout } from './components/Layout';
+import { CommandPalette } from './components/dfir/CommandPalette';
 
 // Top-level pages were eagerly imported, which dragged framer-motion (used
 // by their inner section components) into the initial bundle. Lazy them so
@@ -150,6 +151,8 @@ export function AppContent() {
       <ScrollProgress progress={progress} />
 
       <Header isDark={isDark} onToggleTheme={toggleTheme} />
+
+      <CommandPalette />
 
       <main id="main-content" tabIndex={-1}>
         <Layout>

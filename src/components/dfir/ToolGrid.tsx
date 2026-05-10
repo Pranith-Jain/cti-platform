@@ -54,7 +54,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-interface Tool {
+export interface Tool {
   path: string;
   label: string;
   desc: string;
@@ -62,7 +62,7 @@ interface Tool {
   external?: boolean;
 }
 
-interface Section {
+export interface Section {
   id: string;
   label: string;
   /** One-line hint shown under the section heading. */
@@ -75,7 +75,7 @@ interface Section {
  * triage first, then infra, email, intel, detection-engineering, frameworks,
  * AI security, vulns/identity, reference. External resources sit at the end.
  */
-const SECTIONS: Section[] = [
+export const SECTIONS: Section[] = [
   {
     id: 'triage',
     label: 'Triage & IOCs',
