@@ -29,7 +29,7 @@ import type { Env } from '../env';
 
 const NOTES_INDEX = 'https://www.mythreatintel.com/rescate/';
 const SCREENSHOTS_INDEX = 'https://www.mythreatintel.com/screenshots/';
-const CACHE_KEY = 'https://ransom-library-cache.internal/v1';
+const CACHE_KEY = 'https://ransom-library-cache.internal/v2';
 const CACHE_TTL_SECONDS = 6 * 3600; // 6h
 const FETCH_TIMEOUT_MS = 15_000;
 const UA = 'Mozilla/5.0 (compatible; pranithjain-dfir/1.0; +https://pranithjain.qzz.io)';
@@ -137,8 +137,12 @@ function normaliseId(stem: string): string {
   s = s.replace(/\([^)]*\)/g, '');
   // Drop trailing version markers — "_3.0", "_v2".
   s = s.replace(/[_-]?v?\d+(\.\d+)*$/g, '');
-  // Drop common qualifier suffixes that exist in screenshots only.
-  s = s.replace(/[_-]?(ransomware|group|data|new|old|leaks?|team)$/g, '');
+  // Drop common qualifier suffixes that disagree across the two listings.
+  // 'locker' is the big one — abyss (screenshot) vs abysslocker (note),
+  // avos vs avoslocker, blue vs bluelocker, etc. Avoid stripping 'cat'
+  // / 'ware' / 'ransom' alone — they collide with real group names
+  // (blackcat, scareware, etc).
+  s = s.replace(/[_-]?(ransomware|locker|group|data|new|old|leaks?|team)$/g, '');
   // Strip everything non-alphanum (drops _ - $ space etc).
   s = s.replace(/[^a-z0-9]/g, '');
   return s;
