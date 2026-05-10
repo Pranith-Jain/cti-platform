@@ -407,15 +407,11 @@ export const rssFeeds: RSSFeed[] = [
   // ============================================================================
   // VULNERABILITY & RESEARCH
   // ============================================================================
-  {
-    id: 'cvedetails',
-    name: 'CVE Details',
-    url: 'https://www.cvedetails.com/rss.xml',
-    description: 'CVE vulnerability details and statistics',
-    category: 'vulnerability',
-    source: 'CVE Details',
-    language: 'en-US',
-  },
+  // CVE Details (cvedetails.com) was removed in 2026-05: their /rss.xml endpoint
+  // has been Cloudflare-bot-protected and returns 403 to non-browser User-Agents
+  // even via the worker proxy. The /dfir/cve page (NVD-backed) covers the same
+  // workflow more authoritatively. The cvedetails.com landing page remains
+  // listed in /dfir/cve-resources as an external-link reference.
   {
     id: 'exploitdb',
     name: 'Exploit-DB',
@@ -569,10 +565,14 @@ export const rssFeeds: RSSFeed[] = [
     language: 'en-US',
   },
   {
+    // 2026-05: r/ScammerPayback subreddit went private/banned (404 from Reddit's
+    // RSS endpoint). r/scambait covers the same beat — call-centre exposes,
+    // scammer-baiting write-ups, impersonation tradecraft. Keeping the same id
+    // so all references in landing widgets + ScamWatch sections continue to work.
     id: 'reddit-scammer-payback',
-    name: 'Reddit r/ScammerPayback',
-    url: 'https://www.reddit.com/r/ScammerPayback/.rss',
-    description: 'Anti-scam community — call-centre exposes, scammer-baiting writeups, IRS / Microsoft impersonation',
+    name: 'Reddit r/scambait',
+    url: 'https://www.reddit.com/r/scambait/.rss',
+    description: 'Scammer-baiting and call-centre exposé community — scammer tradecraft, impersonation patterns',
     category: 'threat-intel',
     source: 'Reddit',
     language: 'en-US',
@@ -939,7 +939,7 @@ export const landingThreatInvestigation = [
 
 export const landingThreatReddit = ['reddit-netsec', 'reddit-malware', 'reddit-blueteamsec', 'reddit-threatintel'];
 
-export const landingThreatVulns = ['cvedetails', 'exploitdb'];
+export const landingThreatVulns = ['exploitdb'];
 
 export const landingThreatNews = [
   'krebsonsecurity',
