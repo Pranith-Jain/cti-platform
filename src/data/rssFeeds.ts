@@ -864,9 +864,12 @@ export const defaultFeeds = rssFeeds
   .map((f) => f.id);
 
 /**
- * Tech / AI / Industry feeds — rendered as a separate categorised box on
- * the /dfir landing page (TechNewsFeed) and as the full surface at
- * /dfir/tech-ai-news. Three sections, three lists.
+ * Tech / AI / Industry feeds — rendered as the full surface at
+ * /dfir/tech-ai-news. The /dfir landing page used to host these via the
+ * standalone TechNewsFeed component; that role has been folded into the
+ * Tech & AI card on LiveSnapshotPanel (which uses a smaller curated subset
+ * of these IDs — see TECH_AI_SNAPSHOT_FEED_IDS in that file). Three
+ * sections, three lists.
  */
 export const landingAiFeeds = [
   'techcrunch-ai',
@@ -902,9 +905,12 @@ export const landingGeneralTechFeeds = [
 export const defaultTechFeeds = landingGeneralTechFeeds;
 
 /**
- * Threat-feeds surface — used by both the /dfir landing widget
- * (ThreatIntelFeed) and the dedicated /dfir/threat-feeds page. Six
- * sections, hand-picked so each tab has a coherent identity.
+ * Threat-feeds surface — used as the dedicated /dfir/threat-feeds page.
+ * The /dfir landing page used to host these via the standalone
+ * ThreatIntelFeed component; that role has been folded into the Threat
+ * Intel card on LiveSnapshotPanel (which uses a smaller curated subset —
+ * see THREAT_INTEL_SNAPSHOT_FEED_IDS in that file). Six sections,
+ * hand-picked so each tab has a coherent identity.
  */
 export const landingThreatGovernment = ['cisa-alerts', 'cisa-medical-advisories'];
 

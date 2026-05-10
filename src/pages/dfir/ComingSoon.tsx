@@ -8,7 +8,7 @@ interface Props {
 
 export function ComingSoon({ title, description }: Props): JSX.Element {
   return (
-    <section className="max-w-3xl mx-auto px-8 py-20 text-slate-900 dark:text-slate-100">
+    <section className="max-w-3xl mx-auto px-4 sm:px-8 py-20 text-slate-900 dark:text-slate-100">
       <Link
         to="/dfir"
         className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:text-brand-400 transition-colors mb-12 font-mono"

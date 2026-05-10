@@ -2,8 +2,6 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Cloud, Github, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ToolGrid, TOOL_COUNT } from '../components/dfir/ToolGrid';
-import { ThreatIntelFeed } from '../components/dfir/ThreatIntelFeed';
-import { TechNewsFeed } from '../components/dfir/TechNewsFeed';
 import { LiveSnapshotPanel } from '../components/dfir/LiveSnapshotPanel';
 import { personalInfo } from '../data/content';
 
@@ -42,7 +40,7 @@ const PROVIDER_GROUPS: { label: string; items: string[] }[] = [
 
 export default function DFIRPage(): JSX.Element {
   return (
-    <div className="max-w-6xl mx-auto px-8 py-16 text-slate-900 dark:text-slate-100">
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-16 text-slate-900 dark:text-slate-100">
       <motion.header
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -105,26 +103,6 @@ export default function DFIRPage(): JSX.Element {
           </Link>
         </div>
         <ToolGrid />
-      </motion.section>
-
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.4 }}
-        className="mb-8"
-      >
-        <ThreatIntelFeed />
-      </motion.section>
-
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.4 }}
-        className="mb-16"
-      >
-        <TechNewsFeed />
       </motion.section>
 
       <section className="mt-20 pt-10 border-t border-slate-200 dark:border-slate-800">

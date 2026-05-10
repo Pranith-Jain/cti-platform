@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, Send, Globe2, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Bell, Send, Globe2, ExternalLink, AlertTriangle, Newspaper, Sparkles } from 'lucide-react';
 import { fetchAggregatedFeed, type AggregatedFeedResponse } from '../../services/rssService';
 
 /**
@@ -91,6 +91,21 @@ function withinWindow(iso: string, hours: number): boolean {
 }
 
 const SCAM_SNAPSHOT_FEED_IDS = ['ftc-consumer', 'ic3-psas'];
+
+/**
+ * General threat-intel firehose — the analyst's "daily reading" beat that
+ * doesn't fit the ransomware / Telegram / .onion / scam carve-outs. Tight,
+ * high-signal subset; the full version lived on /dfir landing as the
+ * (now-removed) ThreatIntelFeed component.
+ */
+const THREAT_INTEL_SNAPSHOT_FEED_IDS = ['bleepingcomputer', 'krebsonsecurity', 'dfir-report', 'securityweek'];
+
+/**
+ * Tech + AI industry news — the cyber-vendor funding / AI-lab releases /
+ * tech-press surface. Replaces the standalone TechNewsFeed.
+ */
+const TECH_AI_SNAPSHOT_FEED_IDS = ['techcrunch-ai', 'venturebeat-ai', 'techcrunch-security', 'gnews-cybersec-funding'];
+
 const LAST_VISIT_KEY = 'dfir.briefings.last_visit';
 
 function useLastVisit(): number {
@@ -148,7 +163,16 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
   const [telegram, setTelegram] = useState<TelegramResp | null>(null);
   const [onion, setOnion] = useState<OnionResp | null>(null);
   const [scam, setScam] = useState<AggregatedFeedResponse | null>(null);
-  const [errors, setErrors] = useState<{ ransomware?: string; telegram?: string; onion?: string; scam?: string }>({});
+  const [threatIntel, setThreatIntel] = useState<AggregatedFeedResponse | null>(null);
+  const [techAi, setTechAi] = useState<AggregatedFeedResponse | null>(null);
+  const [errors, setErrors] = useState<{
+    ransomware?: string;
+    telegram?: string;
+    onion?: string;
+    scam?: string;
+    threatIntel?: string;
+    techAi?: string;
+  }>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -163,12 +187,20 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
       }
     };
     void (async () => {
-      const [r, t, o, s] = await Promise.all([
+      const [r, t, o, s, ti, ta] = await Promise.all([
         safe<RansomwareResp>('/api/v1/ransomware-recent', 'ransomware'),
         safe<TelegramResp>('/api/v1/telegram-feed', 'telegram'),
         safe<OnionResp>('/api/v1/onion-watch', 'onion'),
         fetchAggregatedFeed(SCAM_SNAPSHOT_FEED_IDS, { limit: 12, perSource: 6 }).catch((e: Error) => {
           if (!cancelled) setErrors((cur) => ({ ...cur, scam: e.message }));
+          return null;
+        }),
+        fetchAggregatedFeed(THREAT_INTEL_SNAPSHOT_FEED_IDS, { limit: 16, perSource: 4 }).catch((e: Error) => {
+          if (!cancelled) setErrors((cur) => ({ ...cur, threatIntel: e.message }));
+          return null;
+        }),
+        fetchAggregatedFeed(TECH_AI_SNAPSHOT_FEED_IDS, { limit: 16, perSource: 4 }).catch((e: Error) => {
+          if (!cancelled) setErrors((cur) => ({ ...cur, techAi: e.message }));
           return null;
         }),
       ]);
@@ -177,6 +209,8 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
       if (t) setTelegram(t);
       if (o) setOnion(o);
       if (s) setScam(s);
+      if (ti) setThreatIntel(ti);
+      if (ta) setTechAi(ta);
     })();
     return () => {
       cancelled = true;
@@ -203,6 +237,16 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
     return scam.items.slice(0, itemLimit);
   }, [scam, itemLimit]);
 
+  const recentThreatIntel = useMemo(() => {
+    if (!threatIntel) return [];
+    return threatIntel.items.slice(0, itemLimit);
+  }, [threatIntel, itemLimit]);
+
+  const recentTechAi = useMemo(() => {
+    if (!techAi) return [];
+    return techAi.items.slice(0, itemLimit);
+  }, [techAi, itemLimit]);
+
   const newRansomwareCount = useMemo(
     () => (ransomware ? ransomware.victims.filter((v) => isNewSince(v.discovered, lastVisit)).length : 0),
     [ransomware, lastVisit]
@@ -215,7 +259,15 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
     () => (scam ? scam.items.filter((it) => isNewSince(it.pubDate, lastVisit)).length : 0),
     [scam, lastVisit]
   );
-  const totalNew = newRansomwareCount + newTelegramCount + newScamCount;
+  const newThreatIntelCount = useMemo(
+    () => (threatIntel ? threatIntel.items.filter((it) => isNewSince(it.pubDate, lastVisit)).length : 0),
+    [threatIntel, lastVisit]
+  );
+  const newTechAiCount = useMemo(
+    () => (techAi ? techAi.items.filter((it) => isNewSince(it.pubDate, lastVisit)).length : 0),
+    [techAi, lastVisit]
+  );
+  const totalNew = newRansomwareCount + newTelegramCount + newScamCount + newThreatIntelCount + newTechAiCount;
 
   return (
     <section className={mbClass}>
@@ -236,7 +288,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Ransomware activity */}
         <div className={`rounded-2xl border border-rose-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col`}>
           <div className="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
@@ -298,18 +350,20 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
           )}
         </div>
 
-        {/* Telegram firehose */}
+        {/* Cybersec Telegram firehose — links to the DarkWeb panel which has the
+            full filterable view; the Telegram catalog (/dfir/telegram-watch) is
+            the channel-discovery surface, not the message stream. */}
         <div className={`rounded-2xl border border-sky-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col`}>
           <div className="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
             <h3 className="font-display font-semibold text-sm inline-flex items-center gap-1.5">
-              <Send size={14} className="text-sky-600 dark:text-sky-400" /> Telegram firehose
+              <Send size={14} className="text-sky-600 dark:text-sky-400" /> Cybersec Telegram firehose
               {lastVisit > 0 && <NewBadge count={newTelegramCount} />}
             </h3>
             <Link
-              to="/dfir/telegram-watch"
+              to="/dfir/darkweb"
               className="text-[10px] font-mono text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-0.5"
             >
-              catalogue <ExternalLink size={9} />
+              full feed <ExternalLink size={9} />
             </Link>
           </div>
           {errors.telegram && <p className="text-[11px] font-mono text-rose-500">load error: {errors.telegram}</p>}
@@ -429,6 +483,126 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
               ) : (
                 <ul className="space-y-1.5 mt-1">
                   {recentScam.map((it) => {
+                    const isNew = isNewSince(it.pubDate, lastVisit);
+                    return (
+                      <li key={it.guid ?? it.link} className="text-[11px] font-mono">
+                        <div className="flex items-baseline gap-2">
+                          <span
+                            className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+                              isNew ? 'bg-amber-500' : 'bg-transparent'
+                            }`}
+                            aria-label={isNew ? 'new since last visit' : undefined}
+                          />
+                          <a
+                            href={it.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-display font-semibold text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 truncate flex-1 min-w-0"
+                            title={it.title}
+                          >
+                            {it.title}
+                          </a>
+                          <span className="text-slate-400 shrink-0">{shortRel(it.pubDate)}</span>
+                        </div>
+                        {!compact && <p className="text-slate-500 dark:text-slate-500 truncate pl-3.5">{it.source}</p>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Threat-intel firehose — BleepingComputer + Krebs + DFIR Report + SecurityWeek */}
+        <div className={`rounded-2xl border border-emerald-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col`}>
+          <div className="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
+            <h3 className="font-display font-semibold text-sm inline-flex items-center gap-1.5">
+              <Newspaper size={14} className="text-emerald-600 dark:text-emerald-400" /> Threat intel
+              {lastVisit > 0 && <NewBadge count={newThreatIntelCount} />}
+            </h3>
+            <Link
+              to="/dfir/threat-feeds"
+              className="text-[10px] font-mono text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-0.5"
+            >
+              full feeds <ExternalLink size={9} />
+            </Link>
+          </div>
+          {errors.threatIntel && (
+            <p className="text-[11px] font-mono text-rose-500">load error: {errors.threatIntel}</p>
+          )}
+          {!threatIntel && !errors.threatIntel && <p className="text-[11px] font-mono text-slate-400">loading…</p>}
+          {threatIntel && (
+            <>
+              <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2">
+                <span className="text-slate-900 dark:text-slate-100 font-bold text-base">
+                  {threatIntel.total_items}
+                </span>{' '}
+                posts · BleepingComputer · Krebs · DFIR Report · SecurityWeek
+              </p>
+              {recentThreatIntel.length === 0 ? (
+                <p className="text-[11px] font-mono text-slate-500">No recent posts.</p>
+              ) : (
+                <ul className="space-y-1.5 mt-1">
+                  {recentThreatIntel.map((it) => {
+                    const isNew = isNewSince(it.pubDate, lastVisit);
+                    return (
+                      <li key={it.guid ?? it.link} className="text-[11px] font-mono">
+                        <div className="flex items-baseline gap-2">
+                          <span
+                            className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+                              isNew ? 'bg-amber-500' : 'bg-transparent'
+                            }`}
+                            aria-label={isNew ? 'new since last visit' : undefined}
+                          />
+                          <a
+                            href={it.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-display font-semibold text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 truncate flex-1 min-w-0"
+                            title={it.title}
+                          >
+                            {it.title}
+                          </a>
+                          <span className="text-slate-400 shrink-0">{shortRel(it.pubDate)}</span>
+                        </div>
+                        {!compact && <p className="text-slate-500 dark:text-slate-500 truncate pl-3.5">{it.source}</p>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Tech & AI news — TechCrunch AI / VentureBeat AI / TechCrunch security / cybersec funding */}
+        <div className={`rounded-2xl border border-fuchsia-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col`}>
+          <div className="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
+            <h3 className="font-display font-semibold text-sm inline-flex items-center gap-1.5">
+              <Sparkles size={14} className="text-fuchsia-600 dark:text-fuchsia-400" /> Tech &amp; AI
+              {lastVisit > 0 && <NewBadge count={newTechAiCount} />}
+            </h3>
+            <Link
+              to="/dfir/tech-ai-news"
+              className="text-[10px] font-mono text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-0.5"
+            >
+              full feeds <ExternalLink size={9} />
+            </Link>
+          </div>
+          {errors.techAi && <p className="text-[11px] font-mono text-rose-500">load error: {errors.techAi}</p>}
+          {!techAi && !errors.techAi && <p className="text-[11px] font-mono text-slate-400">loading…</p>}
+          {techAi && (
+            <>
+              <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2">
+                <span className="text-slate-900 dark:text-slate-100 font-bold text-base">{techAi.total_items}</span>{' '}
+                posts · AI labs · cyber funding · M&amp;A
+              </p>
+              {recentTechAi.length === 0 ? (
+                <p className="text-[11px] font-mono text-slate-500">No recent posts.</p>
+              ) : (
+                <ul className="space-y-1.5 mt-1">
+                  {recentTechAi.map((it) => {
                     const isNew = isNewSince(it.pubDate, lastVisit);
                     return (
                       <li key={it.guid ?? it.link} className="text-[11px] font-mono">
