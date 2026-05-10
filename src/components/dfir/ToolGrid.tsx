@@ -52,7 +52,6 @@ import {
   Coins,
   Radio,
   Send,
-  MessageCircle,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -192,6 +191,12 @@ export const SECTIONS: Section[] = [
         icon: Layers,
       },
       {
+        path: '/dfir/awesome-lists',
+        label: 'Awesome Lists',
+        desc: 'Curated GitHub awesome-lists for OSINT, Threat Intel, IR, MCP / AI security · star + focus filter · canonical README links',
+        icon: Sparkles,
+      },
+      {
         path: '/dfir/url-preview',
         label: 'URL Preview',
         desc: 'Server-side metadata · safe fetch · screenshot',
@@ -301,12 +306,6 @@ export const SECTIONS: Section[] = [
         label: 'Telegram Watch',
         desc: 'Curated index of public threat-intel, malware-research, OSINT, ransomware-tracking, and cybercrime Telegram channels · category + language filters',
         icon: Send,
-      },
-      {
-        path: '/dfir/discord-watch',
-        label: 'Discord Watch',
-        desc: "Curated security Discord servers — training, red/blue team, malware research, threat intel, conferences · invites verified against the org's own site",
-        icon: MessageCircle,
       },
       {
         path: '/dfir/scam-watch',

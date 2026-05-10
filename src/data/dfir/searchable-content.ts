@@ -10,7 +10,7 @@
  * catalog content is merged in once `loadCatalogIndex()` resolves.
  */
 
-export type SearchKind = 'tool' | 'wiki' | 'telegram' | 'discord' | 'secops' | 'cve' | 'actor';
+export type SearchKind = 'tool' | 'wiki' | 'telegram' | 'secops' | 'cve' | 'actor';
 
 export interface SearchEntry {
   kind: SearchKind;
@@ -28,7 +28,6 @@ export const KIND_LABEL: Record<SearchKind, string> = {
   tool: 'Tool',
   wiki: 'Wiki',
   telegram: 'Telegram',
-  discord: 'Discord',
   secops: 'SecOps',
   cve: 'CVE Res.',
   actor: 'Actor',
@@ -39,7 +38,6 @@ export const KIND_PILL: Record<SearchKind, string> = {
   tool: 'border-brand-500/40 bg-brand-500/10 text-brand-700 dark:text-brand-300',
   wiki: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   telegram: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300',
-  discord: 'border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
   secops: 'border-violet-500/40 bg-violet-500/10 text-violet-700 dark:text-violet-300',
   cve: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   actor: 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300',
@@ -55,27 +53,25 @@ export const KIND_PRIORITY: Record<SearchKind, number> = {
   wiki: 1,
   actor: 2,
   telegram: 3,
-  discord: 4,
-  cve: 5,
-  secops: 6,
+  cve: 4,
+  secops: 5,
 };
 
 let catalogCache: SearchEntry[] | null = null;
 let catalogPromise: Promise<SearchEntry[]> | null = null;
 
 /**
- * Lazy-load all catalog content (wiki + telegram + discord + secops + cve +
- * actors) in a single round trip. Cached after first call. Safe to call
+ * Lazy-load all catalog content (wiki + telegram + secops + cve + actors)
+ * in a single round trip. Cached after first call. Safe to call
  * repeatedly; subsequent calls return the same resolved array.
  */
 export function loadCatalogIndex(): Promise<SearchEntry[]> {
   if (catalogCache) return Promise.resolve(catalogCache);
   if (catalogPromise) return catalogPromise;
   catalogPromise = (async () => {
-    const [wikiM, tgM, dcM, secopsM, cveM, actorM] = await Promise.all([
+    const [wikiM, tgM, secopsM, cveM, actorM] = await Promise.all([
       import('./wiki-articles'),
       import('./telegram-watch-catalog'),
-      import('./discord-watch-catalog'),
       import('./secops-catalog'),
       import('./cve-resources-catalog'),
       import('./threat-actors'),
@@ -104,17 +100,6 @@ export function loadCatalogIndex(): Promise<SearchEntry[]> {
         desc: e.description,
         path: `/dfir/telegram-watch?q=${encodeURIComponent(e.name)}`,
         sectionLabel: tgM.CATEGORY_LABELS[e.categories[0]] ?? 'Telegram',
-      });
-    }
-
-    // Discord servers — same pattern.
-    for (const e of dcM.CATALOG) {
-      out.push({
-        kind: 'discord',
-        label: e.name,
-        desc: e.description,
-        path: `/dfir/discord-watch?q=${encodeURIComponent(e.name)}`,
-        sectionLabel: dcM.CATEGORY_LABELS[e.categories[0]] ?? 'Discord',
       });
     }
 

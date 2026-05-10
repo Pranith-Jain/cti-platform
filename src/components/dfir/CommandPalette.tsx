@@ -20,11 +20,11 @@ import {
  *   - Tools (61, synchronous) — the SECTIONS tile grid. Available the
  *     instant the palette opens.
  *   - Catalog content (~340 lazy, async) — wiki articles, Telegram
- *     channels, Discord servers, SecOps catalog, CVE resources, threat
+ *     channels, SecOps catalog, CVE resources, threat
  *     actors. Loaded once on first palette open and cached.
  *
  * Substring search, AND-tokenised on whitespace. Results sort by KIND_PRIORITY
- * (tools → wiki → actors → telegram → discord → cve → secops) so the most
+ * (tools → wiki → actors → telegram → cve → secops) so the most
  * action-oriented hits surface first. A kind-filter chip row narrows the
  * result space when the index gets large.
  *
@@ -126,7 +126,7 @@ function searchEntries(
     .map<MatchedEntry>((e) => ({ ...e, matchedBy: 'search' }));
 }
 
-const KIND_FILTER_ORDER: SearchKind[] = ['tool', 'wiki', 'actor', 'telegram', 'discord', 'cve', 'secops'];
+const KIND_FILTER_ORDER: SearchKind[] = ['tool', 'wiki', 'actor', 'telegram', 'cve', 'secops'];
 
 export function CommandPalette(): JSX.Element | null {
   const navigate = useNavigate();
@@ -341,15 +341,13 @@ export function CommandPalette(): JSX.Element | null {
                         ? 'W'
                         : m.kind === 'telegram'
                           ? 'T'
-                          : m.kind === 'discord'
-                            ? 'D'
-                            : m.kind === 'secops'
-                              ? 'S'
-                              : m.kind === 'cve'
-                                ? 'C'
-                                : m.kind === 'actor'
-                                  ? 'A'
-                                  : '·'}
+                          : m.kind === 'secops'
+                            ? 'S'
+                            : m.kind === 'cve'
+                              ? 'C'
+                              : m.kind === 'actor'
+                                ? 'A'
+                                : '·'}
                     </span>
                   )}
                   <div className="min-w-0 flex-1">

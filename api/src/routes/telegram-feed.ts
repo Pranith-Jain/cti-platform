@@ -73,6 +73,12 @@ const CHANNELS: ChannelSpec[] = [
     blurb: 'Curated CTI report digest (multi-language)',
     topic: 'osint',
   },
+  {
+    handle: 'defendor_eng',
+    name: 'Defendor (EN)',
+    blurb: 'Defensive-CTI / IR write-ups + threat-actor tracking',
+    topic: 'osint',
+  },
   // Breach / leak feeds
   { handle: 'dataleak', name: 'DataLeak', blurb: 'Data-breach repost channel', topic: 'leaks' },
   // News mirrors
@@ -84,6 +90,7 @@ const CHANNELS: ChannelSpec[] = [
     blurb: 'High-volume security-news aggregator',
     topic: 'news',
   },
+  { handle: 'cyberscoop', name: 'CyberScoop', blurb: 'CyberScoop news + government-cyber coverage', topic: 'news' },
   // Bug-bounty / offensive research
   {
     handle: 'dailybountywriteup',
@@ -251,11 +258,9 @@ export async function fetchTelegramFeed(): Promise<TelegramFeedResponse> {
 
 export async function telegramFeedHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   const cache = (caches as unknown as { default: Cache }).default;
-  // v3: 2026-05-11 audit — dropped 4 stale handles (CyberKnow20, FalconFeedsio,
-  // bellingcat, malware_traffic), added 5 active ones (ctinow, Cyber_Ti_Reports_VN,
-  // dailybountywriteup, cyber_security_channel, androidmalware).
-  // Bump on response-shape changes or curated-channel-list changes.
-  const cacheKey = new Request('https://telegram-feed-cache.internal/v3');
+  // v4: 2026-05-11 follow-up — added defendor_eng + cyberscoop after handle
+  // verification.  Bump on response-shape changes or curated-channel-list changes.
+  const cacheKey = new Request('https://telegram-feed-cache.internal/v4');
   const cached = await cache.match(cacheKey);
   if (cached) return cached;
 

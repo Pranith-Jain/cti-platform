@@ -85,10 +85,11 @@ async function safe<T>(fn: () => Promise<T>): Promise<SourcePayload<T>> {
 
 export async function snapshotHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   const cache = (caches as unknown as { default: Cache }).default;
-  // v6: cache.match now uses a URL string (more reliable than wrapping in
-  // new Request); throws on empty threat-map so the panel surfaces an
-  // error instead of caching misleading 0s.
-  const cacheKey = new Request('https://snapshot-cache.internal/v6');
+  // v7: 2026-05-11 — telegram-feed channel set rotated again (added
+  // defendor_eng + cyberscoop). Bumped to force a clean rebuild so the
+  // LiveSnapshotPanel.tsx telegram card stops showing the previously-cached
+  // payload that pre-dated the channel change.
+  const cacheKey = new Request('https://snapshot-cache.internal/v7');
   const cached = await cache.match(cacheKey);
   if (cached) return cached;
 

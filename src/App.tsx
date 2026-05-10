@@ -83,7 +83,7 @@ const TechAiNews = lazy(() => import('./pages/dfir/TechAiNews'));
 const ThreatFeeds = lazy(() => import('./pages/dfir/ThreatFeeds'));
 const OnionWatch = lazy(() => import('./pages/dfir/OnionWatch'));
 const TelegramWatch = lazy(() => import('./pages/dfir/TelegramWatch'));
-const DiscordWatch = lazy(() => import('./pages/dfir/DiscordWatch'));
+const AwesomeLists = lazy(() => import('./pages/dfir/AwesomeLists'));
 
 function TechniqueRedirect() {
   const params = new URLSearchParams(window.location.search);
@@ -708,13 +708,15 @@ export function AppContent() {
               }
             />
             <Route
-              path="/dfir/discord-watch"
+              path="/dfir/awesome-lists"
               element={
                 <Suspense fallback={<SectionLoader />}>
-                  <DiscordWatch />
+                  <AwesomeLists />
                 </Suspense>
               }
             />
+            {/* Discord Watch was removed 2026-05-11; redirect bookmarks to Awesome Lists. */}
+            <Route path="/dfir/discord-watch" element={<Navigate to="/dfir/awesome-lists" replace />} />
             {/* Old path renamed; preserve any in-flight links. */}
             <Route path="/dfir/industry-news" element={<Navigate to="/dfir/tech-ai-news" replace />} />
             <Route path="/difr" element={<Navigate to="/dfir" replace />} />

@@ -113,20 +113,15 @@ export const TOOL_TOPICS: ToolTopic[] = [
   { term: 'SOCMINT', href: '/dfir/socmint', blurb: 'Categorised OSINT pivots for email/domain/handle/name' },
   { term: 'IP geolocation', href: '/dfir/ip-geo', blurb: 'Country, ASN, ISP + AbuseIPDB reputation' },
 
-  // Watch tools (.onion / Telegram / Discord)
+  // Watch tools (.onion / Telegram)
   { term: '.onion', href: '/dfir/onion-watch', blurb: 'Live .onion leak-site mirror inventory + reachability' },
   { term: 'onion mirrors', href: '/dfir/onion-watch', blurb: 'Live .onion leak-site mirror inventory + reachability' },
   { term: 'Tor', href: '/dfir/onion-watch', blurb: 'Top ransomware leak-site .onion mirrors with reachability flags' },
   { term: 'Ransomlook', href: '/dfir/onion-watch', blurb: 'Ransomlook-backed .onion mirror inventory' },
   { term: 'Telegram', href: '/dfir/telegram-watch', blurb: 'Curated threat-intel & cybercrime Telegram channel index' },
   {
-    term: 'Discord',
-    href: '/dfir/discord-watch',
-    blurb: 'Curated security Discord server index — training, research, threat intel',
-  },
-  {
     term: 'deepdarkCTI',
     href: '/dfir/telegram-watch',
-    blurb: 'See the deepdarkCTI-backed Telegram + Discord catalogues',
+    blurb: 'See the deepdarkCTI-backed Telegram catalogue + cybercrime channel index',
   },
 ];

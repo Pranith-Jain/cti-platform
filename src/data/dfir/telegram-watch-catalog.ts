@@ -169,6 +169,29 @@ export const CATALOG: TelegramEntry[] = [
     badge: 'research',
   },
   {
+    id: 'defendor-eng',
+    name: 'Defendor (EN)',
+    handle: 'defendor_eng',
+    attribution: 'Defendor CTI community',
+    categories: ['threat-intel'],
+    language: 'en',
+    audience: 'public-channel',
+    description:
+      'Defensive-CTI write-ups, IR retros, and threat-actor tracking — English-language community channel; multiple posts per day.',
+    badge: 'research',
+  },
+  {
+    id: 'ctifeeds-group',
+    name: 'CTI Feeds (group)',
+    handle: 'ctifeeds',
+    attribution: 'Open CTI community',
+    categories: ['threat-intel'],
+    language: 'en',
+    audience: 'public-group',
+    description:
+      'Open Telegram GROUP (not a channel) for CTI practitioners to swap fresh IOCs, advisory links, and intel notes. Join required to read; no t.me/s/<...> preview, so it cannot be ingested into the firehose.',
+  },
+  {
     id: 'group-ib',
     name: 'Group-IB',
     handle: 'group_ib',
@@ -223,6 +246,16 @@ export const CATALOG: TelegramEntry[] = [
     audience: 'public-channel',
     description:
       'High-volume aggregator — daily mirrors of vendor blogs, news sites, and advisories into one feed. Best paired with a keyword filter.',
+  },
+  {
+    id: 'cyberscoop',
+    name: 'CyberScoop',
+    handle: 'cyberscoop',
+    attribution: 'cyberscoop.com',
+    categories: ['security-news'],
+    language: 'en',
+    audience: 'public-channel',
+    description: 'Official CyberScoop mirror — strong on government / federal-cyber and policy coverage.',
   },
 
   // ─────────────────────────────────────────────────────────────────────
