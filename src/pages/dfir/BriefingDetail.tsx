@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ExternalLink, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { LiveSnapshotPanel } from '../../components/dfir/LiveSnapshotPanel';
 
 type Severity = 'critical' | 'high' | 'medium' | 'low' | 'unknown';
 
@@ -269,11 +270,15 @@ export default function BriefingDetail(): JSX.Element {
   }, [slug]);
 
   if (loading) {
-    return <div className="max-w-5xl mx-auto px-8 py-16 font-mono text-sm text-slate-500">Loading briefing…</div>;
+    return (
+      <div className="max-w-5xl mx-auto px-4 sm:px-8 py-12 sm:py-16 font-mono text-sm text-slate-500">
+        Loading briefing…
+      </div>
+    );
   }
   if (error || !briefing) {
     return (
-      <div className="max-w-5xl mx-auto px-8 py-16">
+      <div className="max-w-5xl mx-auto px-4 sm:px-8 py-12 sm:py-16">
         <Link to="/dfir/briefings" className="inline-flex items-center gap-2 text-sm text-slate-500 mb-6 font-mono">
           <ArrowLeft size={14} /> back
         </Link>
@@ -288,7 +293,7 @@ export default function BriefingDetail(): JSX.Element {
 
   const stats = briefing.stats;
   return (
-    <div className="max-w-5xl mx-auto px-8 py-12 text-slate-900 dark:text-slate-100">
+    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
       <Link
         to="/dfir/briefings"
         className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:text-brand-400 mb-8 font-mono transition-colors"
@@ -325,6 +330,17 @@ export default function BriefingDetail(): JSX.Element {
           <StatPill label="low" value={stats.low} accent="text-emerald-600 dark:text-emerald-400" />
         </div>
       </section>
+
+      {/* Live snapshot — same panel as /dfir/briefings + /dfir landing.
+          Pulls current ransomware / Telegram / .onion / scam activity. The
+          subtitle makes the temporal mismatch explicit so readers don't
+          conflate "right now" data with the briefing's historical date range. */}
+      <LiveSnapshotPanel
+        compact
+        headerLabel="Live activity right now"
+        subtitle={`live · separate from this briefing's ${briefing.date_range} window`}
+        mbClass="mb-10"
+      />
 
       {/* Executive Summary */}
       <section className="mb-10">

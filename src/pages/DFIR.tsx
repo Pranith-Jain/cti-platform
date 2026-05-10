@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ToolGrid, TOOL_COUNT } from '../components/dfir/ToolGrid';
 import { ThreatIntelFeed } from '../components/dfir/ThreatIntelFeed';
 import { TechNewsFeed } from '../components/dfir/TechNewsFeed';
+import { LiveSnapshotPanel } from '../components/dfir/LiveSnapshotPanel';
 import { personalInfo } from '../data/content';
 
 const PROVIDER_GROUPS: { label: string; items: string[] }[] = [
@@ -64,7 +65,7 @@ export default function DFIRPage(): JSX.Element {
           </span>
           <span aria-hidden="true">·</span>
           <span>
-            <span className="text-slate-900 dark:text-slate-100 text-base">22</span> data sources
+            <span className="text-slate-900 dark:text-slate-100 text-base">90+</span> data sources
           </span>
           <span aria-hidden="true">·</span>
           <span>
@@ -77,6 +78,15 @@ export default function DFIRPage(): JSX.Element {
           </span>
         </div>
       </motion.header>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.4 }}
+      >
+        <LiveSnapshotPanel compact subtitle="live activity across the toolkit" mbClass="mb-12" />
+      </motion.section>
 
       <motion.section
         initial={{ opacity: 0, y: 20 }}
