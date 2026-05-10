@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, RefreshCw, Star, GitFork, GitCommit, FileCode } from 'lucide-react';
+import { RulesSnapshotPanel } from '../../components/dfir/RulesSnapshotPanel';
 interface SourceEntry {
   id: string;
   label: string;
@@ -121,6 +122,8 @@ export default function Rules(): JSX.Element {
           required, no signup, no paid tier.
         </p>
       </div>
+
+      <RulesSnapshotPanel />
 
       {loading && !data && <p className="font-mono text-sm text-slate-500">Loading rule sources…</p>}
       {error && <p className="font-mono text-sm text-rose-600 dark:text-rose-400">error: {error}</p>}
