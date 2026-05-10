@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Rss, ChevronRight } from 'lucide-react';
-import { LiveSnapshotPanel } from '../../components/dfir/LiveSnapshotPanel';
 
 type Filter = 'all' | 'daily' | 'weekly';
 
@@ -82,14 +81,15 @@ export default function Briefings(): JSX.Element {
         </span>
         <h1 className="text-4xl sm:text-5xl font-display font-bold mb-4 leading-tight">Threat Intel Briefings</h1>
         <p className="text-base text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
-          Live "right now" snapshot below pulls from the ransomware leak-site feed, the cybersec Telegram firehose, the
-          .onion reachability tracker, and the FTC + IC3 scam alerts. Underneath, auto-generated daily and weekly
-          briefings drawn from CISA KEV, NVD, and abuse.ch / OpenPhish — daily at 00:05 UTC, weekly at 00:15 UTC Monday.
-          Reference only — verify all indicators in your own environment.
+          Auto-generated daily and weekly summaries of threat-intelligence activity, drawn from CISA KEV, NVD, and
+          abuse.ch / OpenPhish feeds. Daily briefings publish at 00:05 UTC; weekly at 00:15 UTC Monday. Reference only —
+          verify all indicators in your own environment. For real-time activity, see the live snapshot on{' '}
+          <Link to="/dfir" className="text-brand-600 dark:text-brand-400 hover:underline">
+            /dfir
+          </Link>
+          .
         </p>
       </header>
-
-      <LiveSnapshotPanel subtitle="live · between KV-baked briefings" />
 
       {/* Briefings list */}
       <section className="animate-fade-in-up">
