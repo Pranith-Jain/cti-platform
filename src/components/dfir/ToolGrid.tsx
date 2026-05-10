@@ -42,6 +42,7 @@ import {
   ScrollText,
   FileCheck,
   FolderTree,
+  Layers,
   Scale,
   AtSign,
   History,
@@ -167,6 +168,12 @@ const SECTIONS: Section[] = [
         label: 'OSINT Framework',
         desc: '70+ curated OSINT tools across 15 categories · pricing-tier + category filter · search',
         icon: Compass,
+      },
+      {
+        path: '/dfir/secops-tools',
+        label: 'SecOps Tools Catalog',
+        desc: '~140 hand-picked tools across 14 categories — DFIR / Threat Intel / AI Sec / Malware / Vuln / DLP / Detection / Email / Cloud / AppSec / Pentest',
+        icon: Layers,
       },
       {
         path: '/dfir/url-preview',

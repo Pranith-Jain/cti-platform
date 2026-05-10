@@ -72,6 +72,7 @@ const IpGeo = lazy(() => import('./pages/dfir/IpGeo'));
 const LogParser = lazy(() => import('./pages/dfir/LogParser'));
 const Socmint = lazy(() => import('./pages/dfir/Socmint'));
 const OsintFramework = lazy(() => import('./pages/dfir/OsintFramework'));
+const SecopsCatalog = lazy(() => import('./pages/dfir/SecopsCatalog'));
 const ScamWatch = lazy(() => import('./pages/dfir/ScamWatch'));
 const CryptoTrace = lazy(() => import('./pages/dfir/CryptoTrace'));
 const TechAiNews = lazy(() => import('./pages/dfir/TechAiNews'));
@@ -598,6 +599,14 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <OsintFramework />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/secops-tools"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <SecopsCatalog />
                 </Suspense>
               }
             />

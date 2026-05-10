@@ -67,6 +67,17 @@ export const TOOL_TOPICS: ToolTopic[] = [
 
   // OSINT
   { term: 'OSINT', href: '/dfir/osint-framework', blurb: 'Open-source intelligence framework' },
+  { term: 'SecOps tools', href: '/dfir/secops-tools', blurb: '~140 curated security tools across 14 categories' },
+  {
+    term: 'detection engineering',
+    href: '/dfir/secops-tools?cat=detection-engineering',
+    blurb: 'Detection-engineering tooling subset of the catalog',
+  },
+  {
+    term: 'malware analysis',
+    href: '/dfir/secops-tools?cat=malware-analysis',
+    blurb: 'Malware-analysis tooling subset of the catalog',
+  },
   { term: 'Wayback Machine', href: '/dfir/wayback', blurb: 'Wayback Machine timeline pivot' },
   { term: 'EXIF', href: '/dfir/exif', blurb: 'EXIF metadata parser for images' },
   { term: 'SOCMINT', href: '/dfir/socmint', blurb: 'Categorised OSINT pivots for email/domain/handle/name' },
