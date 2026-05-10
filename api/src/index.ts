@@ -22,6 +22,8 @@ import { breachDisclosuresHandler } from './routes/breach-disclosures';
 import { ransomwareRecentHandler } from './routes/ransomware-recent';
 import { cryptoTraceHandler } from './routes/crypto-trace';
 import { abuseRssHandler } from './routes/abuse-rss';
+import { waybackCdxHandler } from './routes/wayback';
+import { githubReconHandler } from './routes/github-recon';
 import {
   listBriefingsHandler,
   getBriefingHandler,
@@ -62,6 +64,8 @@ app.get('/api/v1/rules', detectionRulesHandler);
 app.get('/api/v1/breach-disclosures', breachDisclosuresHandler);
 app.get('/api/v1/ransomware-recent', ransomwareRecentHandler);
 app.get('/api/v1/crypto-trace', cryptoTraceHandler);
+app.get('/api/v1/wayback/cdx', waybackCdxHandler);
+app.get('/api/v1/github-recon', githubReconHandler);
 app.get('/api/v1/briefings/list', listBriefingsHandler);
 app.get('/api/v1/briefings/today', todayBriefingHandler);
 app.post('/api/v1/briefings/build', buildBriefingHandler);

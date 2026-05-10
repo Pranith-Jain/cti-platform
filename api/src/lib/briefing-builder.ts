@@ -589,9 +589,10 @@ function buildExecutiveSummary(args: {
   range_label: string;
   findings: BriefingFinding[];
   iocs: BriefingIocBuckets;
-  iocsTotal: number;
+  iocsRawTotal: number;
+  iocSources: string[];
 }): string {
-  const { type, range_label, findings, iocs, iocsTotal } = args;
+  const { type, range_label, findings, iocs, iocsRawTotal, iocSources } = args;
   const span = type === 'weekly' ? 'This week' : 'In the past 24 hours';
   const critCount = findings.filter((f) => f.severity === 'critical').length;
   const highCount = findings.filter((f) => f.severity === 'high').length;
@@ -609,14 +610,21 @@ function buildExecutiveSummary(args: {
     );
   }
 
-  const iocBits: string[] = [];
-  if (iocs.urls.length > 0) iocBits.push(`${iocs.urls.length} malware-distribution URLs`);
-  if (iocs.domains.length > 0) iocBits.push(`${iocs.domains.length} malicious domains`);
-  if (iocs.ipv4s.length > 0) iocBits.push(`${iocs.ipv4s.length} suspicious IPs`);
-  if (iocs.hashes.length > 0) iocBits.push(`${iocs.hashes.length} malware sample hashes`);
-  if (iocBits.length > 0) {
+  const sampledBits: string[] = [];
+  if (iocs.urls.length > 0) sampledBits.push(`${iocs.urls.length} malware-distribution URLs`);
+  if (iocs.domains.length > 0) sampledBits.push(`${iocs.domains.length} malicious domains`);
+  if (iocs.ipv4s.length > 0) sampledBits.push(`${iocs.ipv4s.length} suspicious IPs`);
+  if (iocs.hashes.length > 0) sampledBits.push(`${iocs.hashes.length} malware sample hashes`);
+  if (iocsRawTotal > 0) {
+    const sourceList =
+      iocSources.length === 0
+        ? 'tracked feeds'
+        : iocSources.length <= 3
+          ? iocSources.join(', ')
+          : `${iocSources.slice(0, -1).join(', ')}, and ${iocSources[iocSources.length - 1]}`;
+    const sampledTotal = iocs.urls.length + iocs.domains.length + iocs.ipv4s.length + iocs.hashes.length;
     parts.push(
-      `Active threat indicators tracked across abuse.ch and OpenPhish feeds totaled ${iocsTotal} entries: ${iocBits.join(', ')}.`
+      `Active threat indicators across ${sourceList} totaled ${iocsRawTotal.toLocaleString()} entries; this briefing samples the top ${sampledTotal} (${sampledBits.join(', ')}, capped at 30 per type).`
     );
   }
 
@@ -729,29 +737,45 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
 
   const allIocs = [...windowedIocs, ...snapshotIocs];
 
+  // Pre-cap total — what's actually visible upstream in this window. The
+  // served `iocs` payload below is then capped per-bucket so the briefing
+  // JSON stays small, but the summary string reports the real volume so
+  // readers don't mistake the cap for the count.
+  const iocsRawTotal = allIocs.length;
   const iocs = bucketIocs(allIocs);
-  const iocsTotal = iocs.urls.length + iocs.domains.length + iocs.ipv4s.length + iocs.hashes.length;
+
+  // IOC source attribution — only feeds that actually returned data this run.
+  // KEV/NVD belong to the findings half of the briefing, not the IOC half.
+  const iocSources: string[] = [];
+  if (urlhaus.length > 0) iocSources.push('URLhaus');
+  if (malwarebazaar.length > 0) iocSources.push('MalwareBazaar');
+  if (threatfox.length > 0) iocSources.push('ThreatFox');
+  if (feodo.length > 0) iocSources.push('Feodo Tracker');
+  if (openphish.length > 0) iocSources.push('OpenPhish');
+  if (blocklistDe.length > 0) iocSources.push('Blocklist.de');
+  if (binaryDefense.length > 0) iocSources.push('Binary Defense');
+  if (ipsum.length > 0) iocSources.push('Ipsum');
+  if (phishingArmy.length > 0) iocSources.push('Phishing Army');
+  if (tweetfeed.length > 0) iocSources.push('TweetFeed');
+  if (bitwire.length > 0) iocSources.push('Bitwire');
 
   const sections = buildSections(findings);
-  const stats = buildStats(findings, sections, iocsTotal);
-  const executive_summary = buildExecutiveSummary({ type, range_label: rangeLabel, findings, iocs, iocsTotal });
+  const stats = buildStats(findings, sections, iocsRawTotal);
+  const executive_summary = buildExecutiveSummary({
+    type,
+    range_label: rangeLabel,
+    findings,
+    iocs,
+    iocsRawTotal,
+    iocSources,
+  });
 
   const techniqueSet = new Set<string>();
   for (const f of findings) for (const t of f.mitre_techniques) techniqueSet.add(t);
 
   const sources: string[] = [];
   if (findings.length > 0) sources.push('CISA KEV', 'NVD');
-  if (urlhaus.length > 0) sources.push('URLhaus');
-  if (malwarebazaar.length > 0) sources.push('MalwareBazaar');
-  if (threatfox.length > 0) sources.push('ThreatFox');
-  if (openphish.length > 0) sources.push('OpenPhish');
-  if (feodo.length > 0) sources.push('Feodo Tracker');
-  if (blocklistDe.length > 0) sources.push('Blocklist.de');
-  if (binaryDefense.length > 0) sources.push('Binary Defense');
-  if (ipsum.length > 0) sources.push('Ipsum');
-  if (phishingArmy.length > 0) sources.push('Phishing Army');
-  if (tweetfeed.length > 0) sources.push('TweetFeed');
-  if (bitwire.length > 0) sources.push('Bitwire');
+  sources.push(...iocSources);
 
   return {
     slug,

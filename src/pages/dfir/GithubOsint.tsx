@@ -116,16 +116,19 @@ export default function GithubOsint(): JSX.Element {
     setEmailsScanned(false);
 
     try {
-      const userRes = await fetch(`https://api.github.com/users/${encodeURIComponent(u)}`);
+      // Worker-proxied — direct api.github.com fetches from the browser
+      // were blocked by some privacy extensions (NetworkError) and burned
+      // the per-IP 60/hr unauthenticated limit. See api/src/routes/github-recon.ts.
+      const userRes = await fetch(`/api/v1/github-recon?kind=user&username=${encodeURIComponent(u)}`);
       if (userRes.status === 404) throw new Error(`User '${u}' not found`);
-      if (userRes.status === 403) throw new Error('GitHub rate-limit hit (60/hour for unauthenticated). Try later.');
+      if (userRes.status === 429) throw new Error('GitHub rate-limit hit. Try later.');
       if (!userRes.ok) throw new Error(`HTTP ${userRes.status}`);
       const userJson = (await userRes.json()) as GithubUser;
       setUser(userJson);
 
       const [reposRes, eventsRes] = await Promise.all([
-        fetch(`https://api.github.com/users/${encodeURIComponent(u)}/repos?per_page=100&sort=pushed&direction=desc`),
-        fetch(`https://api.github.com/users/${encodeURIComponent(u)}/events/public?per_page=30`),
+        fetch(`/api/v1/github-recon?kind=repos&username=${encodeURIComponent(u)}`),
+        fetch(`/api/v1/github-recon?kind=events&username=${encodeURIComponent(u)}`),
       ]);
       if (reposRes.ok) setRepos((await reposRes.json()) as GithubRepo[]);
       if (eventsRes.ok) setEvents((await eventsRes.json()) as GithubEvent[]);
@@ -149,7 +152,7 @@ export default function GithubOsint(): JSX.Element {
       for (const r of candidates) {
         try {
           const res = await fetch(
-            `https://api.github.com/repos/${encodeURIComponent(r.full_name)}/commits?author=${encodeURIComponent(user.login)}&per_page=30`
+            `/api/v1/github-recon?kind=commits&repo=${encodeURIComponent(r.full_name)}&author=${encodeURIComponent(user.login)}`
           );
           if (!res.ok) continue;
           const commits = (await res.json()) as Array<{

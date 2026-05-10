@@ -12,16 +12,13 @@ interface Snapshot {
   length: string;
 }
 
-const CDX_BASE = 'https://web.archive.org/cdx/search/cdx';
+// Worker-proxied — see api/src/routes/wayback.ts for upstream behaviour and
+// rationale (browser-direct fetch was hitting NetworkError on Firefox when
+// IA returned 5xx without CORS headers).
+const CDX_BASE = '/api/v1/wayback/cdx';
 
 function buildCdxUrl(target: string, limit = 200): string {
-  const params = new URLSearchParams({
-    url: target,
-    output: 'json',
-    fl: 'timestamp,original,statuscode,mimetype,digest,length',
-    limit: String(limit),
-    collapse: 'digest', // dedupe identical content
-  });
+  const params = new URLSearchParams({ url: target, limit: String(limit) });
   return `${CDX_BASE}?${params.toString()}`;
 }
 
