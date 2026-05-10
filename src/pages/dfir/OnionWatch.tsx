@@ -209,7 +209,7 @@ export default function OnionWatch(): JSX.Element {
             </button>
           ))}
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="sm:ml-auto flex items-center gap-2">
             <button
               type="button"
               onClick={copyAllReachable}
@@ -336,7 +336,7 @@ export default function OnionWatch(): JSX.Element {
                         )}
                         {m.title && (
                           <span
-                            className="text-[10px] text-slate-500 dark:text-slate-500 italic ml-auto truncate max-w-xs"
+                            className="text-[10px] text-slate-500 dark:text-slate-500 italic sm:ml-auto truncate max-w-[40vw] sm:max-w-xs hidden sm:inline"
                             title={m.title}
                           >
                             “{m.title.slice(0, 60)}

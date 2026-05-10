@@ -222,7 +222,7 @@ export default function DiscordWatch(): JSX.Element {
                 href={e.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="ml-auto inline-flex items-center gap-1 text-[10px] font-mono text-slate-500 hover:text-brand-600 dark:hover:text-brand-400"
+                className="sm:ml-auto inline-flex items-center gap-1 text-[10px] font-mono text-slate-500 hover:text-brand-600 dark:hover:text-brand-400"
                 title="Verify the invite via the org's own site"
               >
                 <ShieldCheck size={10} /> source

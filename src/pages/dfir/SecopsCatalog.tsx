@@ -172,7 +172,7 @@ export default function SecopsCatalog(): JSX.Element {
             <button
               type="button"
               onClick={clearAll}
-              className="ml-auto text-[11px] font-mono text-brand-600 dark:text-brand-400 hover:underline"
+              className="sm:ml-auto text-[11px] font-mono text-brand-600 dark:text-brand-400 hover:underline"
             >
               clear filters
             </button>
@@ -258,7 +258,7 @@ export default function SecopsCatalog(): JSX.Element {
                   href={t.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-auto inline-flex items-center gap-1 text-[10px] font-mono text-slate-500 hover:text-brand-600 dark:hover:text-brand-400"
+                  className="sm:ml-auto inline-flex items-center gap-1 text-[10px] font-mono text-slate-500 hover:text-brand-600 dark:hover:text-brand-400"
                   title="Source repository"
                 >
                   <Github size={10} /> source

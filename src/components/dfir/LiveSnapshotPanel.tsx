@@ -108,6 +108,34 @@ const TECH_AI_SNAPSHOT_FEED_IDS = ['techcrunch-ai', 'venturebeat-ai', 'techcrunc
 
 const LAST_VISIT_KEY = 'dfir.briefings.last_visit';
 
+/**
+ * Watchlist key shared with /dfir/darkweb. An analyst types a term once on the
+ * DarkWeb feed (company name, brand, actor alias) and items mentioning it are
+ * highlighted across every snapshot card here too. Cross-tab storage events
+ * keep the highlight in sync if the watchlist is edited elsewhere.
+ */
+const WATCHLIST_KEY = 'dfir.darkweb.watchlist';
+
+function loadWatchlist(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(WATCHLIST_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw) as unknown;
+    if (!Array.isArray(arr)) return [];
+    return arr.filter((s): s is string => typeof s === 'string' && s.trim() !== '');
+  } catch {
+    return [];
+  }
+}
+
+/** Returns the list of watchlist terms that appear (case-insensitive) in the haystack. */
+function watchHits(haystack: string, watchlist: string[]): string[] {
+  if (watchlist.length === 0) return [];
+  const lc = haystack.toLowerCase();
+  return watchlist.filter((term) => lc.includes(term.toLowerCase()));
+}
+
 function useLastVisit(): number {
   const prevRef = useRef<number | null>(null);
   if (prevRef.current === null) {
@@ -155,10 +183,45 @@ function NewBadge({ count, label = 'new' }: { count: number; label?: string }): 
   );
 }
 
+/** Visual marker for items matching the analyst's watchlist. */
+function WatchPill({ count, terms }: { count: number; terms?: string[] }): JSX.Element | null {
+  if (count <= 0) return null;
+  const tooltip =
+    terms && terms.length > 0
+      ? `watchlist match: ${terms.join(', ')}`
+      : `${count} watchlist match${count === 1 ? '' : 'es'}`;
+  return (
+    <span
+      className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-violet-500/50 bg-violet-500/15 text-violet-700 dark:text-violet-300 shrink-0"
+      title={tooltip}
+    >
+      {count} watch
+    </span>
+  );
+}
+
 export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
   const { compact = false, headerLabel = 'Right now', subtitle, mbClass = 'mb-12' } = props;
 
   const lastVisit = useLastVisit();
+  const [watchlist, setWatchlist] = useState<string[]>(() => loadWatchlist());
+
+  // Re-read watchlist when other tabs / components mutate it. Same-tab writes
+  // don't fire `storage` so we also re-poll once on mount with a short delay
+  // (covers the case where /dfir/darkweb is loaded in another route in this
+  // tab and a watchlist edit there should reflect here on next nav).
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === WATCHLIST_KEY) setWatchlist(loadWatchlist());
+    };
+    window.addEventListener('storage', onStorage);
+    const t = setTimeout(() => setWatchlist(loadWatchlist()), 1000);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      clearTimeout(t);
+    };
+  }, []);
+
   const [ransomware, setRansomware] = useState<RansomwareResp | null>(null);
   const [telegram, setTelegram] = useState<TelegramResp | null>(null);
   const [onion, setOnion] = useState<OnionResp | null>(null);
@@ -269,6 +332,47 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
   );
   const totalNew = newRansomwareCount + newTelegramCount + newScamCount + newThreatIntelCount + newTechAiCount;
 
+  // Per-card watchlist match counts — across the FULL response so the badge
+  // reflects real matches, not just visible top-N.
+  const watchedRansomware = useMemo(
+    () =>
+      ransomware
+        ? ransomware.victims.filter(
+            (v) => watchHits(`${v.victim} ${v.group} ${v.description ?? ''}`, watchlist).length > 0
+          ).length
+        : 0,
+    [ransomware, watchlist]
+  );
+  const watchedTelegram = useMemo(
+    () =>
+      telegram
+        ? telegram.items.filter((m) => watchHits(`${m.channel_name} ${m.text}`, watchlist).length > 0).length
+        : 0,
+    [telegram, watchlist]
+  );
+  const watchedOnion = useMemo(
+    () => (onion ? onion.groups.filter((g) => watchHits(g.group, watchlist).length > 0).length : 0),
+    [onion, watchlist]
+  );
+  const watchedScam = useMemo(
+    () => (scam ? scam.items.filter((it) => watchHits(`${it.title} ${it.source}`, watchlist).length > 0).length : 0),
+    [scam, watchlist]
+  );
+  const watchedThreatIntel = useMemo(
+    () =>
+      threatIntel
+        ? threatIntel.items.filter((it) => watchHits(`${it.title} ${it.source}`, watchlist).length > 0).length
+        : 0,
+    [threatIntel, watchlist]
+  );
+  const watchedTechAi = useMemo(
+    () =>
+      techAi ? techAi.items.filter((it) => watchHits(`${it.title} ${it.source}`, watchlist).length > 0).length : 0,
+    [techAi, watchlist]
+  );
+  const totalWatched =
+    watchedRansomware + watchedTelegram + watchedOnion + watchedScam + watchedThreatIntel + watchedTechAi;
+
   return (
     <section className={mbClass}>
       {headerLabel !== null && (
@@ -283,6 +387,14 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                 {totalNew} new since last visit
               </span>
             )}
+            {watchlist.length > 0 && totalWatched > 0 && (
+              <span
+                className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border border-violet-500/50 bg-violet-500/15 text-violet-700 dark:text-violet-300"
+                title={`${totalWatched} items match your watchlist (${watchlist.join(', ')})`}
+              >
+                {totalWatched} watchlist hits
+              </span>
+            )}
           </h2>
           {subtitle && <span className="text-[11px] font-mono text-slate-500 dark:text-slate-500">{subtitle}</span>}
         </div>
@@ -290,11 +402,14 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Ransomware activity */}
-        <div className={`rounded-2xl border border-rose-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col`}>
+        <div
+          className={`rounded-2xl border border-rose-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col min-h-[200px]`}
+        >
           <div className="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
-            <h3 className="font-display font-semibold text-sm inline-flex items-center gap-1.5">
+            <h3 className="font-display font-semibold text-sm inline-flex items-center gap-1.5 flex-wrap">
               <Bell size={14} className="text-rose-600 dark:text-rose-400" /> Ransomware
               {lastVisit > 0 && <NewBadge count={newRansomwareCount} />}
+              <WatchPill count={watchedRansomware} />
             </h3>
             <Link
               to="/dfir/darkweb"
@@ -304,7 +419,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
             </Link>
           </div>
           {errors.ransomware && <p className="text-[11px] font-mono text-rose-500">load error: {errors.ransomware}</p>}
-          {!ransomware && !errors.ransomware && <p className="text-[11px] font-mono text-slate-400">loading…</p>}
+          {!ransomware && !errors.ransomware && <p className="text-[11px] font-mono text-slate-500">loading…</p>}
           {ransomware && (
             <>
               <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2">
@@ -317,16 +432,24 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                 <ul className="space-y-1.5 mt-1">
                   {recentVictims.map((v, i) => {
                     const isNew = isNewSince(v.discovered, lastVisit);
+                    const matched = watchHits(`${v.victim} ${v.group} ${v.description ?? ''}`, watchlist);
                     return (
                       <li
                         key={`${v.group}-${v.victim}-${i}`}
-                        className="flex items-baseline gap-2 text-[11px] font-mono"
+                        className="flex items-baseline gap-2 text-[11px] font-mono py-0.5"
                       >
                         <span
                           className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
-                            isNew ? 'bg-amber-500' : 'bg-transparent'
+                            matched.length > 0 ? 'bg-violet-500' : isNew ? 'bg-amber-500' : 'bg-transparent'
                           }`}
-                          aria-label={isNew ? 'new since last visit' : undefined}
+                          aria-label={
+                            matched.length > 0
+                              ? `watchlist match: ${matched.join(', ')}`
+                              : isNew
+                                ? 'new since last visit'
+                                : undefined
+                          }
+                          title={matched.length > 0 ? `watchlist match: ${matched.join(', ')}` : undefined}
                         />
                         <span className="text-[9px] uppercase tracking-wider px-1 rounded border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300 shrink-0">
                           {v.group}
@@ -340,7 +463,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                         >
                           {v.victim}
                         </a>
-                        <span className="text-slate-400 shrink-0">{shortRel(v.discovered)}</span>
+                        <span className="text-slate-500 shrink-0">{shortRel(v.discovered)}</span>
                       </li>
                     );
                   })}
@@ -353,11 +476,14 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
         {/* Cybersec Telegram firehose — links to the DarkWeb panel which has the
             full filterable view; the Telegram catalog (/dfir/telegram-watch) is
             the channel-discovery surface, not the message stream. */}
-        <div className={`rounded-2xl border border-sky-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col`}>
+        <div
+          className={`rounded-2xl border border-sky-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col min-h-[200px]`}
+        >
           <div className="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
             <h3 className="font-display font-semibold text-sm inline-flex items-center gap-1.5">
               <Send size={14} className="text-sky-600 dark:text-sky-400" /> Cybersec Telegram firehose
               {lastVisit > 0 && <NewBadge count={newTelegramCount} />}
+              <WatchPill count={watchedTelegram} />
             </h3>
             <Link
               to="/dfir/darkweb"
@@ -367,7 +493,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
             </Link>
           </div>
           {errors.telegram && <p className="text-[11px] font-mono text-rose-500">load error: {errors.telegram}</p>}
-          {!telegram && !errors.telegram && <p className="text-[11px] font-mono text-slate-400">loading…</p>}
+          {!telegram && !errors.telegram && <p className="text-[11px] font-mono text-slate-500">loading…</p>}
           {telegram && (
             <>
               <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2">
@@ -380,14 +506,22 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                 <ul className="space-y-1.5 mt-1">
                   {recentMessages.map((m) => {
                     const isNew = isNewSince(m.datetime, lastVisit);
+                    const matched = watchHits(`${m.channel_name} ${m.text}`, watchlist);
                     return (
-                      <li key={m.permalink} className="text-[11px] font-mono">
+                      <li key={m.permalink} className="text-[11px] font-mono py-0.5">
                         <div className="flex items-baseline gap-2">
                           <span
                             className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
-                              isNew ? 'bg-amber-500' : 'bg-transparent'
+                              matched.length > 0 ? 'bg-violet-500' : isNew ? 'bg-amber-500' : 'bg-transparent'
                             }`}
-                            aria-label={isNew ? 'new since last visit' : undefined}
+                            aria-label={
+                              matched.length > 0
+                                ? `watchlist match: ${matched.join(', ')}`
+                                : isNew
+                                  ? 'new since last visit'
+                                  : undefined
+                            }
+                            title={matched.length > 0 ? `watchlist match: ${matched.join(', ')}` : undefined}
                           />
                           <a
                             href={m.permalink}
@@ -397,7 +531,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                           >
                             {m.channel_name}
                           </a>
-                          <span className="text-slate-400 shrink-0">{shortRel(m.datetime)}</span>
+                          <span className="text-slate-500 shrink-0">{shortRel(m.datetime)}</span>
                         </div>
                         {!compact && (
                           <p className="text-slate-500 dark:text-slate-500 line-clamp-1 break-all pl-3.5">{m.text}</p>
@@ -412,10 +546,13 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
         </div>
 
         {/* Onion watch */}
-        <div className={`rounded-2xl border border-violet-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col`}>
+        <div
+          className={`rounded-2xl border border-violet-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col min-h-[200px]`}
+        >
           <div className="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
-            <h3 className="font-display font-semibold text-sm inline-flex items-center gap-1.5">
+            <h3 className="font-display font-semibold text-sm inline-flex items-center gap-1.5 flex-wrap">
               <Globe2 size={14} className="text-violet-600 dark:text-violet-400" /> .onion reachability
+              <WatchPill count={watchedOnion} />
             </h3>
             <Link
               to="/dfir/onion-watch"
@@ -425,7 +562,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
             </Link>
           </div>
           {errors.onion && <p className="text-[11px] font-mono text-rose-500">load error: {errors.onion}</p>}
-          {!onion && !errors.onion && <p className="text-[11px] font-mono text-slate-400">loading…</p>}
+          {!onion && !errors.onion && <p className="text-[11px] font-mono text-slate-500">loading…</p>}
           {onion && (
             <>
               <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2">
@@ -437,15 +574,23 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                 {onion.groups
                   .filter((g) => g.any_reachable)
                   .slice(0, compact ? 6 : 8)
-                  .map((g) => (
-                    <Link
-                      key={g.group}
-                      to="/dfir/onion-watch"
-                      className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20"
-                    >
-                      {g.group}
-                    </Link>
-                  ))}
+                  .map((g) => {
+                    const isWatched = watchHits(g.group, watchlist).length > 0;
+                    return (
+                      <Link
+                        key={g.group}
+                        to="/dfir/onion-watch"
+                        className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                          isWatched
+                            ? 'border-violet-500/60 bg-violet-500/15 text-violet-700 dark:text-violet-300 hover:bg-violet-500/25'
+                            : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20'
+                        }`}
+                        title={isWatched ? 'watchlist match' : undefined}
+                      >
+                        {g.group}
+                      </Link>
+                    );
+                  })}
                 {onion.reachable_count > (compact ? 6 : 8) && (
                   <span className="text-[10px] font-mono text-slate-500">
                     +{onion.reachable_count - (compact ? 6 : 8)} more
@@ -457,11 +602,14 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
         </div>
 
         {/* Scam intel — FTC + IC3 official alerts */}
-        <div className={`rounded-2xl border border-amber-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col`}>
+        <div
+          className={`rounded-2xl border border-amber-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col min-h-[200px]`}
+        >
           <div className="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
             <h3 className="font-display font-semibold text-sm inline-flex items-center gap-1.5">
               <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400" /> Scam intel
               {lastVisit > 0 && <NewBadge count={newScamCount} />}
+              <WatchPill count={watchedScam} />
             </h3>
             <Link
               to="/dfir/scam-watch"
@@ -471,7 +619,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
             </Link>
           </div>
           {errors.scam && <p className="text-[11px] font-mono text-rose-500">load error: {errors.scam}</p>}
-          {!scam && !errors.scam && <p className="text-[11px] font-mono text-slate-400">loading…</p>}
+          {!scam && !errors.scam && <p className="text-[11px] font-mono text-slate-500">loading…</p>}
           {scam && (
             <>
               <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2">
@@ -484,14 +632,22 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                 <ul className="space-y-1.5 mt-1">
                   {recentScam.map((it) => {
                     const isNew = isNewSince(it.pubDate, lastVisit);
+                    const matched = watchHits(`${it.title} ${it.source}`, watchlist);
                     return (
-                      <li key={it.guid ?? it.link} className="text-[11px] font-mono">
+                      <li key={it.guid ?? it.link} className="text-[11px] font-mono py-0.5">
                         <div className="flex items-baseline gap-2">
                           <span
                             className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
-                              isNew ? 'bg-amber-500' : 'bg-transparent'
+                              matched.length > 0 ? 'bg-violet-500' : isNew ? 'bg-amber-500' : 'bg-transparent'
                             }`}
-                            aria-label={isNew ? 'new since last visit' : undefined}
+                            aria-label={
+                              matched.length > 0
+                                ? `watchlist match: ${matched.join(', ')}`
+                                : isNew
+                                  ? 'new since last visit'
+                                  : undefined
+                            }
+                            title={matched.length > 0 ? `watchlist match: ${matched.join(', ')}` : undefined}
                           />
                           <a
                             href={it.link}
@@ -502,7 +658,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                           >
                             {it.title}
                           </a>
-                          <span className="text-slate-400 shrink-0">{shortRel(it.pubDate)}</span>
+                          <span className="text-slate-500 shrink-0">{shortRel(it.pubDate)}</span>
                         </div>
                         {!compact && <p className="text-slate-500 dark:text-slate-500 truncate pl-3.5">{it.source}</p>}
                       </li>
@@ -515,11 +671,14 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
         </div>
 
         {/* Threat-intel firehose — BleepingComputer + Krebs + DFIR Report + SecurityWeek */}
-        <div className={`rounded-2xl border border-emerald-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col`}>
+        <div
+          className={`rounded-2xl border border-emerald-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col min-h-[200px]`}
+        >
           <div className="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
             <h3 className="font-display font-semibold text-sm inline-flex items-center gap-1.5">
               <Newspaper size={14} className="text-emerald-600 dark:text-emerald-400" /> Threat intel
               {lastVisit > 0 && <NewBadge count={newThreatIntelCount} />}
+              <WatchPill count={watchedThreatIntel} />
             </h3>
             <Link
               to="/dfir/threat-feeds"
@@ -531,7 +690,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
           {errors.threatIntel && (
             <p className="text-[11px] font-mono text-rose-500">load error: {errors.threatIntel}</p>
           )}
-          {!threatIntel && !errors.threatIntel && <p className="text-[11px] font-mono text-slate-400">loading…</p>}
+          {!threatIntel && !errors.threatIntel && <p className="text-[11px] font-mono text-slate-500">loading…</p>}
           {threatIntel && (
             <>
               <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2">
@@ -546,14 +705,22 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                 <ul className="space-y-1.5 mt-1">
                   {recentThreatIntel.map((it) => {
                     const isNew = isNewSince(it.pubDate, lastVisit);
+                    const matched = watchHits(`${it.title} ${it.source}`, watchlist);
                     return (
-                      <li key={it.guid ?? it.link} className="text-[11px] font-mono">
+                      <li key={it.guid ?? it.link} className="text-[11px] font-mono py-0.5">
                         <div className="flex items-baseline gap-2">
                           <span
                             className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
-                              isNew ? 'bg-amber-500' : 'bg-transparent'
+                              matched.length > 0 ? 'bg-violet-500' : isNew ? 'bg-amber-500' : 'bg-transparent'
                             }`}
-                            aria-label={isNew ? 'new since last visit' : undefined}
+                            aria-label={
+                              matched.length > 0
+                                ? `watchlist match: ${matched.join(', ')}`
+                                : isNew
+                                  ? 'new since last visit'
+                                  : undefined
+                            }
+                            title={matched.length > 0 ? `watchlist match: ${matched.join(', ')}` : undefined}
                           />
                           <a
                             href={it.link}
@@ -564,7 +731,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                           >
                             {it.title}
                           </a>
-                          <span className="text-slate-400 shrink-0">{shortRel(it.pubDate)}</span>
+                          <span className="text-slate-500 shrink-0">{shortRel(it.pubDate)}</span>
                         </div>
                         {!compact && <p className="text-slate-500 dark:text-slate-500 truncate pl-3.5">{it.source}</p>}
                       </li>
@@ -577,11 +744,14 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
         </div>
 
         {/* Tech & AI news — TechCrunch AI / VentureBeat AI / TechCrunch security / cybersec funding */}
-        <div className={`rounded-2xl border border-fuchsia-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col`}>
+        <div
+          className={`rounded-2xl border border-fuchsia-500/30 bg-white dark:bg-slate-900 ${cardPad} flex flex-col min-h-[200px]`}
+        >
           <div className="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
             <h3 className="font-display font-semibold text-sm inline-flex items-center gap-1.5">
               <Sparkles size={14} className="text-fuchsia-600 dark:text-fuchsia-400" /> Tech &amp; AI
               {lastVisit > 0 && <NewBadge count={newTechAiCount} />}
+              <WatchPill count={watchedTechAi} />
             </h3>
             <Link
               to="/dfir/tech-ai-news"
@@ -591,7 +761,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
             </Link>
           </div>
           {errors.techAi && <p className="text-[11px] font-mono text-rose-500">load error: {errors.techAi}</p>}
-          {!techAi && !errors.techAi && <p className="text-[11px] font-mono text-slate-400">loading…</p>}
+          {!techAi && !errors.techAi && <p className="text-[11px] font-mono text-slate-500">loading…</p>}
           {techAi && (
             <>
               <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2">
@@ -604,14 +774,22 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                 <ul className="space-y-1.5 mt-1">
                   {recentTechAi.map((it) => {
                     const isNew = isNewSince(it.pubDate, lastVisit);
+                    const matched = watchHits(`${it.title} ${it.source}`, watchlist);
                     return (
-                      <li key={it.guid ?? it.link} className="text-[11px] font-mono">
+                      <li key={it.guid ?? it.link} className="text-[11px] font-mono py-0.5">
                         <div className="flex items-baseline gap-2">
                           <span
                             className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
-                              isNew ? 'bg-amber-500' : 'bg-transparent'
+                              matched.length > 0 ? 'bg-violet-500' : isNew ? 'bg-amber-500' : 'bg-transparent'
                             }`}
-                            aria-label={isNew ? 'new since last visit' : undefined}
+                            aria-label={
+                              matched.length > 0
+                                ? `watchlist match: ${matched.join(', ')}`
+                                : isNew
+                                  ? 'new since last visit'
+                                  : undefined
+                            }
+                            title={matched.length > 0 ? `watchlist match: ${matched.join(', ')}` : undefined}
                           />
                           <a
                             href={it.link}
@@ -622,7 +800,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
                           >
                             {it.title}
                           </a>
-                          <span className="text-slate-400 shrink-0">{shortRel(it.pubDate)}</span>
+                          <span className="text-slate-500 shrink-0">{shortRel(it.pubDate)}</span>
                         </div>
                         {!compact && <p className="text-slate-500 dark:text-slate-500 truncate pl-3.5">{it.source}</p>}
                       </li>
