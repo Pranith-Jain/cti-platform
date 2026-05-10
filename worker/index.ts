@@ -82,24 +82,38 @@ export default {
           // Use the production hostname so the cached Response key matches what
           // user requests look up. Cache API is keyed by the full Request URL.
           const baseUrl = 'https://pranithjain.qzz.io';
-          const targets = ['/api/v1/snapshot', '/api/v1/ioc-snapshot'];
-          const results = await Promise.allSettled(
-            targets.map(async (path) => {
-              const req = new Request(baseUrl + path, { method: 'GET' });
-              const res = await apiApp.fetch(req, env as never, ctx);
-              // Drain body so the Response is fully realised in the cache.
-              await res.arrayBuffer();
-              return { path, status: res.status };
-            })
-          );
-          const summary = results
-            .map((r, i) =>
-              r.status === 'fulfilled'
+          // Warm the underlying per-source handlers FIRST, then the snapshot
+          // composers. Snapshot endpoints (/snapshot, /ioc-snapshot) read from
+          // the per-source handlers' caches; if those aren't warm, the
+          // snapshot's first call does fresh upstream fetches that flake on
+          // ip-api throttling and similar transient failures. Ordering matters:
+          // by the time we call /snapshot, /threat-map etc are populated.
+          const perSourceTargets = [
+            '/api/v1/threat-map',
+            '/api/v1/rules',
+            '/api/v1/ransomware-recent',
+            '/api/v1/telegram-feed',
+            '/api/v1/onion-watch',
+          ];
+          const composerTargets = ['/api/v1/snapshot', '/api/v1/ioc-snapshot'];
+          async function warm(path: string) {
+            const req = new Request(baseUrl + path, { method: 'GET' });
+            const res = await apiApp.fetch(req, env as never, ctx);
+            await res.arrayBuffer();
+            return { path, status: res.status };
+          }
+          // Per-source first (parallel), then composers (parallel). Two waves.
+          const perSource = await Promise.allSettled(perSourceTargets.map(warm));
+          const composers = await Promise.allSettled(composerTargets.map(warm));
+          const summary = [...perSource, ...composers]
+            .map((r, i) => {
+              const path = [...perSourceTargets, ...composerTargets][i];
+              return r.status === 'fulfilled'
                 ? `${r.value.path}=${r.value.status}`
-                : `${targets[i]}=err(${(r.reason as Error).message})`
-            )
+                : `${path}=err(${(r.reason as Error).message})`;
+            })
             .join(' ');
-          console.log(`scheduled: warmed snapshots in ${Date.now() - start}ms — ${summary}`);
+          console.log(`scheduled: warmed in ${Date.now() - start}ms — ${summary}`);
         })()
       );
       return;
