@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Bell, Send, Globe2, ExternalLink, AlertTriangle, Newspaper, Sparkles } from 'lucide-react';
 import { type AggregatedFeedResponse } from '../../services/rssService';
 import { SnapshotCard } from './SnapshotCard';
+import { useWatchlist, watchHits } from './useWatchlist';
+import { shortRel } from '../../lib/relativeTime';
 
 /**
  * Live "right now" snapshot of dark-web + Telegram + .onion + scam activity.
@@ -94,17 +96,6 @@ interface SnapshotResp {
   tech_ai: SnapshotEnvelope<AggregatedFeedResponse>;
 }
 
-function shortRel(iso?: string): string {
-  if (!iso) return '';
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return '';
-  const ageS = Math.max(0, (Date.now() - t) / 1000);
-  if (ageS < 60) return 'now';
-  if (ageS < 3600) return `${Math.round(ageS / 60)}m ago`;
-  if (ageS < 86400) return `${Math.round(ageS / 3600)}h ago`;
-  return `${Math.round(ageS / 86400)}d ago`;
-}
-
 function withinWindow(iso: string, hours: number): boolean {
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return false;
@@ -116,34 +107,6 @@ function withinWindow(iso: string, hours: number): boolean {
 // client makes one request instead of six.
 
 const LAST_VISIT_KEY = 'dfir.briefings.last_visit';
-
-/**
- * Watchlist key shared with /dfir/darkweb. An analyst types a term once on the
- * DarkWeb feed (company name, brand, actor alias) and items mentioning it are
- * highlighted across every snapshot card here too. Cross-tab storage events
- * keep the highlight in sync if the watchlist is edited elsewhere.
- */
-const WATCHLIST_KEY = 'dfir.darkweb.watchlist';
-
-function loadWatchlist(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(WATCHLIST_KEY);
-    if (!raw) return [];
-    const arr = JSON.parse(raw) as unknown;
-    if (!Array.isArray(arr)) return [];
-    return arr.filter((s): s is string => typeof s === 'string' && s.trim() !== '');
-  } catch {
-    return [];
-  }
-}
-
-/** Returns the list of watchlist terms that appear (case-insensitive) in the haystack. */
-function watchHits(haystack: string, watchlist: string[]): string[] {
-  if (watchlist.length === 0) return [];
-  const lc = haystack.toLowerCase();
-  return watchlist.filter((term) => lc.includes(term.toLowerCase()));
-}
 
 function useLastVisit(): number {
   const prevRef = useRef<number | null>(null);
@@ -184,23 +147,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
   const { compact = false, headerLabel = 'Right now', subtitle, mbClass = 'mb-12' } = props;
 
   const lastVisit = useLastVisit();
-  const [watchlist, setWatchlist] = useState<string[]>(() => loadWatchlist());
-
-  // Re-read watchlist when other tabs / components mutate it. Same-tab writes
-  // don't fire `storage` so we also re-poll once on mount with a short delay
-  // (covers the case where /dfir/darkweb is loaded in another route in this
-  // tab and a watchlist edit there should reflect here on next nav).
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === WATCHLIST_KEY) setWatchlist(loadWatchlist());
-    };
-    window.addEventListener('storage', onStorage);
-    const t = setTimeout(() => setWatchlist(loadWatchlist()), 1000);
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      clearTimeout(t);
-    };
-  }, []);
+  const watchlist = useWatchlist();
 
   const [ransomware, setRansomware] = useState<RansomwareResp | null>(null);
   const [telegram, setTelegram] = useState<TelegramResp | null>(null);

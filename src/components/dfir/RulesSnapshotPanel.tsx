@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { GitCommit, Network, Bug, Database, Shield, ExternalLink } from 'lucide-react';
 import { SnapshotCard, type SnapshotAccent } from './SnapshotCard';
+import { useWatchlist, watchHits } from './useWatchlist';
+import { shortRel } from '../../lib/relativeTime';
 
 /**
  * Live snapshot for /dfir/rules — buckets the recent_commits returned by
@@ -28,35 +30,6 @@ interface RulesResp {
 }
 
 const ITEM_LIMIT = 5;
-
-function shortRel(iso?: string): string {
-  if (!iso) return '';
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return '';
-  const ageS = Math.max(0, (Date.now() - t) / 1000);
-  if (ageS < 60) return 'now';
-  if (ageS < 3600) return `${Math.round(ageS / 60)}m ago`;
-  if (ageS < 86400) return `${Math.round(ageS / 3600)}h ago`;
-  return `${Math.round(ageS / 86400)}d ago`;
-}
-
-const WATCHLIST_KEY = 'dfir.darkweb.watchlist';
-function loadWatchlist(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(WATCHLIST_KEY);
-    if (!raw) return [];
-    const arr = JSON.parse(raw) as unknown;
-    return Array.isArray(arr) ? arr.filter((s): s is string => typeof s === 'string' && s.trim() !== '') : [];
-  } catch {
-    return [];
-  }
-}
-function watchHits(haystack: string, watchlist: string[]): string[] {
-  if (watchlist.length === 0) return [];
-  const lc = haystack.toLowerCase();
-  return watchlist.filter((t) => lc.includes(t.toLowerCase()));
-}
 
 interface CardSpec {
   key: string;
@@ -101,19 +74,7 @@ function decodeHtml(s: string): string {
 export function RulesSnapshotPanel(): JSX.Element {
   const [data, setData] = useState<RulesResp | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [watchlist, setWatchlist] = useState<string[]>(() => loadWatchlist());
-
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === WATCHLIST_KEY) setWatchlist(loadWatchlist());
-    };
-    window.addEventListener('storage', onStorage);
-    const t = setTimeout(() => setWatchlist(loadWatchlist()), 1000);
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      clearTimeout(t);
-    };
-  }, []);
+  const watchlist = useWatchlist();
 
   useEffect(() => {
     let cancelled = false;
