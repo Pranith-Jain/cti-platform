@@ -18,10 +18,10 @@
     <!-- Theme and Security -->
     <meta name="theme-color" content="#2c3ee5" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
-    <meta http-equiv="X-Frame-Options" content="DENY" />
-    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
-    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), interest-cohort=()" />
+    <!-- X-Frame-Options + X-Content-Type-Options + Permissions-Policy live in
+         public/_headers (HTTP-header-delivered only — meta versions trigger
+         browser console warnings). X-XSS-Protection is deprecated everywhere
+         and intentionally omitted; CSP covers the same surface better. -->
     
     <!-- Content Security Policy - carefully tuned for Google Fonts, inline styles (Tailwind), and theme script -->
     <meta 
