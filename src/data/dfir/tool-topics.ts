@@ -26,6 +26,26 @@ export const TOOL_TOPICS: ToolTopic[] = [
   { term: 'ATT&CK', href: '/dfir/mitre', blurb: 'Browse the ATT&CK matrix and tag your detection coverage' },
   { term: 'CISA KEV', href: '/dfir/cve', blurb: 'Search the Known Exploited Vulnerabilities catalog' },
   { term: 'EPSS', href: '/dfir/cve', blurb: 'Look up Exploit Prediction Scoring System scores' },
+  {
+    term: 'CVE',
+    href: '/dfir/cve-resources',
+    blurb: 'Curated CVE resources catalog — databases, exploits, PSIRTs, scoring, feeds',
+  },
+  {
+    term: 'PSIRT',
+    href: '/dfir/cve-resources?cat=vendor-psirt',
+    blurb: 'Vendor-PSIRT subset of the CVE resources catalog',
+  },
+  {
+    term: 'Exploit-DB',
+    href: '/dfir/cve-resources?cat=exploit-poc',
+    blurb: 'Exploit/PoC subset of the CVE resources catalog',
+  },
+  {
+    term: 'CVSS',
+    href: '/dfir/cve-resources?cat=scoring-prioritization',
+    blurb: 'Scoring + prioritisation subset of the CVE resources catalog',
+  },
 
   // Email-auth → domain inspector
   { term: 'SPF', href: '/dfir/domain', blurb: 'Check SPF, DKIM, DMARC, MX, and TXT for any domain' },

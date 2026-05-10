@@ -73,6 +73,7 @@ const LogParser = lazy(() => import('./pages/dfir/LogParser'));
 const Socmint = lazy(() => import('./pages/dfir/Socmint'));
 const OsintFramework = lazy(() => import('./pages/dfir/OsintFramework'));
 const SecopsCatalog = lazy(() => import('./pages/dfir/SecopsCatalog'));
+const CveResourcesCatalog = lazy(() => import('./pages/dfir/CveResourcesCatalog'));
 const ReverseImage = lazy(() => import('./pages/dfir/ReverseImage'));
 const EmlExtractor = lazy(() => import('./pages/dfir/EmlExtractor'));
 const ScamWatch = lazy(() => import('./pages/dfir/ScamWatch'));
@@ -609,6 +610,14 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <SecopsCatalog />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/cve-resources"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <CveResourcesCatalog />
                 </Suspense>
               }
             />
