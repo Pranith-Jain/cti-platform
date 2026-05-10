@@ -88,6 +88,12 @@ const SECTIONS: Section[] = [
         icon: Hash,
       },
       {
+        path: '/dfir/malware-scan',
+        label: 'Malware Scanner',
+        desc: 'Drop a file · client-side hashing + entropy + strings + heuristic tags · dispatches the hash to 11 public engines (VT, MalwareBazaar, ANY.RUN, Joe Sandbox, Hybrid Analysis, OTX, etc)',
+        icon: Microscope,
+      },
+      {
         path: '/dfir/extract',
         label: 'IOC Extractor',
         desc: 'Pull IOCs from any text blob · refang-aware',
@@ -116,6 +122,12 @@ const SECTIONS: Section[] = [
       { path: '/dfir/domain', label: 'Domain Lookup', desc: 'WHOIS · DNS · email auth · CT logs', icon: Globe },
       { path: '/dfir/asn', label: 'ASN Lookup', desc: 'BGP · prefixes · abuse contacts', icon: Network },
       { path: '/dfir/exposure', label: 'Exposure Scanner', desc: 'Subdomains + open ports', icon: Radar },
+      {
+        path: '/dfir/web-scan',
+        label: 'Web Vulnerability Scanner',
+        desc: 'HTTP security headers · cookies · version disclosure · ~30 common exposed paths probed in parallel',
+        icon: ShieldAlert,
+      },
       {
         path: '/dfir/takeover',
         label: 'Subdomain Takeover',

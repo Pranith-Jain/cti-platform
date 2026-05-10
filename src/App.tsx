@@ -74,6 +74,8 @@ const Socmint = lazy(() => import('./pages/dfir/Socmint'));
 const OsintFramework = lazy(() => import('./pages/dfir/OsintFramework'));
 const SecopsCatalog = lazy(() => import('./pages/dfir/SecopsCatalog'));
 const CveResourcesCatalog = lazy(() => import('./pages/dfir/CveResourcesCatalog'));
+const WebScan = lazy(() => import('./pages/dfir/WebScan'));
+const MalwareScan = lazy(() => import('./pages/dfir/MalwareScan'));
 const ReverseImage = lazy(() => import('./pages/dfir/ReverseImage'));
 const EmlExtractor = lazy(() => import('./pages/dfir/EmlExtractor'));
 const ScamWatch = lazy(() => import('./pages/dfir/ScamWatch'));
@@ -618,6 +620,22 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <CveResourcesCatalog />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/web-scan"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <WebScan />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/malware-scan"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <MalwareScan />
                 </Suspense>
               }
             />

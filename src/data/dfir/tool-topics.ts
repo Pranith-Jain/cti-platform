@@ -72,6 +72,18 @@ export const TOOL_TOPICS: ToolTopic[] = [
   // Phishing + email
   { term: 'phishing', href: '/dfir/phishing', blurb: 'Analyse email headers + URL/IOC extraction from raw .eml' },
   { term: 'EML', href: '/dfir/eml', blurb: 'Extract attachments from raw .eml + hash each (SHA-256/SHA-1/MD5)' },
+  {
+    term: 'malware analysis',
+    href: '/dfir/malware-scan',
+    blurb: 'Drop a file → client-side static analysis + multi-engine dispatcher',
+  },
+  {
+    term: 'sandbox',
+    href: '/dfir/malware-scan',
+    blurb: 'Multi-engine sandbox dispatcher (VT, MB, ANY.RUN, Joe, Hybrid)',
+  },
+  { term: 'security headers', href: '/dfir/web-scan', blurb: 'HTTP security-header audit (CSP, HSTS, XCTO, XFO, etc)' },
+  { term: 'CSP', href: '/dfir/web-scan', blurb: 'Content-Security-Policy audit + common exposed-path probes' },
   { term: '.eml', href: '/dfir/eml', blurb: 'Extract attachments from raw .eml + hash each (SHA-256/SHA-1/MD5)' },
   { term: 'reverse image search', href: '/dfir/reverse-image', blurb: 'Multi-engine reverse-image search dispatcher' },
 
@@ -95,11 +107,6 @@ export const TOOL_TOPICS: ToolTopic[] = [
     term: 'detection engineering',
     href: '/dfir/secops-tools?cat=detection-engineering',
     blurb: 'Detection-engineering tooling subset of the catalog',
-  },
-  {
-    term: 'malware analysis',
-    href: '/dfir/secops-tools?cat=malware-analysis',
-    blurb: 'Malware-analysis tooling subset of the catalog',
   },
   { term: 'Wayback Machine', href: '/dfir/wayback', blurb: 'Wayback Machine timeline pivot' },
   { term: 'EXIF', href: '/dfir/exif', blurb: 'EXIF metadata parser for images' },
