@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronRight, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { detectEncoding, decodeBase64, decodeUrl, decodeChain, type DecodeStep } from '../../lib/dfir/decode';
@@ -14,12 +14,16 @@ const FORMAT_BADGE: Record<string, string> = {
 
 export default function Decode(): JSX.Element {
   const navigate = useNavigate();
-  const [input, setInput] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialQ = searchParams.get('q') ?? '';
+  const initialMode = (searchParams.get('mode') as 'auto' | 'base64' | 'url' | null) ?? 'auto';
+  const [input, setInput] = useState(initialQ);
   const [output, setOutput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [format, setFormat] = useState<string>('');
   const [steps, setSteps] = useState<DecodeStep[]>([]);
-  const [mode, setMode] = useState<'auto' | 'base64' | 'url'>('auto');
+  const [mode, setMode] = useState<'auto' | 'base64' | 'url'>(initialMode);
+  const autoRan = useRef(false);
 
   const sendToExtractor = () => {
     if (!output) return;
@@ -78,15 +82,44 @@ export default function Decode(): JSX.Element {
     }
   };
 
+  // Sync the current input + mode into the URL so a decode result is
+  // shareable. Only writes when the input is non-empty so an empty page
+  // doesn't drop a stray ?q= behind it.
+  const pushUrl = (val: string, m: 'auto' | 'base64' | 'url') => {
+    setSearchParams(
+      (prev) => {
+        const out = new URLSearchParams(prev);
+        if (val.trim()) out.set('q', val.trim());
+        else out.delete('q');
+        if (m !== 'auto') out.set('mode', m);
+        else out.delete('mode');
+        return out;
+      },
+      { replace: true }
+    );
+  };
+
   const handleInput = (val: string) => {
     setInput(val);
     runDecode(val, mode);
+    pushUrl(val, mode);
   };
 
   const handleMode = (m: 'auto' | 'base64' | 'url') => {
     setMode(m);
     runDecode(input, m);
+    pushUrl(input, m);
   };
+
+  // Auto-decode when the page loads with ?q=<encoded>.
+  useEffect(() => {
+    if (autoRan.current) return;
+    if (initialQ) {
+      autoRan.current = true;
+      runDecode(initialQ, initialMode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const detectedOnLoad = input ? detectEncoding(input) : 'unknown';
 

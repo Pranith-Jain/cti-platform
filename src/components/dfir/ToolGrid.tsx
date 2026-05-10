@@ -92,6 +92,12 @@ const SECTIONS: Section[] = [
       },
       { path: '/dfir/decode', label: 'Decoder', desc: 'Base64 · URL · multi-pass', icon: Code2 },
       {
+        path: '/dfir/encoder',
+        label: 'Encoder',
+        desc: 'Reverse of Decoder — base64 / url / hex / binary / rot13 with chain builder + round-trip',
+        icon: Type,
+      },
+      {
         path: '/dfir/powershell-deobf',
         label: 'PowerShell Deobfuscator',
         desc: 'EncodedCommand · char-arrays · format-strings · multi-pass with diff trace',
@@ -112,6 +118,12 @@ const SECTIONS: Section[] = [
         label: 'Subdomain Takeover',
         desc: 'CNAME chain + 15 dangling-service fingerprints',
         icon: Unplug,
+      },
+      {
+        path: '/dfir/cert-search',
+        label: 'Certificate Search',
+        desc: 'CT log enumeration via SSLMate Cert Spotter — find subdomains by their issued certs',
+        icon: ShieldCheck,
       },
       {
         path: '/dfir/threat-map',

@@ -34,6 +34,8 @@ const Briefings = lazy(() => import('./pages/dfir/Briefings'));
 const BriefingDetail = lazy(() => import('./pages/dfir/BriefingDetail'));
 const Cve = lazy(() => import('./pages/dfir/Cve'));
 const Decode = lazy(() => import('./pages/dfir/Decode'));
+const Encoder = lazy(() => import('./pages/dfir/Encoder'));
+const CertSearch = lazy(() => import('./pages/dfir/CertSearch'));
 const AsnLookup = lazy(() => import('./pages/dfir/AsnLookup'));
 const Breach = lazy(() => import('./pages/dfir/Breach'));
 const ExifParse = lazy(() => import('./pages/dfir/ExifParse'));
@@ -298,6 +300,22 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <Decode />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/encoder"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <Encoder />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/cert-search"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <CertSearch />
                 </Suspense>
               }
             />

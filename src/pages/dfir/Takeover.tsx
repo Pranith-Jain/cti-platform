@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, ShieldCheck, Search, Info } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -15,19 +15,23 @@ interface TakeoverResult {
 }
 
 export default function Takeover(): JSX.Element {
-  const [domain, setDomain] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialDomain = searchParams.get('domain') ?? searchParams.get('q') ?? '';
+  const [domain, setDomain] = useState(initialDomain);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TakeoverResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoFetched = useRef(false);
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!domain.trim()) return;
+  const runCheck = async (q: string) => {
+    const target = q.trim().toLowerCase();
+    if (!target) return;
     setLoading(true);
     setError(null);
     setResult(null);
+    setSearchParams({ domain: target }, { replace: true });
     try {
-      const r = await fetch(`/api/v1/takeover/check?domain=${encodeURIComponent(domain.trim().toLowerCase())}`);
+      const r = await fetch(`/api/v1/takeover/check?domain=${encodeURIComponent(target)}`);
       if (!r.ok) {
         const j = (await r.json().catch(() => ({}))) as { error?: string };
         throw new Error(j.error ?? `HTTP ${r.status}`);
@@ -39,6 +43,20 @@ export default function Takeover(): JSX.Element {
       setLoading(false);
     }
   };
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    void runCheck(domain);
+  };
+
+  useEffect(() => {
+    if (autoFetched.current) return;
+    if (initialDomain) {
+      autoFetched.current = true;
+      void runCheck(initialDomain);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="max-w-4xl mx-auto px-8 py-12 text-slate-900 dark:text-slate-100">

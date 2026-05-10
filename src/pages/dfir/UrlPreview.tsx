@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Eye, ExternalLink, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -64,10 +64,13 @@ function StatusBadge({ status }: { status: number }) {
 }
 
 export default function UrlPreview(): JSX.Element {
-  const [input, setInput] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialUrl = searchParams.get('url') ?? searchParams.get('q') ?? '';
+  const [input, setInput] = useState(initialUrl);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<UrlPreviewResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoFetched = useRef(false);
 
   const isValidUrl = (() => {
     try {
@@ -80,18 +83,22 @@ export default function UrlPreview(): JSX.Element {
 
   const canSubmit = isValidUrl && !loading;
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!canSubmit) return;
+  const runPreview = async (q: string) => {
+    const target = q.trim();
+    try {
+      const p = new URL(target);
+      if (p.protocol !== 'http:' && p.protocol !== 'https:') return;
+    } catch {
+      return;
+    }
     setLoading(true);
     setResult(null);
     setError(null);
+    setSearchParams({ url: target }, { replace: true });
     try {
-      const r = await fetch(`/api/v1/url-preview?url=${encodeURIComponent(input.trim())}`);
+      const r = await fetch(`/api/v1/url-preview?url=${encodeURIComponent(target)}`);
       const body = (await r.json()) as UrlPreviewResult & { error?: string };
-      if (!r.ok) {
-        throw new Error(body.error ?? `HTTP ${r.status}`);
-      }
+      if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`);
       setResult(body);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'preview failed');
@@ -99,6 +106,21 @@ export default function UrlPreview(): JSX.Element {
       setLoading(false);
     }
   };
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    void runPreview(input);
+  };
+
+  useEffect(() => {
+    if (autoFetched.current) return;
+    if (initialUrl) {
+      autoFetched.current = true;
+      void runPreview(initialUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="max-w-4xl mx-auto px-8 py-12 text-slate-900 dark:text-slate-100">

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, ShieldCheck, Info } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -107,8 +107,27 @@ function humanDelta(seconds: number): string {
 }
 
 export default function JwtInspect(): JSX.Element {
-  const [token, setToken] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialToken = searchParams.get('token') ?? searchParams.get('q') ?? '';
+  const [token, setToken] = useState(initialToken);
   const decoded = useMemo<DecodedJwt | null>(() => (token.trim() ? decode(token) : null), [token]);
+
+  // Persist current token into the URL — only when non-empty so the page
+  // doesn't drop a stray ?token= behind it.
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const out = new URLSearchParams(prev);
+        if (token.trim()) out.set('token', token.trim());
+        else {
+          out.delete('token');
+          out.delete('q');
+        }
+        return out;
+      },
+      { replace: true }
+    );
+  }, [token, setSearchParams]);
 
   return (
     <div className="max-w-4xl mx-auto px-8 py-12 text-slate-900 dark:text-slate-100">

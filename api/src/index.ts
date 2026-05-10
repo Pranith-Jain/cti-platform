@@ -25,6 +25,7 @@ import { abuseRssHandler } from './routes/abuse-rss';
 import { waybackCdxHandler } from './routes/wayback';
 import { ipGeoHandler } from './routes/ip-geo';
 import { stixFetchHandler } from './routes/stix-fetch';
+import { certSearchHandler } from './routes/cert-search';
 import {
   listBriefingsHandler,
   getBriefingHandler,
@@ -68,6 +69,7 @@ app.get('/api/v1/crypto-trace', cryptoTraceHandler);
 app.get('/api/v1/wayback/cdx', waybackCdxHandler);
 app.get('/api/v1/ip-geo', ipGeoHandler);
 app.get('/api/v1/stix/fetch', stixFetchHandler);
+app.get('/api/v1/cert-search', certSearchHandler);
 app.get('/api/v1/briefings/list', listBriefingsHandler);
 app.get('/api/v1/briefings/today', todayBriefingHandler);
 app.post('/api/v1/briefings/build', buildBriefingHandler);
