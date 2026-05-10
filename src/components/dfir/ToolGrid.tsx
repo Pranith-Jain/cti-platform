@@ -51,6 +51,8 @@ import {
   AlertTriangle,
   Coins,
   Radio,
+  Send,
+  MessageCircle,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -287,6 +289,24 @@ export const SECTIONS: Section[] = [
         label: 'Dark Web Watch',
         desc: 'Aggregated leak-site, ransomware, breach activity · keyword watchlist',
         icon: Bell,
+      },
+      {
+        path: '/dfir/onion-watch',
+        label: 'Onion Watch',
+        desc: 'Live .onion mirror inventory for top ransomware leak sites · per-group reachability from Ransomlook · search · copy-all URLs',
+        icon: Globe2,
+      },
+      {
+        path: '/dfir/telegram-watch',
+        label: 'Telegram Watch',
+        desc: 'Curated index of public threat-intel, malware-research, OSINT, ransomware-tracking, and cybercrime Telegram channels · category + language filters',
+        icon: Send,
+      },
+      {
+        path: '/dfir/discord-watch',
+        label: 'Discord Watch',
+        desc: "Curated security Discord servers — training, red/blue team, malware research, threat intel, conferences · invites verified against the org's own site",
+        icon: MessageCircle,
       },
       {
         path: '/dfir/scam-watch',

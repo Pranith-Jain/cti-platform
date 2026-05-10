@@ -181,7 +181,7 @@ export function CommandPalette(): JSX.Element | null {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search 56 tools…"
+            placeholder={`Search ${ALL_TOOLS.length} tools…`}
             className="flex-1 bg-transparent border-0 outline-none font-mono text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500"
             aria-label="Search tools"
           />

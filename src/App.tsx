@@ -83,6 +83,9 @@ const ScamWatch = lazy(() => import('./pages/dfir/ScamWatch'));
 const CryptoTrace = lazy(() => import('./pages/dfir/CryptoTrace'));
 const TechAiNews = lazy(() => import('./pages/dfir/TechAiNews'));
 const ThreatFeeds = lazy(() => import('./pages/dfir/ThreatFeeds'));
+const OnionWatch = lazy(() => import('./pages/dfir/OnionWatch'));
+const TelegramWatch = lazy(() => import('./pages/dfir/TelegramWatch'));
+const DiscordWatch = lazy(() => import('./pages/dfir/DiscordWatch'));
 
 function TechniqueRedirect() {
   const params = new URLSearchParams(window.location.search);
@@ -687,6 +690,30 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <ThreatFeeds />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/onion-watch"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <OnionWatch />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/telegram-watch"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <TelegramWatch />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/discord-watch"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <DiscordWatch />
                 </Suspense>
               }
             />
