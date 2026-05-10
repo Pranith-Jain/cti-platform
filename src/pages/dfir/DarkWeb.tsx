@@ -701,6 +701,8 @@ interface RansomwareVictim {
   discovered: string;
   description?: string;
   source_url: string;
+  /** Clearnet URL for a screenshot of the .onion leak page (Ransomlook-rehosted). */
+  screen_url?: string;
 }
 
 interface RansomwareResponse {
@@ -717,6 +719,17 @@ function RansomwareActivityPanel(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [groupFilter, setGroupFilter] = useState<string | 'all'>('all');
   const [expanded, setExpanded] = useState(false);
+  const [lightbox, setLightbox] = useState<{ url: string; victim: string; group: string } | null>(null);
+
+  // Esc closes the lightbox.
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightbox(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox]);
 
   useEffect(() => {
     let cancelled = false;
@@ -798,27 +811,55 @@ function RansomwareActivityPanel(): JSX.Element {
               key={`${v.group}-${v.victim}-${i}`}
               className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2.5"
             >
-              <div className="flex flex-wrap items-baseline gap-2 mb-1">
-                <a
-                  href={v.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-display font-semibold text-sm text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 break-words"
-                >
-                  {v.victim}
-                </a>
-                <span className="text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300">
-                  {v.group}
-                </span>
+              <div className="flex gap-2.5">
+                {v.screen_url && (
+                  <button
+                    type="button"
+                    onClick={() => setLightbox({ url: v.screen_url!, victim: v.victim, group: v.group })}
+                    className="shrink-0 group relative w-20 h-14 rounded overflow-hidden border border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-brand-500/60"
+                    title="Click to view full leak-site screenshot"
+                    aria-label={`View leak-site screenshot for ${v.victim}`}
+                  >
+                    <img
+                      src={v.screen_url}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover object-left-top opacity-90 group-hover:opacity-100 transition-opacity"
+                      onError={(e) => {
+                        (e.currentTarget.parentElement as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                    <span className="absolute bottom-0.5 right-0.5 text-[8px] font-mono px-1 rounded bg-slate-900/70 text-slate-100 opacity-0 group-hover:opacity-100">
+                      zoom
+                    </span>
+                  </button>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline gap-2 mb-1">
+                    <a
+                      href={v.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-display font-semibold text-sm text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 break-words"
+                    >
+                      {v.victim}
+                    </a>
+                    <span className="text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300">
+                      {v.group}
+                    </span>
+                  </div>
+                  <div className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-1">
+                    claimed {formatRelativeTime(v.discovered)}
+                  </div>
+                  {v.description && (
+                    <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2">
+                      {v.description}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-1">
-                claimed {formatRelativeTime(v.discovered)}
-              </div>
-              {v.description && (
-                <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2">
-                  {v.description}
-                </p>
-              )}
             </li>
           ))}
         </ul>
@@ -837,6 +878,57 @@ function RansomwareActivityPanel(): JSX.Element {
           >
             full Ransomlook feed <ExternalLink size={10} />
           </a>
+        </div>
+      )}
+
+      {data && data.victims.some((v) => v.screen_url) && (
+        <p className="mt-3 text-[10px] font-mono text-slate-500 dark:text-slate-500 leading-relaxed">
+          Thumbnails are PNG screenshots of the .onion leak post, captured by Ransomlook&apos;s Tor-equipped backend and
+          rehosted on clearnet. Click to zoom — we never fetch the .onion site from your browser. Treat the content as
+          untrusted (leak-site screenshots can include malicious links + actor branding).
+        </p>
+      )}
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Leak-site screenshot for ${lightbox.victim}`}
+        >
+          <button
+            type="button"
+            onClick={() => setLightbox(null)}
+            className="absolute inset-0 cursor-zoom-out"
+            aria-label="Close screenshot"
+          />
+          <div className="relative max-w-5xl max-h-[90vh] w-full flex flex-col gap-2">
+            <div className="flex items-baseline justify-between gap-2 text-slate-100">
+              <div className="font-display font-semibold inline-flex items-center gap-2">
+                {lightbox.victim}
+                <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-rose-400/40 bg-rose-500/10 text-rose-300">
+                  {lightbox.group}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLightbox(null)}
+                className="text-slate-300 hover:text-slate-100 inline-flex items-center gap-1 text-sm font-mono"
+                aria-label="Close"
+              >
+                <X size={14} /> close (esc)
+              </button>
+            </div>
+            <img
+              src={lightbox.url}
+              alt={`Leak-site screenshot of ${lightbox.victim}`}
+              className="w-full max-h-[80vh] object-contain rounded border border-slate-700 bg-slate-800"
+              referrerPolicy="no-referrer"
+            />
+            <p className="text-[10px] font-mono text-slate-400 text-center">
+              Source: ransomlook.io · clearnet-rehosted PNG of the .onion leak page
+            </p>
+          </div>
         </div>
       )}
     </section>

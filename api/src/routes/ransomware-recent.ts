@@ -6,12 +6,17 @@ import type { Env } from '../env';
  * endpoint (no auth, JSON, ~100 most recent victim claims). Cache 1 h
  * server-side.
  *
- * We strip ransomlook-specific fields the client doesn't need (screen path,
- * internal magnet links) and normalise dates to ISO 8601 so the page can
- * render relative times consistently with the breach-disclosures panel.
+ * Ransomlook captures a PNG screenshot of each .onion leak post and serves
+ * it from clearnet at https://www.ransomlook.io/<screen_path>. We surface
+ * that URL on each victim — it's the closest we can get to "showing .onion
+ * content" from the edge (Workers can't egress through Tor, but we can
+ * embed a clearnet-hosted screenshot of what's on the .onion site).
+ *
+ * Internal Ransomlook magnet links are stripped — they're stub paths that
+ * 404 when followed and add no value.
  */
 
-const CACHE_KEY = 'https://ransomware-recent-cache.internal/v1';
+const CACHE_KEY = 'https://ransomware-recent-cache.internal/v2';
 const CACHE_TTL_SECONDS = 3600;
 const FETCH_TIMEOUT_MS = 15_000;
 const UPSTREAM = 'https://www.ransomlook.io/api/recent';
@@ -23,6 +28,8 @@ interface RansomlookEntry {
   description?: string;
   link?: string;
   group_name?: string;
+  /** Relative path to a PNG screenshot of the leak post on .onion. */
+  screen?: string;
 }
 
 export interface RansomwareVictim {
@@ -31,6 +38,13 @@ export interface RansomwareVictim {
   discovered: string;
   description?: string;
   source_url: string;
+  /**
+   * Absolute clearnet URL to a PNG screenshot of the .onion leak page.
+   * Captured by Ransomlook's Tor-equipped backend and rehosted on their
+   * static CDN. Render directly with <img src=...>; CSP `img-src https:`
+   * already permits this.
+   */
+  screen_url?: string;
 }
 
 interface ResponseBody {
@@ -90,6 +104,7 @@ export async function ransomwareRecentHandler(c: Context<{ Bindings: Env }>): Pr
           source_url: e.link
             ? `https://www.ransomlook.io${e.link.startsWith('/') ? '' : '/'}${e.link}`
             : 'https://www.ransomlook.io/recent',
+          screen_url: e.screen ? `https://www.ransomlook.io/${e.screen.replace(/^\//, '')}` : undefined,
         }));
     }
   } catch {
