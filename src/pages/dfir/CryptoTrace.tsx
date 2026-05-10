@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { EXPLORERS, CATEGORY_LABELS, CATEGORY_ORDER, buildLink } from '../../lib/dfir/crypto-explorers';
+import { RelatedWikiArticles } from '../../components/dfir/RelatedWikiArticles';
 
 interface RecentTx {
   hash: string;
@@ -656,6 +657,7 @@ export default function CryptoTrace(): JSX.Element {
           </li>
         </ul>
       </section>
+      <RelatedWikiArticles />
     </div>
   );
 }

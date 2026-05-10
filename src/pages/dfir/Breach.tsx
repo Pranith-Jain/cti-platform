@@ -14,6 +14,7 @@ import {
   Users,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { RelatedWikiArticles } from '../../components/dfir/RelatedWikiArticles';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -775,6 +776,7 @@ export default function BreachPage(): JSX.Element {
         {mode === 'email' && <EmailTab initialQuery={urlQuery} />}
         {mode === 'domain' && <DomainTab initialQuery={urlQuery} />}
       </motion.div>
+      <RelatedWikiArticles />
     </div>
   );
 }

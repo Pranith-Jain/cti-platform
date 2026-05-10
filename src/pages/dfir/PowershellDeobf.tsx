@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { deobfuscate, findRisks, type Step } from '../../lib/dfir/powershell-deobf';
 import { hasIocCandidates } from '../../lib/dfir/ioc-detect';
 import { CopyChip } from '../../components/dfir/CopyButton';
+import { RelatedWikiArticles } from '../../components/dfir/RelatedWikiArticles';
 
 const SAMPLES: { label: string; value: string }[] = [
   {
@@ -307,6 +308,7 @@ export default function PowershellDeobf(): JSX.Element {
           </li>
         </ul>
       </section>
+      <RelatedWikiArticles />
     </div>
   );
 }

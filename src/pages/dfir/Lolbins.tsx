@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Terminal, ExternalLink, Search } from 'lucide-react';
 import { CopyChip } from '../../components/dfir/CopyButton';
+import { RelatedWikiArticles } from '../../components/dfir/RelatedWikiArticles';
 import { motion } from 'framer-motion';
 import {
   LOLBINS,
@@ -271,6 +272,7 @@ export default function Lolbins(): JSX.Element {
           </li>
         </ul>
       </section>
+      <RelatedWikiArticles />
     </div>
   );
 }

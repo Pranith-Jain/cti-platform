@@ -73,6 +73,8 @@ const LogParser = lazy(() => import('./pages/dfir/LogParser'));
 const Socmint = lazy(() => import('./pages/dfir/Socmint'));
 const OsintFramework = lazy(() => import('./pages/dfir/OsintFramework'));
 const SecopsCatalog = lazy(() => import('./pages/dfir/SecopsCatalog'));
+const ReverseImage = lazy(() => import('./pages/dfir/ReverseImage'));
+const EmlExtractor = lazy(() => import('./pages/dfir/EmlExtractor'));
 const ScamWatch = lazy(() => import('./pages/dfir/ScamWatch'));
 const CryptoTrace = lazy(() => import('./pages/dfir/CryptoTrace'));
 const TechAiNews = lazy(() => import('./pages/dfir/TechAiNews'));
@@ -607,6 +609,22 @@ export function AppContent() {
               element={
                 <Suspense fallback={<SectionLoader />}>
                   <SecopsCatalog />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/reverse-image"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <ReverseImage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/dfir/eml"
+              element={
+                <Suspense fallback={<SectionLoader />}>
+                  <EmlExtractor />
                 </Suspense>
               }
             />

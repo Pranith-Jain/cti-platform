@@ -9,6 +9,7 @@ import { IocResultRow } from '../../components/dfir/IocResultRow';
 import { VerdictChip } from '../../components/dfir/VerdictChip';
 import { recordHistory } from '../../lib/dfir/history';
 import { RelatedActors } from '../../components/dfir/RelatedActors';
+import { RelatedWikiArticles } from '../../components/dfir/RelatedWikiArticles';
 
 interface NextStep {
   tone: 'malicious' | 'suspicious' | 'clean';
@@ -231,6 +232,7 @@ export default function IocCheck(): JSX.Element {
           />
         </div>
       )}
+      <RelatedWikiArticles />
     </div>
   );
 }

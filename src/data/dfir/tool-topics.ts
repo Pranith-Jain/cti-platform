@@ -51,6 +51,9 @@ export const TOOL_TOPICS: ToolTopic[] = [
 
   // Phishing + email
   { term: 'phishing', href: '/dfir/phishing', blurb: 'Analyse email headers + URL/IOC extraction from raw .eml' },
+  { term: 'EML', href: '/dfir/eml', blurb: 'Extract attachments from raw .eml + hash each (SHA-256/SHA-1/MD5)' },
+  { term: '.eml', href: '/dfir/eml', blurb: 'Extract attachments from raw .eml + hash each (SHA-256/SHA-1/MD5)' },
+  { term: 'reverse image search', href: '/dfir/reverse-image', blurb: 'Multi-engine reverse-image search dispatcher' },
 
   // Crypto
   { term: 'OFAC', href: '/dfir/crypto-trace', blurb: 'Sanctions-check any BTC/EVM/Solana address' },

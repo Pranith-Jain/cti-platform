@@ -43,6 +43,7 @@ import {
   FileCheck,
   FolderTree,
   Layers,
+  Paperclip,
   Scale,
   AtSign,
   History,
@@ -188,6 +189,12 @@ const SECTIONS: Section[] = [
         icon: ImageIcon,
       },
       {
+        path: '/dfir/reverse-image',
+        label: 'Reverse Image Search',
+        desc: 'Paste image URL → Google Lens / Bing / Yandex / TinEye / Baidu · pure URL generator · pairs with Phishing',
+        icon: ImageIcon,
+      },
+      {
         path: '/dfir/punycode',
         label: 'Homograph Detector',
         desc: 'IDN · mixed scripts · brand lookalikes · paste a domain to inspect',
@@ -211,6 +218,12 @@ const SECTIONS: Section[] = [
         label: 'Phishing Analyzer',
         desc: 'Email headers · auth · embedded URLs',
         icon: ShieldAlert,
+      },
+      {
+        path: '/dfir/eml',
+        label: 'EML Attachment Extractor',
+        desc: 'Drop a raw .eml · decode multipart · SHA-256 / SHA-1 / MD5 each attachment · one-click pivot to file lookup',
+        icon: Paperclip,
       },
       {
         path: '/dfir/email-defense',

@@ -22,6 +22,7 @@ import {
   bundleStats,
   bundleToGraph,
 } from '../../lib/dfir/stix-graph';
+import { RelatedWikiArticles } from '../../components/dfir/RelatedWikiArticles';
 
 const SAMPLE_BUNDLE: StixBundle = {
   type: 'bundle',
@@ -503,6 +504,7 @@ export default function StixViewer(): JSX.Element {
           )}
         </div>
       </div>
+      <RelatedWikiArticles />
     </div>
   );
 }

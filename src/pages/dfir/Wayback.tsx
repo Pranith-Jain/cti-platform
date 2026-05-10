@@ -105,11 +105,40 @@ export default function Wayback(): JSX.Element {
     return { first, last, statusCounts };
   }, [snapshots]);
 
-  // Most recent first for display
+  // Sortable columns. Default: timestamp desc (most recent first).
+  type SortKey = 'timestamp' | 'status' | 'mime' | 'length';
+  const [sortKey, setSortKey] = useState<SortKey>('timestamp');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
   const displaySnapshots = useMemo(() => {
     if (!snapshots) return [];
-    return [...snapshots].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  }, [snapshots]);
+    const cmp = (a: Snapshot, b: Snapshot): number => {
+      switch (sortKey) {
+        case 'timestamp':
+          return a.timestamp.localeCompare(b.timestamp);
+        case 'status':
+          return (a.status || '').localeCompare(b.status || '');
+        case 'mime':
+          return (a.mime || '').localeCompare(b.mime || '');
+        case 'length': {
+          const an = parseInt(a.length || '0', 10) || 0;
+          const bn = parseInt(b.length || '0', 10) || 0;
+          return an - bn;
+        }
+      }
+    };
+    const sorted = [...snapshots].sort(cmp);
+    return sortDir === 'desc' ? sorted.reverse() : sorted;
+  }, [snapshots, sortKey, sortDir]);
+
+  const onHeaderClick = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'timestamp' ? 'desc' : 'asc');
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-8 py-12 text-slate-900 dark:text-slate-100">
@@ -225,16 +254,23 @@ export default function Wayback(): JSX.Element {
       {displaySnapshots.length > 0 && (
         <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 mb-6">
           <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 font-mono mb-3">
-            Snapshots (most recent first)
+            Snapshots (sorted by {sortKey} {sortDir})
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-[12px] font-mono">
               <thead className="text-left text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-500">
                 <tr>
-                  <th className="pb-2 pr-3">Timestamp</th>
-                  <th className="pb-2 pr-3">Status</th>
-                  <th className="pb-2 pr-3">MIME</th>
-                  <th className="pb-2 pr-3">Length</th>
+                  {(['timestamp', 'status', 'mime', 'length'] as const).map((k) => (
+                    <th
+                      key={k}
+                      className="pb-2 pr-3 cursor-pointer hover:text-brand-600 dark:hover:text-brand-400 select-none"
+                      onClick={() => onHeaderClick(k)}
+                      title="Click to sort"
+                    >
+                      {k}
+                      <span className="ml-1 opacity-60">{sortKey === k ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}</span>
+                    </th>
+                  ))}
                   <th className="pb-2 pr-3">Open</th>
                 </tr>
               </thead>

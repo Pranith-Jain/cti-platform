@@ -4,6 +4,7 @@ import { ArrowLeft, ExternalLink, Search, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { mitreMatrix } from '../../data/dfir/mitre-matrix';
 import { threatActors } from '../../data/dfir/threat-actors';
+import { RelatedWikiArticles } from '../../components/dfir/RelatedWikiArticles';
 
 interface ApiTechnique {
   id: string;
@@ -611,6 +612,7 @@ export default function MitreMatrix(): JSX.Element {
           </aside>
         </>
       )}
+      <RelatedWikiArticles />
     </div>
   );
 }

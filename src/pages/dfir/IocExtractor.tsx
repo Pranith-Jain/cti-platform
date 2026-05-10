@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ClipboardCopy, Check, ShieldAlert, Terminal } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { RelatedWikiArticles } from '../../components/dfir/RelatedWikiArticles';
 
 type IocBucket = 'ipv4' | 'ipv6' | 'domain' | 'url' | 'md5' | 'sha1' | 'sha256' | 'email';
 
@@ -331,6 +332,7 @@ export default function IocExtractor(): JSX.Element {
           );
         })}
       </div>
+      <RelatedWikiArticles />
     </div>
   );
 }

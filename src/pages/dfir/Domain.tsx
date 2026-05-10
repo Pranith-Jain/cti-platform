@@ -6,6 +6,7 @@ import type { DomainLookupResponse } from '../../lib/dfir/types';
 import { WhoisCard } from '../../components/dfir/WhoisCard';
 import { DnsRecordList } from '../../components/dfir/DnsRecordList';
 import { EmailAuthCard } from '../../components/dfir/EmailAuthCard';
+import { RelatedWikiArticles } from '../../components/dfir/RelatedWikiArticles';
 import { CertList } from '../../components/dfir/CertList';
 import { recordHistory } from '../../lib/dfir/history';
 import { RelatedActors } from '../../components/dfir/RelatedActors';
@@ -120,6 +121,7 @@ export default function Domain(): JSX.Element {
           />
         </div>
       )}
+      <RelatedWikiArticles />
     </div>
   );
 }

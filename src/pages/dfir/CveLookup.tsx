@@ -4,6 +4,7 @@ import { ArrowLeft, BookText, ExternalLink, Gauge } from 'lucide-react';
 import { CopyButton } from '../../components/dfir/CopyButton';
 import { motion } from 'framer-motion';
 import { prioritise, TIER_LABELS, TIER_STYLES, TIER_BARS } from '../../lib/dfir/cve-priority';
+import { RelatedWikiArticles } from '../../components/dfir/RelatedWikiArticles';
 
 const CVE_RE = /^CVE-\d{4}-\d{4,7}$/i;
 
@@ -55,6 +56,7 @@ export default function CveLookup(): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CveLookupResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refTagFilter, setRefTagFilter] = useState<Set<string>>(new Set());
   const autoFetched = useRef(false);
 
   const valid = CVE_RE.test(input.trim());
@@ -395,32 +397,89 @@ export default function CveLookup(): JSX.Element {
             </section>
           )}
 
-          {/* References */}
-          {result.references && result.references.length > 0 && (
-            <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
-              <h3 className="font-display font-semibold text-lg mb-3">References</h3>
-              <ul className="space-y-2">
-                {result.references.map(({ url, tags }) => (
-                  <li key={url} className="flex items-start gap-2">
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-brand-600 dark:text-brand-400 hover:underline break-all font-mono flex items-center gap-1"
-                    >
-                      {url}
-                      <ExternalLink size={11} className="shrink-0" />
-                    </a>
-                    {tags && tags.length > 0 && (
-                      <span className="text-xs font-mono text-slate-500 shrink-0">[{tags.join(', ')}]</span>
+          {/* References — filterable by tag (Vendor Advisory / Exploit / Patch / Mitigation / Third Party Advisory). */}
+          {result.references &&
+            result.references.length > 0 &&
+            (() => {
+              const allTags = new Set<string>();
+              for (const r of result.references) for (const t of r.tags ?? []) allTags.add(t);
+              const tagList = [...allTags].sort();
+              const filtered = result.references.filter((r) => {
+                if (refTagFilter.size === 0) return true;
+                return (r.tags ?? []).some((t) => refTagFilter.has(t));
+              });
+              const toggleTag = (t: string) =>
+                setRefTagFilter((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(t)) next.delete(t);
+                  else next.add(t);
+                  return next;
+                });
+              return (
+                <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
+                  <div className="flex items-baseline justify-between gap-2 mb-3">
+                    <h3 className="font-display font-semibold text-lg">
+                      References{' '}
+                      <span className="text-slate-400 text-sm font-normal">
+                        ({filtered.length} of {result.references.length})
+                      </span>
+                    </h3>
+                    {refTagFilter.size > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setRefTagFilter(new Set())}
+                        className="text-[11px] font-mono text-brand-600 dark:text-brand-400 hover:underline"
+                      >
+                        clear filter
+                      </button>
                     )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+                  </div>
+                  {tagList.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      <span className="text-[11px] font-mono text-slate-500 mr-1 self-center">filter by tag:</span>
+                      {tagList.map((t) => {
+                        const active = refTagFilter.has(t);
+                        return (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => toggleTag(t)}
+                            className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                              active
+                                ? 'border-brand-500/60 bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                                : 'border-slate-300 dark:border-slate-700 text-slate-500'
+                            }`}
+                          >
+                            {t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <ul className="space-y-2">
+                    {filtered.map(({ url, tags }) => (
+                      <li key={url} className="flex items-start gap-2">
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-brand-600 dark:text-brand-400 hover:underline break-all font-mono flex items-center gap-1"
+                        >
+                          {url}
+                          <ExternalLink size={11} className="shrink-0" />
+                        </a>
+                        {tags && tags.length > 0 && (
+                          <span className="text-xs font-mono text-slate-500 shrink-0">[{tags.join(', ')}]</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              );
+            })()}
         </div>
       )}
+      <RelatedWikiArticles />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { AuthResultsChips } from '../../components/dfir/AuthResultsChips';
 import { UrlList } from '../../components/dfir/UrlList';
 import { recordHistory } from '../../lib/dfir/history';
 import { RelatedActors } from '../../components/dfir/RelatedActors';
+import { RelatedWikiArticles } from '../../components/dfir/RelatedWikiArticles';
 
 export default function Phishing(): JSX.Element {
   const [searchParams] = useSearchParams();
@@ -134,6 +135,7 @@ export default function Phishing(): JSX.Element {
           />
         </div>
       )}
+      <RelatedWikiArticles />
     </div>
   );
 }
