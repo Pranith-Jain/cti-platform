@@ -38,6 +38,7 @@ import {
   sweepBriefingsHandler,
 } from './routes/briefings';
 import { briefingsRssHandler } from './routes/briefings-rss';
+import { snapshotHandler } from './routes/snapshot';
 import { rateLimit } from './lib/ratelimit';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -77,6 +78,7 @@ app.get('/api/v1/cert-search', certSearchHandler);
 app.get('/api/v1/web-scan', webScanHandler);
 app.get('/api/v1/onion-watch', onionWatchHandler);
 app.get('/api/v1/telegram-feed', telegramFeedHandler);
+app.get('/api/v1/snapshot', snapshotHandler);
 app.get('/api/v1/briefings/list', listBriefingsHandler);
 app.get('/api/v1/briefings/rss', briefingsRssHandler);
 app.get('/api/v1/briefings/today', todayBriefingHandler);

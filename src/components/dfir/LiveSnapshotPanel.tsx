@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, Send, Globe2, ExternalLink, AlertTriangle, Newspaper, Sparkles } from 'lucide-react';
-import { fetchAggregatedFeed, type AggregatedFeedResponse } from '../../services/rssService';
+import { type AggregatedFeedResponse } from '../../services/rssService';
 
 /**
  * Live "right now" snapshot of dark-web + Telegram + .onion + scam activity.
@@ -73,6 +73,26 @@ interface OnionResp {
   groups: { group: string; any_reachable: boolean }[];
 }
 
+/**
+ * Wire shape of /api/v1/snapshot — a thin envelope around the six per-source
+ * payloads. Each source is independently `ok: true/false` so a single bad
+ * upstream doesn't blank the whole panel.
+ */
+interface SnapshotEnvelope<T> {
+  ok: boolean;
+  data: T | null;
+  error?: string;
+}
+interface SnapshotResp {
+  generated_at: string;
+  ransomware: SnapshotEnvelope<RansomwareResp>;
+  telegram: SnapshotEnvelope<TelegramResp>;
+  onion: SnapshotEnvelope<OnionResp>;
+  scam: SnapshotEnvelope<AggregatedFeedResponse>;
+  threat_intel: SnapshotEnvelope<AggregatedFeedResponse>;
+  tech_ai: SnapshotEnvelope<AggregatedFeedResponse>;
+}
+
 function shortRel(iso?: string): string {
   if (!iso) return '';
   const t = new Date(iso).getTime();
@@ -90,21 +110,9 @@ function withinWindow(iso: string, hours: number): boolean {
   return Date.now() - t <= hours * 3600_000;
 }
 
-const SCAM_SNAPSHOT_FEED_IDS = ['ftc-consumer', 'ic3-psas'];
-
-/**
- * General threat-intel firehose — the analyst's "daily reading" beat that
- * doesn't fit the ransomware / Telegram / .onion / scam carve-outs. Tight,
- * high-signal subset; the full version lived on /dfir landing as the
- * (now-removed) ThreatIntelFeed component.
- */
-const THREAT_INTEL_SNAPSHOT_FEED_IDS = ['bleepingcomputer', 'krebsonsecurity', 'dfir-report', 'securityweek'];
-
-/**
- * Tech + AI industry news — the cyber-vendor funding / AI-lab releases /
- * tech-press surface. Replaces the standalone TechNewsFeed.
- */
-const TECH_AI_SNAPSHOT_FEED_IDS = ['techcrunch-ai', 'venturebeat-ai', 'techcrunch-security', 'gnews-cybersec-funding'];
+// Per-source feed IDs used to live here; they're now baked into the
+// server-side /api/v1/snapshot endpoint (api/src/routes/snapshot.ts) so the
+// client makes one request instead of six.
 
 const LAST_VISIT_KEY = 'dfir.briefings.last_visit';
 
@@ -237,43 +245,43 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
     techAi?: string;
   }>({});
 
+  // Single fetch to /api/v1/snapshot — server-side fan-out replaces six
+  // parallel client requests. One round-trip, one setState cycle, lower TBT.
   useEffect(() => {
     let cancelled = false;
-    const safe = async <T,>(url: string, key: 'ransomware' | 'telegram' | 'onion'): Promise<T | null> => {
-      try {
-        const r = await fetch(url);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return (await r.json()) as T;
-      } catch (e) {
-        if (!cancelled) setErrors((cur) => ({ ...cur, [key]: (e as Error).message }));
-        return null;
-      }
-    };
     void (async () => {
-      const [r, t, o, s, ti, ta] = await Promise.all([
-        safe<RansomwareResp>('/api/v1/ransomware-recent', 'ransomware'),
-        safe<TelegramResp>('/api/v1/telegram-feed', 'telegram'),
-        safe<OnionResp>('/api/v1/onion-watch', 'onion'),
-        fetchAggregatedFeed(SCAM_SNAPSHOT_FEED_IDS, { limit: 12, perSource: 6 }).catch((e: Error) => {
-          if (!cancelled) setErrors((cur) => ({ ...cur, scam: e.message }));
-          return null;
-        }),
-        fetchAggregatedFeed(THREAT_INTEL_SNAPSHOT_FEED_IDS, { limit: 16, perSource: 4 }).catch((e: Error) => {
-          if (!cancelled) setErrors((cur) => ({ ...cur, threatIntel: e.message }));
-          return null;
-        }),
-        fetchAggregatedFeed(TECH_AI_SNAPSHOT_FEED_IDS, { limit: 16, perSource: 4 }).catch((e: Error) => {
-          if (!cancelled) setErrors((cur) => ({ ...cur, techAi: e.message }));
-          return null;
-        }),
-      ]);
-      if (cancelled) return;
-      if (r) setRansomware(r);
-      if (t) setTelegram(t);
-      if (o) setOnion(o);
-      if (s) setScam(s);
-      if (ti) setThreatIntel(ti);
-      if (ta) setTechAi(ta);
+      try {
+        const r = await fetch('/api/v1/snapshot');
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const env = (await r.json()) as SnapshotResp;
+        if (cancelled) return;
+        if (env.ransomware.ok && env.ransomware.data) setRansomware(env.ransomware.data);
+        else if (!env.ransomware.ok) setErrors((cur) => ({ ...cur, ransomware: env.ransomware.error ?? 'unknown' }));
+        if (env.telegram.ok && env.telegram.data) setTelegram(env.telegram.data);
+        else if (!env.telegram.ok) setErrors((cur) => ({ ...cur, telegram: env.telegram.error ?? 'unknown' }));
+        if (env.onion.ok && env.onion.data) setOnion(env.onion.data);
+        else if (!env.onion.ok) setErrors((cur) => ({ ...cur, onion: env.onion.error ?? 'unknown' }));
+        if (env.scam.ok && env.scam.data) setScam(env.scam.data);
+        else if (!env.scam.ok) setErrors((cur) => ({ ...cur, scam: env.scam.error ?? 'unknown' }));
+        if (env.threat_intel.ok && env.threat_intel.data) setThreatIntel(env.threat_intel.data);
+        else if (!env.threat_intel.ok)
+          setErrors((cur) => ({ ...cur, threatIntel: env.threat_intel.error ?? 'unknown' }));
+        if (env.tech_ai.ok && env.tech_ai.data) setTechAi(env.tech_ai.data);
+        else if (!env.tech_ai.ok) setErrors((cur) => ({ ...cur, techAi: env.tech_ai.error ?? 'unknown' }));
+      } catch (e) {
+        if (cancelled) return;
+        // Single network failure blanks every card with the same error so
+        // users know the issue is transport-level, not per-source.
+        const msg = (e as Error).message;
+        setErrors({
+          ransomware: msg,
+          telegram: msg,
+          onion: msg,
+          scam: msg,
+          threatIntel: msg,
+          techAi: msg,
+        });
+      }
     })();
     return () => {
       cancelled = true;
