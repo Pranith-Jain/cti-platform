@@ -3,6 +3,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
+  BarChart3,
   Bell,
   BookOpen,
   BookText,
@@ -93,7 +94,7 @@ const SECTIONS: Section[] = [
       {
         to: '/threatintel/reddit',
         label: 'Cybersec Reddit firehose',
-        desc: 'Curated stream from 12 cybersec subreddits — r/netsec, r/blueteamsec, r/redteamsec, r/Malware, r/threatintel, r/OSINT, r/computerforensics + more',
+        desc: '16 cybersec subreddits — r/netsec, r/blueteamsec, r/redteamsec, r/Malware, r/OSINT, r/computerforensics + scam/fraud coverage (r/Scams, r/IdentityTheft, r/phishing, r/scambait)',
         icon: MessageSquare,
         badge: 'live',
       },
@@ -277,6 +278,12 @@ const SECTIONS: Section[] = [
         icon: BookOpen,
       },
       {
+        to: '/threatintel/metrics',
+        label: 'Threat Intel Metrics',
+        desc: 'Six charts answering the questions CTI teams actually ask — most-active ransomware groups, CVE severity, KEV cadence, top-impersonated brands, IOC volume by source',
+        icon: BarChart3,
+      },
+      {
         to: '/threatintel/status',
         label: 'Feed status',
         desc: 'Health of every upstream-backed feed on /threatintel — when a page looks empty, check here first to see if it is upstream or our worker',
@@ -352,11 +359,13 @@ export default function ThreatIntelHome(): JSX.Element {
           Threat Intelligence
         </span>
         <h1 className="text-5xl sm:text-6xl font-display font-bold text-slate-900 dark:text-slate-100 mb-4 leading-tight">
-          Sources, feeds, and intel surfaces.
+          Curated live threat intelligence.
         </h1>
         <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mb-6 leading-relaxed">
-          Everything you READ — live leak-site mirrors, RSS aggregators, briefings, adversary catalogues, detection-rule
-          feeds, and a searchable library of {180}+ ransomware-group notes + leak-site screenshots.
+          A working CTI platform: live ransomware leak-site claims, fresh CVE + KEV merges, malware-sample stream,
+          phishing-URL feed, social-media firehose (Bluesky + Mastodon + Reddit + Telegram + curated channels), threat
+          briefings, and a metrics dashboard that answers the questions a CTI team actually asks. Everything refreshed
+          live; nothing scraped via fragile mirrors.
         </p>
         <div className="flex flex-wrap items-center gap-4 text-sm font-mono text-slate-600 dark:text-slate-400">
           <span>
@@ -364,7 +373,19 @@ export default function ThreatIntelHome(): JSX.Element {
           </span>
           <span aria-hidden="true">·</span>
           <span>
-            For interactive tools (IOC checker, decoder, scanners, frameworks) →{' '}
+            <Link to="/threatintel/metrics" className="text-brand-600 dark:text-brand-400 hover:underline">
+              metrics dashboard
+            </Link>
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>
+            <Link to="/threatintel/status" className="text-brand-600 dark:text-brand-400 hover:underline">
+              feed status
+            </Link>
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>
+            interactive tools →{' '}
             <Link to="/dfir" className="text-brand-600 dark:text-brand-400 hover:underline">
               /dfir
             </Link>

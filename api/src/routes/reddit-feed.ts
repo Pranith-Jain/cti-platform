@@ -26,7 +26,7 @@ interface SubSpec {
   /** Display name. */
   label: string;
   blurb: string;
-  topic: 'news' | 'research' | 'red-team' | 'blue-team' | 'osint' | 'malware' | 'help';
+  topic: 'news' | 'research' | 'red-team' | 'blue-team' | 'osint' | 'malware' | 'help' | 'scams';
 }
 
 /**
@@ -70,6 +70,33 @@ const SUBS: SubSpec[] = [
     label: 'r/AzureSentinel',
     blurb: 'Microsoft Sentinel — KQL hunts, content packs',
     topic: 'blue-team',
+  },
+  // Carding / scam coverage (added 2026-05-11). Live-probed; r/fraud,
+  // r/CreditCardFraud, r/carding, r/BankFraud, r/ScamAlert all 404'd or
+  // are banned — only legitimate victim/researcher subs remain.
+  {
+    name: 'Scams',
+    label: 'r/Scams',
+    blurb: 'Largest scam-victim community — fresh-scam reporting + advice',
+    topic: 'scams',
+  },
+  {
+    name: 'IdentityTheft',
+    label: 'r/IdentityTheft',
+    blurb: 'ID theft + credit-card-fraud victim reports, recovery tradecraft',
+    topic: 'scams',
+  },
+  {
+    name: 'phishing',
+    label: 'r/phishing',
+    blurb: 'Phishing-campaign samples + analysis · educator-friendly',
+    topic: 'scams',
+  },
+  {
+    name: 'scambait',
+    label: 'r/scambait',
+    blurb: 'Scam-baiting community — surfaces fresh fraud playbooks + tactics in real-time',
+    topic: 'scams',
   },
 ];
 
@@ -216,7 +243,7 @@ export async function fetchRedditFeed(): Promise<RedditFeedResponse> {
   };
 }
 
-export const REDDIT_FEED_CACHE_KEY = 'https://reddit-feed-cache.internal/v1';
+export const REDDIT_FEED_CACHE_KEY = 'https://reddit-feed-cache.internal/v2-scams';
 
 export async function redditFeedHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   const cache = (caches as unknown as { default: Cache }).default;

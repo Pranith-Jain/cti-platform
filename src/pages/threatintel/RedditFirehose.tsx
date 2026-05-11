@@ -5,7 +5,7 @@ import { ArrowLeft, ExternalLink, Loader2, MessageSquare, RefreshCw, Search } fr
 interface RedditFeedItem {
   sub: string;
   sub_label: string;
-  sub_topic: 'news' | 'research' | 'red-team' | 'blue-team' | 'osint' | 'malware' | 'help';
+  sub_topic: 'news' | 'research' | 'red-team' | 'blue-team' | 'osint' | 'malware' | 'help' | 'scams';
   sub_blurb: string;
   title: string;
   link: string;
@@ -29,6 +29,7 @@ const TOPIC_PILL: Record<RedditFeedItem['sub_topic'], string> = {
   osint: 'border-violet-500/40 bg-violet-500/10 text-violet-700 dark:text-violet-300',
   malware: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   help: 'border-slate-300 dark:border-slate-700 text-slate-500',
+  scams: 'border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300',
 };
 
 function shortRel(iso: string): string {

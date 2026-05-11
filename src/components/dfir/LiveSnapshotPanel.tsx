@@ -7,31 +7,27 @@ import { useWatchlist, watchHits } from './useWatchlist';
 import { shortRel } from '../../lib/relativeTime';
 
 /**
- * Live "right now" snapshot of dark-web + Telegram + .onion + scam activity.
- *
- * Originally embedded in /threatintel/briefings; extracted here so /dfir landing
- * and per-briefing detail pages can mount it too.
+ * Live "right now" snapshot — 6 cards: Ransomware claims, Cybersec
+ * Telegram firehose, Scam intel (FTC + IC3), Threat intel firehose,
+ * Tech & AI news, Threat briefings. Mounts on /threatintel landing.
  *
  * Behaviour notes:
- * - Each of the four cards fetches independently. One source failing does
- *   not block the others.
- * - "What's new since last visit" highlights items whose timestamp is newer
- *   than the localStorage `dfir.briefings.last_visit` baseline. The baseline
- *   is captured at mount and overwritten with `now` on unmount, so this
- *   visit becomes the next baseline.
- * - The localStorage key is shared across every place we mount the panel —
- *   on purpose. Visiting /dfir landing should reset the baseline so the
- *   user doesn't see the same "12 new" pill on /threatintel/briefings ten seconds
- *   later. If you mount this on multiple pages and want independent
- *   baselines, parameterise `lastVisitKey` per call.
+ * - ONE fetch to /api/v1/snapshot fans out server-side; each card reads
+ *   a slice of the envelope. A single bad upstream marks ONE card as
+ *   errored, never blanks the panel.
+ * - "What's new since last visit" highlights items whose timestamp is
+ *   newer than the localStorage `dfir.briefings.last_visit` baseline.
+ *   Baseline captured at mount, overwritten with `now` on unmount.
+ * - The localStorage key is shared across every place we mount the
+ *   panel — visiting one page resets the baseline so the user doesn't
+ *   see the same "12 new" pill on the next page.
  *
- * Props:
- * - `compact` — smaller paddings + 3 items per card (vs 4) + no per-item
- *   secondary line. For embedding above tool grids etc.
- * - `headerLabel` — section H2 text. Pass `null` to omit the section
- *   header entirely.
- * - `subtitle` — small grey text rendered next to the section header.
- * - `mbClass` — bottom-margin Tailwind class. Defaults to `mb-12`.
+ * Card removals 2026-05-11:
+ *   - .onion reachability  → moved to /threatintel/onion-watch page
+ *   - Detection rules      → moved to /threatintel/rules page
+ *   - Cyber threat map     → moved to /threatintel/threat-map page
+ * The /api/v1/snapshot envelope still ships `onion`, `rules`, and
+ * `threat_map` fields — we just don't render them here.
  */
 
 interface Props {
@@ -70,28 +66,6 @@ interface TelegramResp {
   channels: { handle: string; ok: boolean; count: number }[];
 }
 
-interface OnionResp {
-  reachable_count: number;
-  total_count: number;
-  groups: { group: string; any_reachable: boolean }[];
-}
-
-interface RulesRecentCommit {
-  source_id: string;
-  source_label: string;
-  type: string;
-  title: string;
-  author: string;
-  link: string;
-  pubDate: string;
-}
-
-interface RulesResp {
-  generated_at: string;
-  recent_commits: RulesRecentCommit[];
-  sources_count: number;
-}
-
 interface BriefingsItem {
   slug: string;
   metadata: {
@@ -108,12 +82,6 @@ interface BriefingsResp {
   items: BriefingsItem[];
 }
 
-interface ThreatMapResp {
-  total_ips: number;
-  countries: { country: string; countryCode: string; count: number }[];
-  iocs_by_type?: { type: string; count: number }[];
-}
-
 /**
  * Wire shape of /api/v1/snapshot — a thin envelope around the six per-source
  * payloads. Each source is independently `ok: true/false` so a single bad
@@ -128,13 +96,16 @@ interface SnapshotResp {
   generated_at: string;
   ransomware: SnapshotEnvelope<RansomwareResp>;
   telegram: SnapshotEnvelope<TelegramResp>;
-  onion: SnapshotEnvelope<OnionResp>;
+  // onion / rules / threat_map still ship in the envelope but the
+  // corresponding cards were removed 2026-05-11. Typed as unknown so
+  // the panel doesn't pretend to consume them.
+  onion?: SnapshotEnvelope<unknown>;
   scam: SnapshotEnvelope<AggregatedFeedResponse>;
   threat_intel: SnapshotEnvelope<AggregatedFeedResponse>;
   tech_ai: SnapshotEnvelope<AggregatedFeedResponse>;
-  rules: SnapshotEnvelope<RulesResp>;
+  rules?: SnapshotEnvelope<unknown>;
   briefings: SnapshotEnvelope<BriefingsResp>;
-  threat_map: SnapshotEnvelope<ThreatMapResp>;
+  threat_map?: SnapshotEnvelope<unknown>;
 }
 
 function withinWindow(iso: string, hours: number): boolean {
