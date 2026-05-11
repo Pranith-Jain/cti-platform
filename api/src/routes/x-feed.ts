@@ -195,11 +195,18 @@ function decodeEntities(s: string): string {
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
       .replace(/&apos;/g, "'")
       .replace(/&nbsp;/g, ' ')
-      // Common numeric escapes Mastodon emits
-      .replace(/&#xA;/g, '\n')
+      // Generic decimal numeric entities (Mastodon emits &#34; &#39; &#10; etc.)
+      .replace(/&#(\d+);/g, (_, code: string) => {
+        const n = parseInt(code, 10);
+        return Number.isFinite(n) && n >= 0 && n < 0x110000 ? String.fromCodePoint(n) : '';
+      })
+      // Generic hex numeric entities (&#xA; for newline etc.)
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, code: string) => {
+        const n = parseInt(code, 16);
+        return Number.isFinite(n) && n >= 0 && n < 0x110000 ? String.fromCodePoint(n) : '';
+      })
   );
 }
 
@@ -319,7 +326,7 @@ export async function fetchXFeed(): Promise<XFeedResponse> {
   };
 }
 
-export const X_FEED_CACHE_KEY = 'https://x-feed-cache.internal/v4-social-decode';
+export const X_FEED_CACHE_KEY = 'https://x-feed-cache.internal/v5-numentities';
 
 export async function xFeedHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   const cache = (caches as unknown as { default: Cache }).default;
