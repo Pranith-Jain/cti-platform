@@ -823,6 +823,40 @@ export const rssFeeds: RSSFeed[] = [
     source: 'technologyreview.com',
     language: 'en-US',
   },
+  // ─── Breach-focused news (added 2026-05-11) ──────────────────────────
+  // Sourced separately from the broader threat-intel feeds so the
+  // /threatintel/breach page can pull a curated stream that's strictly
+  // about disclosed breaches — not general security news.
+  {
+    id: 'vpnmentor-research',
+    name: 'vpnMentor Research Lab',
+    url: 'https://www.vpnmentor.com/blog/category/research/feed/',
+    description:
+      'vpnMentor research lab — discovered and reported breaches, particularly in exposed-database / misconfigured-cloud territory',
+    category: 'threat-intel',
+    source: 'vpnmentor.com',
+    language: 'en',
+  },
+  {
+    id: 'grcsolutions-breaches',
+    name: 'GRC Solutions · Data Breach Blog',
+    url: 'https://grcsolutions.io/feed/',
+    description:
+      'GRC Solutions (formerly IT Governance UK) — monthly breach round-ups + analysis of high-profile data-protection incidents',
+    category: 'threat-intel',
+    source: 'grcsolutions.io',
+    language: 'en-GB',
+  },
+  {
+    id: 'comparitech-breaches',
+    name: 'Comparitech · Privacy Research',
+    url: 'https://www.comparitech.com/blog/feed/',
+    description:
+      'Comparitech privacy / breach research — Bob Diachenko-style exposed-database investigations and breach reporting',
+    category: 'threat-intel',
+    source: 'comparitech.com',
+    language: 'en',
+  },
 ];
 
 /**

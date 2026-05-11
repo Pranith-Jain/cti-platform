@@ -28,6 +28,7 @@ import { binarydefense } from '../providers/binarydefense';
 import { ipsum } from '../providers/ipsum';
 import { phishingArmy } from '../providers/phishingArmy';
 import { tweetfeed } from '../providers/tweetfeed';
+import { greynoise } from '../providers/greynoise';
 import {
   PROVIDER_SUPPORT,
   PROVIDER_TIMEOUT_MS,
@@ -59,6 +60,7 @@ const ADAPTERS: Record<ProviderId, ProviderAdapter> = {
   ipsum,
   phishingArmy,
   tweetfeed,
+  greynoise,
 };
 
 export async function iocCheckHandler(c: Context<{ Bindings: Env }>) {

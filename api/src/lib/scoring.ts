@@ -20,6 +20,10 @@ const WEIGHTS: Record<IndicatorType, Partial<Record<ProviderId, number>>> = {
     binarydefense: 3,
     ipsum: 4,
     tweetfeed: 2,
+    // GreyNoise community: low score-weight because the classification is
+    // best-effort and ratelimited. The real value is the RIOT signal
+    // ('benign service') which the UI surfaces as a separate tag.
+    greynoise: 2,
   },
   ipv6: {
     abuseipdb: 4,
@@ -28,6 +32,7 @@ const WEIGHTS: Record<IndicatorType, Partial<Record<ProviderId, number>>> = {
     otx: 1,
     feodo: 4,
     threatfox: 4,
+    greynoise: 2,
   },
   domain: {
     virustotal: 2,

@@ -22,7 +22,8 @@ export type ProviderId =
   | 'binarydefense'
   | 'ipsum'
   | 'phishingArmy'
-  | 'tweetfeed';
+  | 'tweetfeed'
+  | 'greynoise';
 
 export type Verdict = 'clean' | 'suspicious' | 'malicious' | 'unknown';
 
@@ -84,4 +85,5 @@ export const PROVIDER_SUPPORT: Record<ProviderId, IndicatorType[]> = {
   ipsum: ['ipv4'],
   phishingArmy: ['domain', 'url'],
   tweetfeed: ['ipv4', 'domain', 'url', 'hash'],
+  greynoise: ['ipv4', 'ipv6'],
 };
