@@ -17,6 +17,7 @@ import {
   Grid3x3,
   Hash,
   Layers,
+  MessageSquare,
   Microscope,
   Newspaper,
   Radio,
@@ -24,6 +25,7 @@ import {
   ShieldAlert,
   Sparkles,
   Tag,
+  Twitter,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -86,6 +88,20 @@ const SECTIONS: Section[] = [
         label: 'Cybersec Telegram firehose',
         desc: 'Curated message stream from active public cybersec Telegram channels · IOCs · advisories · leak announcements',
         icon: Send,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/reddit',
+        label: 'Cybersec Reddit firehose',
+        desc: 'Curated stream from 12 cybersec subreddits — r/netsec, r/blueteamsec, r/redteamsec, r/Malware, r/threatintel, r/OSINT, r/computerforensics + more',
+        icon: MessageSquare,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/x',
+        label: 'Cybersec X firehose',
+        desc: '12 cybersec researchers + vendor labs + official feeds on X — vxunderground, MalwareHunterTeam, Talos, ESET, abuse.ch, CISAgov, Mandiant · via Nitter mirrors with failover',
+        icon: Twitter,
         badge: 'live',
       },
       {

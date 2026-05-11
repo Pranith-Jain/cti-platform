@@ -32,6 +32,8 @@ import { telegramFeedHandler } from './routes/telegram-feed';
 import { cveRecentHandler } from './routes/cve-recent';
 import { phishingUrlsHandler } from './routes/phishing-urls';
 import { malwareSamplesHandler } from './routes/malware-samples';
+import { redditFeedHandler } from './routes/reddit-feed';
+import { xFeedHandler } from './routes/x-feed';
 import {
   listBriefingsHandler,
   getBriefingHandler,
@@ -85,6 +87,8 @@ app.get('/api/v1/telegram-feed', telegramFeedHandler);
 app.get('/api/v1/cve-recent', cveRecentHandler);
 app.get('/api/v1/phishing-urls', phishingUrlsHandler);
 app.get('/api/v1/malware-samples', malwareSamplesHandler);
+app.get('/api/v1/reddit-feed', redditFeedHandler);
+app.get('/api/v1/x-feed', xFeedHandler);
 app.get('/api/v1/snapshot', snapshotHandler);
 app.get('/api/v1/ioc-snapshot', iocSnapshotHandler);
 app.get('/api/v1/briefings/list', listBriefingsHandler);

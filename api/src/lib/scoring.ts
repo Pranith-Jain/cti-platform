@@ -76,6 +76,25 @@ export interface CompositeScore {
   contributing: number;
 }
 
+/**
+ * Composite verdict from multiple-provider IOC lookups.
+ *
+ * The old algorithm was a pure weighted average — that breaks for security
+ * IOCs because a "clean" verdict from a blocklist just means "not on our
+ * list", not "definitely innocent". With 15+ providers, even 3 high-
+ * confidence malicious flags get diluted to "clean" by the 12 zero-scores.
+ *
+ * The new algorithm is malicious-biased:
+ *
+ *   1. Count high-weight providers that flagged malicious (weight≥2, score≥70).
+ *      Two or more independent strong-malicious hits → composite is at least 75.
+ *      A single strong-malicious hit → composite is at least 50.
+ *   2. After the bias, take the max of (biased floor, weighted average).
+ *   3. Verdict thresholds unchanged: ≥70 malicious, ≥40 suspicious, else clean.
+ *
+ * Example (user's report): feodo 90 + bitwire 80 + otx 80 with 13 zeros →
+ *   weightedAvg ≈ 17, but two strong hits ⇒ score floor 75 → verdict malicious.
+ */
 export function compositeScore(type: IndicatorType, results: ProviderResult[]): CompositeScore {
   const weights = WEIGHTS[type] ?? {};
   const ok = results.filter((r) => r.status === 'ok');
@@ -90,7 +109,25 @@ export function compositeScore(type: IndicatorType, results: ProviderResult[]): 
     weightedSum += r.score * w;
     totalWeight += w;
   }
-  const score = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
+  const weightedAvg = totalWeight > 0 ? weightedSum / totalWeight : 0;
+
+  // Count strong-malicious flags (purposeful blocklists / abuse-feeds that
+  // identified the indicator — weight ≥2 and score ≥70). Each is independent
+  // evidence of badness; multiple agree → strong consensus.
+  const strongMalicious = ok.filter((r) => (weights[r.source] ?? 1) >= 2 && r.score >= 70).length;
+  // Softer signal: any non-trivial flag from a weighted provider.
+  const anySuspicious = ok.some((r) => (weights[r.source] ?? 1) >= 2 && r.score >= 40);
+
+  let score: number;
+  if (strongMalicious >= 2) {
+    score = Math.max(75, Math.round(weightedAvg));
+  } else if (strongMalicious >= 1) {
+    score = Math.max(50, Math.round(weightedAvg));
+  } else if (anySuspicious) {
+    score = Math.max(40, Math.round(weightedAvg));
+  } else {
+    score = Math.round(weightedAvg);
+  }
 
   let verdict: Verdict;
   if (score >= 70) verdict = 'malicious';

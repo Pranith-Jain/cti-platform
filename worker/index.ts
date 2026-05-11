@@ -99,6 +99,8 @@ export default {
             '/api/v1/cve-recent',
             '/api/v1/phishing-urls',
             '/api/v1/malware-samples',
+            '/api/v1/reddit-feed',
+            '/api/v1/x-feed',
           ];
           const composerTargets = ['/api/v1/snapshot', '/api/v1/ioc-snapshot'];
           async function warm(path: string) {

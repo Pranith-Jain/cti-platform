@@ -110,9 +110,18 @@ export default function CveList(): JSX.Element {
           <ShieldAlert size={28} className="text-brand-600 dark:text-brand-400" /> Live CVE updates
         </h1>
         <p className="text-slate-600 dark:text-slate-400 font-mono mb-2 max-w-3xl">
-          CVEs <em>newly published</em> in the last 14 days (NVD), merged with recent additions to{' '}
-          <strong>CISA's Known-Exploited-Vulnerabilities catalogue</strong> (last 30 days). Entries flagged with KEV are
-          known to be exploited in the wild — prioritise those. Click a CVE id to drill into{' '}
+          Up to <strong>500 CVEs newly published in the last 30 days</strong> (NVD), merged with recent additions to{' '}
+          <strong>CISA's Known-Exploited-Vulnerabilities catalogue</strong> (last 30 days). NVD reports ~5,500 CVEs per
+          30-day window; this is a triage sample, not the full corpus — for exhaustive search use{' '}
+          <a
+            href="https://nvd.nist.gov/vuln/search"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-600 dark:text-brand-400 hover:underline"
+          >
+            nvd.nist.gov/vuln/search
+          </a>
+          . Entries flagged KEV are known to be exploited in the wild — prioritise those. Click a CVE id to drill into{' '}
           <Link to="/dfir/cve" className="text-brand-600 dark:text-brand-400 hover:underline">
             CVE Lookup
           </Link>{' '}
