@@ -26,7 +26,6 @@ import {
   Send,
   ShieldAlert,
   Sparkles,
-  Tag,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -222,17 +221,11 @@ const SECTIONS: Section[] = [
         badge: 'live',
       },
       {
-        to: '/threatintel/malicious-urls',
-        label: 'Malicious URLs (URLhaus)',
-        desc: 'URLhaus malware-distribution URLs · refreshed hourly · per-entry timestamp + context tag',
+        to: '/threatintel/urls',
+        label: 'Live malicious URLs',
+        desc: 'URLhaus + ThreatFox aggregate · malware-distribution + C2 URLs · per-entry timestamp + source + context · refreshed hourly',
         icon: Globe,
         badge: 'live',
-      },
-      {
-        to: '/threatintel/urls',
-        label: 'Live URLs (all sources)',
-        desc: 'URLhaus + ThreatFox aggregate · per-entry timestamp + source + context',
-        icon: Globe,
       },
       {
         to: '/threatintel/domains',
@@ -245,12 +238,6 @@ const SECTIONS: Section[] = [
         label: 'Live file hashes',
         desc: 'MalwareBazaar + ThreatFox hashes · per-entry timestamp · click hash to run through IOC Checker',
         icon: Hash,
-      },
-      {
-        to: '/threatintel/iocs-by-type',
-        label: 'IOCs by type',
-        desc: 'Combined view — URLs + domains + hashes side-by-side from all upstream feeds',
-        icon: Tag,
       },
     ],
   },

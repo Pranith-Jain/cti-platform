@@ -514,22 +514,12 @@ export function AppContent() {
                 </Suspense>
               }
             />
-            <Route
-              path="/threatintel/malicious-urls"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <IocFeed kind="malicious-url" />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/threatintel/iocs-by-type"
-              element={
-                <Suspense fallback={<SectionLoader />}>
-                  <IocFeed kind="all" />
-                </Suspense>
-              }
-            />
+            {/* 2026-05-11: malicious-urls merged into /threatintel/urls (same
+                upstream sources, single combined view). iocs-by-type removed —
+                the per-type pages cover it. Both redirect to /threatintel/urls
+                so existing bookmarks still land somewhere useful. */}
+            <Route path="/threatintel/malicious-urls" element={<Navigate to="/threatintel/urls" replace />} />
+            <Route path="/threatintel/iocs-by-type" element={<Navigate to="/threatintel/urls" replace />} />
             <Route
               path="/threatintel/cve-list"
               element={

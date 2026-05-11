@@ -1,22 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Bell,
-  Send,
-  Globe2,
-  ExternalLink,
-  AlertTriangle,
-  Newspaper,
-  Sparkles,
-  FileCode,
-  Map,
-  ScrollText,
-} from 'lucide-react';
+import { Bell, Send, ExternalLink, AlertTriangle, Newspaper, Sparkles, ScrollText } from 'lucide-react';
 import { type AggregatedFeedResponse } from '../../services/rssService';
 import { SnapshotCard } from './SnapshotCard';
 import { useWatchlist, watchHits } from './useWatchlist';
 import { shortRel } from '../../lib/relativeTime';
-import { decodeHtml } from '../../lib/htmlDecode';
 
 /**
  * Live "right now" snapshot of dark-web + Telegram + .onion + scam activity.
@@ -204,23 +192,17 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
 
   const [ransomware, setRansomware] = useState<RansomwareResp | null>(null);
   const [telegram, setTelegram] = useState<TelegramResp | null>(null);
-  const [onion, setOnion] = useState<OnionResp | null>(null);
   const [scam, setScam] = useState<AggregatedFeedResponse | null>(null);
   const [threatIntel, setThreatIntel] = useState<AggregatedFeedResponse | null>(null);
   const [techAi, setTechAi] = useState<AggregatedFeedResponse | null>(null);
-  const [rules, setRules] = useState<RulesResp | null>(null);
   const [briefings, setBriefings] = useState<BriefingsResp | null>(null);
-  const [threatMap, setThreatMap] = useState<ThreatMapResp | null>(null);
   const [errors, setErrors] = useState<{
     ransomware?: string;
     telegram?: string;
-    onion?: string;
     scam?: string;
     threatIntel?: string;
     techAi?: string;
-    rules?: string;
     briefings?: string;
-    threatMap?: string;
   }>({});
 
   // Single fetch to /api/v1/snapshot — server-side fan-out replaces six
@@ -237,8 +219,6 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
         else if (!env.ransomware.ok) setErrors((cur) => ({ ...cur, ransomware: env.ransomware.error ?? 'unknown' }));
         if (env.telegram.ok && env.telegram.data) setTelegram(env.telegram.data);
         else if (!env.telegram.ok) setErrors((cur) => ({ ...cur, telegram: env.telegram.error ?? 'unknown' }));
-        if (env.onion.ok && env.onion.data) setOnion(env.onion.data);
-        else if (!env.onion.ok) setErrors((cur) => ({ ...cur, onion: env.onion.error ?? 'unknown' }));
         if (env.scam.ok && env.scam.data) setScam(env.scam.data);
         else if (!env.scam.ok) setErrors((cur) => ({ ...cur, scam: env.scam.error ?? 'unknown' }));
         if (env.threat_intel.ok && env.threat_intel.data) setThreatIntel(env.threat_intel.data);
@@ -246,14 +226,12 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
           setErrors((cur) => ({ ...cur, threatIntel: env.threat_intel.error ?? 'unknown' }));
         if (env.tech_ai.ok && env.tech_ai.data) setTechAi(env.tech_ai.data);
         else if (!env.tech_ai.ok) setErrors((cur) => ({ ...cur, techAi: env.tech_ai.error ?? 'unknown' }));
-        if (env.rules?.ok && env.rules.data) setRules(env.rules.data);
-        else if (env.rules && !env.rules.ok) setErrors((cur) => ({ ...cur, rules: env.rules.error ?? 'unknown' }));
         if (env.briefings?.ok && env.briefings.data) setBriefings(env.briefings.data);
         else if (env.briefings && !env.briefings.ok)
           setErrors((cur) => ({ ...cur, briefings: env.briefings.error ?? 'unknown' }));
-        if (env.threat_map?.ok && env.threat_map.data) setThreatMap(env.threat_map.data);
-        else if (env.threat_map && !env.threat_map.ok)
-          setErrors((cur) => ({ ...cur, threatMap: env.threat_map.error ?? 'unknown' }));
+        // env.onion / env.rules / env.threat_map come through the snapshot
+        // payload but the corresponding cards were removed 2026-05-11 — we
+        // intentionally drop those fields here.
       } catch (e) {
         if (cancelled) return;
         // Single network failure blanks every card with the same error so
@@ -262,13 +240,10 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
         setErrors({
           ransomware: msg,
           telegram: msg,
-          onion: msg,
           scam: msg,
           threatIntel: msg,
           techAi: msg,
-          rules: msg,
           briefings: msg,
-          threatMap: msg,
         });
       }
     })();
@@ -288,8 +263,6 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
     if (!telegram) return [];
     return telegram.items.slice(0, itemLimit);
   }, [telegram, itemLimit]);
-
-  const reachablePct = onion ? Math.round((onion.reachable_count / Math.max(1, onion.groups.length)) * 100) : null;
 
   const recentScam = useMemo(() => {
     if (!scam) return [];
@@ -346,10 +319,6 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
         : 0,
     [telegram, watchlist]
   );
-  const watchedOnion = useMemo(
-    () => (onion ? onion.groups.filter((g) => watchHits(g.group, watchlist).length > 0).length : 0),
-    [onion, watchlist]
-  );
   const watchedScam = useMemo(
     () => (scam ? scam.items.filter((it) => watchHits(`${it.title} ${it.source}`, watchlist).length > 0).length : 0),
     [scam, watchlist]
@@ -366,8 +335,7 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
       techAi ? techAi.items.filter((it) => watchHits(`${it.title} ${it.source}`, watchlist).length > 0).length : 0,
     [techAi, watchlist]
   );
-  const totalWatched =
-    watchedRansomware + watchedTelegram + watchedOnion + watchedScam + watchedThreatIntel + watchedTechAi;
+  const totalWatched = watchedRansomware + watchedTelegram + watchedScam + watchedThreatIntel + watchedTechAi;
 
   return (
     <section className={mbClass}>
@@ -546,63 +514,10 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
           )}
         </SnapshotCard>
 
-        {/* Onion watch */}
-        <SnapshotCard
-          accent="violet"
-          icon={Globe2}
-          title=".onion reachability"
-          watchCount={watchedOnion}
-          watchTerms={watchlist}
-          showNewBadge={false}
-          rightAction={
-            <Link
-              to="/threatintel/onion-watch"
-              className="text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-0.5"
-            >
-              full inventory <ExternalLink size={9} />
-            </Link>
-          }
-          loading={!onion}
-          error={errors.onion}
-          compact={compact}
-        >
-          {onion && (
-            <>
-              <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2">
-                <span className="text-slate-900 dark:text-slate-100 font-bold text-base">{onion.reachable_count}</span>/
-                {onion.groups.length} groups reachable{reachablePct !== null && ` (${reachablePct}%)`} ·{' '}
-                {onion.total_count} mirrors
-              </p>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {onion.groups
-                  .filter((g) => g.any_reachable)
-                  .slice(0, compact ? 6 : 8)
-                  .map((g) => {
-                    const isWatched = watchHits(g.group, watchlist).length > 0;
-                    return (
-                      <Link
-                        key={g.group}
-                        to="/threatintel/onion-watch"
-                        className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-                          isWatched
-                            ? 'border-violet-500/60 bg-violet-500/15 text-violet-700 dark:text-violet-300 hover:bg-violet-500/25'
-                            : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20'
-                        }`}
-                        title={isWatched ? 'watchlist match' : undefined}
-                      >
-                        {g.group}
-                      </Link>
-                    );
-                  })}
-                {onion.reachable_count > (compact ? 6 : 8) && (
-                  <span className="text-[10px] font-mono text-slate-500">
-                    +{onion.reachable_count - (compact ? 6 : 8)} more
-                  </span>
-                )}
-              </div>
-            </>
-          )}
-        </SnapshotCard>
+        {/* .onion reachability card removed 2026-05-11 — too noisy on the
+            landing (the inventory page at /threatintel/onion-watch is the
+            right place for that depth of detail; the card competed for
+            attention with higher-signal sources). */}
 
         {/* Scam intel — FTC + IC3 official alerts */}
         <SnapshotCard
@@ -820,58 +735,10 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
           )}
         </SnapshotCard>
 
-        {/* Detection rules — recent commits across upstream rule repos */}
-        <SnapshotCard
-          accent="blue"
-          icon={FileCode}
-          title="Detection rules"
-          showNewBadge={false}
-          rightAction={
-            <Link
-              to="/threatintel/rules"
-              className="text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-0.5"
-            >
-              all rule repos <ExternalLink size={9} />
-            </Link>
-          }
-          loading={!rules}
-          error={errors.rules}
-          compact={compact}
-        >
-          {rules && (
-            <>
-              <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2">
-                <span className="text-slate-900 dark:text-slate-100 font-bold text-base">
-                  {rules.recent_commits.length}
-                </span>{' '}
-                recent commits · {rules.sources_count} repos · Sigma · YARA · Suricata · SIEM
-              </p>
-              {rules.recent_commits.length === 0 ? (
-                <p className="text-[11px] font-mono text-slate-500">No recent commits.</p>
-              ) : (
-                <ul className="space-y-1.5 mt-1">
-                  {rules.recent_commits.slice(0, itemLimit).map((cm, i) => (
-                    <li key={`${cm.source_id}-${i}`} className="flex items-baseline gap-2 text-[11px] font-mono py-0.5">
-                      <span className="text-[9px] uppercase tracking-wider px-1 rounded border border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300 shrink-0">
-                        {cm.type}
-                      </span>
-                      <a
-                        href={cm.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="truncate text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 flex-1 min-w-0"
-                        title={`${decodeHtml(cm.title)} — ${cm.source_label}`}
-                      >
-                        {decodeHtml(cm.title)}
-                      </a>
-                      <span className="text-slate-500 shrink-0">{shortRel(cm.pubDate)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-        </SnapshotCard>
+        {/* Detection rules card removed 2026-05-11 — committers fire all
+            day on Sigma / Elastic / Sentinel repos so the card was always
+            full and rarely actionable from the landing. The full feed is
+            still live at /threatintel/rules. */}
 
         {/* Threat briefings — latest daily/weekly KV-baked briefings */}
         <SnapshotCard
@@ -942,53 +809,9 @@ export function LiveSnapshotPanel(props: Props = {}): JSX.Element {
           )}
         </SnapshotCard>
 
-        {/* Cyber threat map — top countries by malicious-IP count */}
-        <SnapshotCard
-          accent="orange"
-          icon={Map}
-          title="Cyber threat map"
-          showNewBadge={false}
-          rightAction={
-            <Link
-              to="/threatintel/threat-map"
-              className="text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-0.5"
-            >
-              full map <ExternalLink size={9} />
-            </Link>
-          }
-          loading={!threatMap}
-          error={errors.threatMap}
-          compact={compact}
-        >
-          {threatMap && (
-            <>
-              <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2">
-                <span className="text-slate-900 dark:text-slate-100 font-bold text-base">{threatMap.total_ips}</span>{' '}
-                geolocated IPs · {threatMap.countries.length} countries
-              </p>
-              {threatMap.countries.length === 0 ? (
-                <p className="text-[11px] font-mono text-slate-500">No geolocated indicators.</p>
-              ) : (
-                <ul className="space-y-1.5 mt-1">
-                  {threatMap.countries.slice(0, itemLimit).map((c) => (
-                    <li key={c.countryCode} className="flex items-baseline gap-2 text-[11px] font-mono py-0.5">
-                      <span className="text-[9px] uppercase tracking-wider px-1 rounded border border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300 shrink-0">
-                        {c.countryCode}
-                      </span>
-                      <Link
-                        to="/threatintel/threat-map"
-                        className="truncate text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 flex-1 min-w-0"
-                      >
-                        {c.country}
-                      </Link>
-                      <span className="text-slate-500 shrink-0 tabular-nums">{c.count}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-        </SnapshotCard>
+        {/* Cyber threat map card removed 2026-05-11 — the country-leaderboard
+            duplicates what the full /threatintel/threat-map page does better.
+            The card on the landing competed with higher-signal cards. */}
       </div>
     </section>
   );
