@@ -26,8 +26,18 @@ const CONCURRENCY = 3; // Lower than Reddit/Telegram to be polite to mirrors
 const MAX_POSTS_PER_HANDLE = 6;
 const MAX_TEXT_LEN = 280;
 
-/** Mirror failover chain — top to bottom. Probed live 2026-05-11. */
-const NITTER_MIRRORS = ['https://nitter.net', 'https://nitter.cz', 'https://nitter.tiekoetter.com'];
+/**
+ * Mirror failover chain — top to bottom. Probed live 2026-05-11.
+ * Nitter instances regularly block known Cloudflare egress IPs (the
+ * Workers shared-IP pool gets the same UA reputation as scrapers), so
+ * we try multiple mirrors before declaring a handle dead.
+ */
+const NITTER_MIRRORS = [
+  'https://nitter.net',
+  'https://nitter.it',
+  'https://nitter.cz',
+  'https://nitter.tiekoetter.com',
+];
 
 interface HandleSpec {
   handle: string;
@@ -204,7 +214,7 @@ export async function fetchXFeed(): Promise<XFeedResponse> {
   };
 }
 
-export const X_FEED_CACHE_KEY = 'https://x-feed-cache.internal/v1';
+export const X_FEED_CACHE_KEY = 'https://x-feed-cache.internal/v2-nitter-it';
 
 export async function xFeedHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   const cache = (caches as unknown as { default: Cache }).default;

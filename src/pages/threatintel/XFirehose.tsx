@@ -245,10 +245,32 @@ export default function XFirehose(): JSX.Element {
       </ul>
 
       {!loading && !error && filtered.length === 0 && (
-        <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center text-sm font-mono text-slate-500">
-          {query || handleFilter.size > 0
-            ? 'No tweets match the current filter.'
-            : 'No tweets in the upstream snapshot — Nitter mirrors may all be down.'}
+        <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-6 text-sm font-mono text-slate-500">
+          {query || handleFilter.size > 0 ? (
+            <p className="text-center">No tweets match the current filter.</p>
+          ) : (
+            <>
+              <p className="mb-3 text-center">
+                No tweets in the upstream snapshot — all Nitter mirrors blocked the Worker's request (the
+                Cloudflare-shared egress IP pool gets the same reputation as scrapers).
+              </p>
+              <p className="mb-2 text-center text-xs">You can still follow these accounts directly on x.com:</p>
+              <ul className="flex flex-wrap justify-center gap-2 mt-3">
+                {(data?.handles ?? []).map((h) => (
+                  <li key={h.handle}>
+                    <a
+                      href={`https://x.com/${h.handle}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded border ${TOPIC_PILL[h.topic]} hover:opacity-90`}
+                    >
+                      @{h.handle} <ExternalLink size={10} />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       )}
     </div>
