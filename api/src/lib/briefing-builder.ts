@@ -467,10 +467,21 @@ async function fetchNvdByIds(cveIds: string[]): Promise<Map<string, NvdCve>> {
 async function fetchAbuseFeed(source: SourceId, timeoutMs = 15_000): Promise<IocEntry[]> {
   try {
     const meta = FEED_SOURCES[source];
-    const res = await fetch(meta.url, {
+    // No Cloudflare edge caching here. Briefings run daily / weekly (not
+    // bursty user traffic), and a stale-by-30-min CSV body can MASSIVELY
+    // under-count what's actually in the window — the 2026-04-27→
+    // 2026-05-03 weekly briefing matched only 90 IOCs because the edge
+    // had served a stale URLhaus snapshot whose tail predated the window
+    // start. Force a fresh upstream fetch each briefing run.
+    //
+    // We add a per-run cache buster as belt-and-braces — if Cloudflare ever
+    // ignores `cacheEverything: false`, the query param still bypasses it.
+    const sep = meta.url.includes('?') ? '&' : '?';
+    const url = `${meta.url}${sep}_briefing=${Date.now()}`;
+    const res = await fetch(url, {
       headers: { 'user-agent': NVD_UA },
       signal: AbortSignal.timeout(timeoutMs),
-      cf: { cacheTtlByStatus: { '200-299': 1800, '400-599': 0 }, cacheEverything: true },
+      cf: { cacheEverything: false },
     } as RequestInit);
     if (!res.ok) return [];
     const body = await res.text();
@@ -591,8 +602,10 @@ function buildExecutiveSummary(args: {
   iocs: BriefingIocBuckets;
   iocsRawTotal: number;
   iocSources: string[];
+  /** Map of source-label → matched-in-window count, for transparent reporting. */
+  iocPerSource?: Record<string, number>;
 }): string {
-  const { type, range_label, findings, iocs, iocsRawTotal, iocSources } = args;
+  const { type, range_label, findings, iocs, iocsRawTotal, iocSources, iocPerSource } = args;
   const span = type === 'weekly' ? 'This week' : 'In the past 24 hours';
   const critCount = findings.filter((f) => f.severity === 'critical').length;
   const highCount = findings.filter((f) => f.severity === 'high').length;
@@ -616,15 +629,24 @@ function buildExecutiveSummary(args: {
   if (iocs.ipv4s.length > 0) sampledBits.push(`${iocs.ipv4s.length} suspicious IPs`);
   if (iocs.hashes.length > 0) sampledBits.push(`${iocs.hashes.length} malware sample hashes`);
   if (iocsRawTotal > 0) {
-    const sourceList =
-      iocSources.length === 0
+    // Prefer per-source breakdown when available — makes the number
+    // self-verifiable ("URLhaus 4,712; ThreatFox 215; …" beats a single
+    // round total). Falls back to the source-list when the per-source
+    // map wasn't computed.
+    const breakdown = iocPerSource
+      ? Object.entries(iocPerSource)
+          .filter(([, n]) => n > 0)
+          .sort((a, b) => b[1] - a[1])
+          .map(([k, n]) => `${k} ${n.toLocaleString()}`)
+          .join(', ')
+      : iocSources.length === 0
         ? 'tracked feeds'
         : iocSources.length <= 3
           ? iocSources.join(', ')
           : `${iocSources.slice(0, -1).join(', ')}, and ${iocSources[iocSources.length - 1]}`;
     const sampledTotal = iocs.urls.length + iocs.domains.length + iocs.ipv4s.length + iocs.hashes.length;
     parts.push(
-      `Active threat indicators across ${sourceList} totaled ${iocsRawTotal.toLocaleString()} entries; this briefing samples the top ${sampledTotal} (${sampledBits.join(', ')}, capped at 30 per type).`
+      `Active threat indicators ${iocPerSource ? 'per source' : 'across'} ${breakdown} — total ${iocsRawTotal.toLocaleString()} entries; this briefing samples the top ${sampledTotal} (${sampledBits.join(', ')}, capped at 30 per type).`
     );
   }
 
@@ -719,21 +741,49 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
   const nvdMap = await fetchNvdByIds(kevWindow.map((k) => k.cveID));
   const findings = kevWindow.map((k) => findingFromKev(k, nvdMap.get(k.cveID)));
 
+  // Per-source counts for transparent reporting — match-in-window only.
+  // Helps a future reader verify "URLhaus 4,712; ThreatFox 215; …" instead
+  // of trusting a single total that could be wildly off.
+  const matchTimestamp = (e: IocEntry) =>
+    e.timestamp ? withinRange(e.timestamp.replace(' ', 'T'), startMs, endMs) : false;
+  const iocPerSource: Record<string, number> = {};
+  const urlhausMatched = urlhaus.filter(matchTimestamp);
+  const malwarebazaarMatched = malwarebazaar.filter(matchTimestamp);
+  const threatfoxMatched = threatfox.filter(matchTimestamp);
+  const openphishMatched = openphish.filter(matchTimestamp);
+  const feodoMatched = feodo.filter(matchTimestamp);
+  const tweetfeedMatched = tweetfeed.filter(matchTimestamp);
+  if (urlhausMatched.length > 0) iocPerSource['URLhaus'] = urlhausMatched.length;
+  if (malwarebazaarMatched.length > 0) iocPerSource['MalwareBazaar'] = malwarebazaarMatched.length;
+  if (threatfoxMatched.length > 0) iocPerSource['ThreatFox'] = threatfoxMatched.length;
+  if (openphishMatched.length > 0) iocPerSource['OpenPhish'] = openphishMatched.length;
+  if (feodoMatched.length > 0) iocPerSource['Feodo Tracker'] = feodoMatched.length;
+  if (tweetfeedMatched.length > 0) iocPerSource['TweetFeed'] = tweetfeedMatched.length;
+
   // Windowed feeds — entries carry per-IOC timestamps, so we can date-filter them.
-  const windowedIocs = [...urlhaus, ...malwarebazaar, ...threatfox, ...openphish, ...feodo, ...tweetfeed].filter((e) =>
-    e.timestamp ? withinRange(e.timestamp.replace(' ', 'T'), startMs, endMs) : false
-  );
+  const windowedIocs = [
+    ...urlhausMatched,
+    ...malwarebazaarMatched,
+    ...threatfoxMatched,
+    ...openphishMatched,
+    ...feodoMatched,
+    ...tweetfeedMatched,
+  ];
 
   // Snapshot feeds — current-state blocklists with no per-entry timestamp.
   // Treat them as "live indicators at briefing time" and cap so they do not drown the windowed signal.
   const SNAPSHOT_PER_FEED = 30;
-  const snapshotIocs = [
-    ...blocklistDe.slice(0, SNAPSHOT_PER_FEED),
-    ...binaryDefense.slice(0, SNAPSHOT_PER_FEED),
-    ...ipsum.slice(0, SNAPSHOT_PER_FEED),
-    ...phishingArmy.slice(0, SNAPSHOT_PER_FEED),
-    ...bitwire.slice(0, SNAPSHOT_PER_FEED),
-  ];
+  const blocklistDeSnap = blocklistDe.slice(0, SNAPSHOT_PER_FEED);
+  const binaryDefenseSnap = binaryDefense.slice(0, SNAPSHOT_PER_FEED);
+  const ipsumSnap = ipsum.slice(0, SNAPSHOT_PER_FEED);
+  const phishingArmySnap = phishingArmy.slice(0, SNAPSHOT_PER_FEED);
+  const bitwireSnap = bitwire.slice(0, SNAPSHOT_PER_FEED);
+  if (blocklistDeSnap.length > 0) iocPerSource['Blocklist.de'] = blocklistDeSnap.length;
+  if (binaryDefenseSnap.length > 0) iocPerSource['Binary Defense'] = binaryDefenseSnap.length;
+  if (ipsumSnap.length > 0) iocPerSource['Ipsum'] = ipsumSnap.length;
+  if (phishingArmySnap.length > 0) iocPerSource['Phishing Army'] = phishingArmySnap.length;
+  if (bitwireSnap.length > 0) iocPerSource['Bitwire'] = bitwireSnap.length;
+  const snapshotIocs = [...blocklistDeSnap, ...binaryDefenseSnap, ...ipsumSnap, ...phishingArmySnap, ...bitwireSnap];
 
   const allIocs = [...windowedIocs, ...snapshotIocs];
 
@@ -768,6 +818,7 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
     iocs,
     iocsRawTotal,
     iocSources,
+    iocPerSource,
   });
 
   const techniqueSet = new Set<string>();
