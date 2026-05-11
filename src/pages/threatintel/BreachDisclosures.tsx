@@ -5,17 +5,18 @@ import { BreachDisclosuresPanel } from '../dfir/DarkWeb';
 import { fetchAggregatedFeed, formatRelativeTime, type AggregatedFeedItem } from '../../services/rssService';
 
 /**
- * Feed IDs that contribute breach-news (vs. broad threat-intel) signal.
- * Mix of long-standing breach-reporting blogs + research labs that
- * routinely break exposed-database / misconfigured-cloud stories.
+ * Feed IDs — strictly breach-focused. Krebs / BleepingComputer cover
+ * general security news; they're included on /threatintel/threat-feeds
+ * already, so we keep them OUT of this page so the feed stays clean
+ * "incident disclosure" signal.
  */
 const BREACH_NEWS_FEED_IDS = [
   'databreaches',
   'vpnmentor-research',
   'grcsolutions-breaches',
   'comparitech-breaches',
-  'krebsonsecurity',
-  'bleepingcomputer',
+  'troyhunt-blog',
+  'idtheftcenter',
 ];
 
 /**
@@ -90,13 +91,10 @@ export default function BreachDisclosures(): JSX.Element {
           research labs. Complements the HIBP corpus above (which is exhaustive
           but lags) with timely write-ups of incidents in the wild. */}
       <section className="mt-10">
-        <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+        <div className="mb-3">
           <h2 className="font-display font-bold text-xl inline-flex items-center gap-2">
             <Newspaper size={18} className="text-brand-600 dark:text-brand-400" /> Recent breach news
           </h2>
-          <span className="text-[11px] font-mono text-slate-500">
-            Sources: DataBreaches.net · vpnMentor · GRC Solutions · Comparitech · Krebs on Security · BleepingComputer
-          </span>
         </div>
 
         {newsLoading && (

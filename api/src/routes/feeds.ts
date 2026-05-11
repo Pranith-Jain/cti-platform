@@ -125,6 +125,17 @@ const ALLOWED_HOSTS = new Set([
   'openai.com',
   'www.openai.com',
   'blog.google',
+  // Breach-focused feeds (added 2026-05-11) — used by /threatintel/breach
+  'www.vpnmentor.com',
+  'vpnmentor.com',
+  'grcsolutions.io',
+  'www.grcsolutions.io',
+  'www.comparitech.com',
+  'comparitech.com',
+  'www.troyhunt.com',
+  'troyhunt.com',
+  'www.idtheftcenter.org',
+  'idtheftcenter.org',
 ]);
 
 export async function feedProxyHandler(c: Context<{ Bindings: Env }>) {

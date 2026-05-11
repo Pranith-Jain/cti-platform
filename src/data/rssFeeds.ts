@@ -857,6 +857,26 @@ export const rssFeeds: RSSFeed[] = [
     source: 'comparitech.com',
     language: 'en',
   },
+  {
+    id: 'troyhunt-blog',
+    name: 'Troy Hunt · HIBP blog',
+    url: 'https://www.troyhunt.com/rss/',
+    description:
+      "Troy Hunt's personal blog — write-ups of every Have I Been Pwned acquisition, plus deep dives on credential-stuffing, breach pricing, and the post-leak data-broker ecosystem.",
+    category: 'threat-intel',
+    source: 'troyhunt.com',
+    language: 'en',
+  },
+  {
+    id: 'idtheftcenter',
+    name: 'Identity Theft Resource Center',
+    url: 'https://www.idtheftcenter.org/feed/',
+    description:
+      'ITRC — non-profit that tracks U.S. publicly-reported data breaches; publishes quarterly + annual reports on breach trends, victim counts, and notification compliance.',
+    category: 'threat-intel',
+    source: 'idtheftcenter.org',
+    language: 'en',
+  },
 ];
 
 /**
