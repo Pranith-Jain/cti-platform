@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, RefreshCw, Search, Bell, Copy, Check } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ExternalLink, RefreshCw, Search, Bell, Copy, Check } from 'lucide-react';
 import { formatRelativeTime } from '../../services/rssService';
 
 /**
@@ -78,11 +78,18 @@ export default function OnionWatch(): JSX.Element {
     void load(false);
   }, []);
 
+  // When Ransomlook's prober is degraded (reports 0 reachable across 20+
+  // tracked mirrors), the "hide offline" filter would hide EVERYTHING and
+  // the page would render empty — actively unhelpful. Auto-bypass the
+  // filter in that case so users still see the mirror inventory.
+  const proberLikelyDegraded = !!data && data.total_count >= 20 && data.reachable_count === 0;
+  const effectiveShowOffline = showOffline || proberLikelyDegraded;
+
   const visibleGroups = useMemo(() => {
     if (!data) return [];
     const q = query.trim().toLowerCase();
     let groups = data.groups.slice();
-    if (!showOffline) groups = groups.filter((g) => g.any_reachable);
+    if (!effectiveShowOffline) groups = groups.filter((g) => g.any_reachable);
     if (q) {
       groups = groups
         .map((g) => {
@@ -121,7 +128,7 @@ export default function OnionWatch(): JSX.Element {
     const lines: string[] = [];
     for (const g of visibleGroups) {
       for (const m of g.mirrors) {
-        if (!showOffline && !m.available) continue;
+        if (!effectiveShowOffline && !m.available) continue;
         lines.push(m.slug);
       }
     }
@@ -169,6 +176,33 @@ export default function OnionWatch(): JSX.Element {
           />
         </div>
       </section>
+
+      {/* Prober-health banner. Ransomlook's Tor reachability prober
+          occasionally goes offline — when that happens it stops marking
+          ANY mirror as available, even though the mirrors themselves are
+          fine. The page used to read this as "0% reachable, all sites
+          down" which is technically accurate-by-data but practically
+          misleading. Surface the upstream state honestly: many mirrors
+          and zero reachable is the prober-degraded signal. */}
+      {data && data.total_count >= 20 && data.reachable_count === 0 && (
+        <section className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 mb-6 flex items-start gap-2 font-mono text-sm">
+          <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-amber-800 dark:text-amber-300">
+            <strong>Upstream prober looks degraded.</strong> Ransomlook is reporting 0 reachable mirrors across{' '}
+            {data.total_count} tracked .onion endpoints — this almost always means their Tor reachability prober is
+            offline, not that every leak site is down. The mirror addresses below are still accurate (canonical Tor
+            URLs); just don't trust the green/red dots until Ransomlook's prober recovers.{' '}
+            <a
+              href="https://www.ransomlook.io"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:no-underline"
+            >
+              status.ransomlook.io
+            </a>
+          </div>
+        </section>
+      )}
 
       {/* Filters */}
       <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 mb-6">
