@@ -1,282 +1,123 @@
-import { Linkedin, Github, Mail, Terminal } from 'lucide-react';
+import { Linkedin, Github, Mail, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { personalInfo, stats } from '../../data/content';
 
+/**
+ * Hero — calm, typography-first treatment.
+ *
+ * Single left-aligned column. The headline is plain text (no gradient
+ * effects); status/focus/availability live in a quiet mono key:value
+ * strip below the credo. Stats are an inline strip rather than four
+ * glass cards. The right-side PJ-logo card from the prior design was
+ * removed because it visually competed with the headline.
+ */
 export function Hero() {
   return (
     <section className="relative pt-6 lg:pt-10">
-      <div className="grid items-center gap-12 lg:grid-cols-[1.2fr_0.8fr]">
-        {/* Left Content */}
+      <div className="max-w-3xl">
         <div className="animate-fade-in-up">
-          {/* Badges */}
-          <div className="mb-6 flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-2 rounded-full border border-brand-200/50 bg-brand-50/50 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-brand-700 backdrop-blur-md dark:border-brand-800/50 dark:bg-brand-900/30 dark:text-brand-300">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-500"></span>
-              </span>
-              Certified AI Security Expert
+          {/* Status pill — single, mono, quiet */}
+          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-mono text-emerald-700 dark:text-emerald-300">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200/70 bg-white/70 px-4 py-1.5 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-200">
-              Threat Intelligence
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200/70 bg-white/70 px-4 py-1.5 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-200">
-              Email Defense
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200/70 bg-emerald-50/70 px-4 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm backdrop-blur-xl dark:border-emerald-800/50 dark:bg-emerald-900/30 dark:text-emerald-300">
-              AU Ambassador Program
-            </span>
+            {personalInfo.availability.toLowerCase()}
           </div>
 
-          {/* Headline */}
-          <h1 className="text-3xl font-extrabold leading-[1.2] tracking-tight sm:text-4xl lg:text-5xl text-slate-900 dark:text-white">
-            &quot;Investigating attacks at human scale.{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-brand-400 dark:from-brand-400 dark:to-brand-200">
-              Building defenders at AI scale.
-            </span>
-            &quot;
+          {/* Headline — plain weight, no gradient, no double-quote wrapper */}
+          <h1 className="text-3xl font-bold leading-[1.15] tracking-tight text-slate-900 sm:text-4xl lg:text-5xl dark:text-white">
+            {personalInfo.headline.replace(/^"|"$/g, '')}
           </h1>
 
-          {/* Description */}
-          <p className="mt-8 max-w-2xl text-xl leading-relaxed text-slate-700 dark:text-slate-300">
-            I&apos;m{' '}
-            <span className="font-bold text-slate-900 dark:text-white underline decoration-brand-500/30 underline-offset-4">
-              Pranith Jain
-            </span>
-            , {personalInfo.description}
+          {/* Prose subtitle — same copy, calmer treatment */}
+          <p className="mt-6 text-base leading-relaxed text-slate-700 sm:text-lg dark:text-slate-300">
+            I&apos;m <span className="font-semibold text-slate-900 dark:text-white">{personalInfo.name}</span>,{' '}
+            {personalInfo.description}
           </p>
 
-          {/* Current Focus */}
-          <div className="mt-6 space-y-3">
-            <div className="flex items-center gap-3 text-sm font-medium text-slate-600 dark:text-slate-400">
-              <span className="flex h-2 w-2 rounded-full bg-brand-500"></span>
-              <span>
-                Current Focus:{' '}
-                <span className="text-slate-900 dark:text-white font-semibold italic">{personalInfo.currentFocus}</span>
-              </span>
+          {/* Mono key:value strip — replaces the three colored dot lines */}
+          <dl className="mt-8 grid gap-2 font-mono text-[12px] text-slate-600 dark:text-slate-400">
+            <div className="flex flex-wrap gap-2">
+              <dt className="text-slate-500">focus</dt>
+              <dd className="text-slate-900 dark:text-slate-100">{personalInfo.currentFocus}</dd>
             </div>
-            <div className="flex items-center gap-3 text-sm font-medium text-slate-600 dark:text-slate-400">
-              <span className="flex h-2 w-2 rounded-full bg-cyan-500"></span>
-              <span>
-                Currently Learning:{' '}
-                <span className="text-slate-900 dark:text-white font-semibold italic">
-                  {personalInfo.currentlyLearning}
-                </span>
-              </span>
+            <div className="flex flex-wrap gap-2">
+              <dt className="text-slate-500">learning</dt>
+              <dd className="text-slate-900 dark:text-slate-100">{personalInfo.currentlyLearning}</dd>
             </div>
-            <div className="flex items-center gap-3 text-sm font-medium text-slate-600 dark:text-slate-400">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-500"></span>
-              <span>
-                Availability:{' '}
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{personalInfo.availability}</span>
-              </span>
-            </div>
-          </div>
+          </dl>
 
-          {/* CTA Buttons */}
-          <div className="mt-10 flex flex-wrap gap-4">
+          {/* CTAs — flat borders, no scale animation, no glow */}
+          <div className="mt-10 flex flex-wrap gap-3">
             <a
               href={personalInfo.calendlyUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center justify-center rounded-2xl bg-brand-600 px-8 py-4 text-base font-bold text-white shadow-glow transition hover:bg-brand-500 hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
             >
-              Book Strategy Call
+              Book a call <ArrowRight className="h-3.5 w-3.5" />
             </a>
             <Link
               to="/threatintel"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-300/60 bg-rose-50/70 px-8 py-4 text-base font-bold text-rose-700 shadow-sm transition hover:shadow-md hover:scale-105 active:scale-95 dark:border-rose-700/60 dark:bg-rose-900/30 dark:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-brand-500 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-brand-400 dark:hover:text-brand-300"
             >
-              <Terminal className="h-4 w-4" aria-hidden="true" /> Live Threat Intel
+              /threatintel
             </Link>
             <Link
               to="/dfir"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-brand-300/60 bg-brand-50/70 px-8 py-4 text-base font-bold text-brand-700 shadow-sm transition hover:shadow-md hover:scale-105 active:scale-95 dark:border-brand-700/60 dark:bg-brand-900/30 dark:text-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-brand-500 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-brand-400 dark:hover:text-brand-300"
             >
-              <Terminal className="h-4 w-4" aria-hidden="true" /> DFIR Toolkit
+              /dfir
             </Link>
-            <a
-              href="#skills"
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-200/60 bg-white/70 px-8 py-4 text-base font-bold text-slate-800 shadow-sm transition hover:shadow-md hover:scale-105 active:scale-95 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
-            >
-              Explore Focus Areas
-            </a>
           </div>
 
-          {/* Social Links */}
-          <div className="mt-8 flex items-center gap-6">
+          {/* Socials — smaller, line up with text rhythm */}
+          <div className="mt-8 flex items-center gap-5">
             <a
               href={personalInfo.linkedInUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-slate-500 transition hover:text-brand-600 dark:hover:text-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+              className="rounded text-slate-500 transition hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-brand-400"
               aria-label="LinkedIn"
             >
-              <Linkedin className="h-6 w-6" aria-hidden="true" />
+              <Linkedin className="h-5 w-5" aria-hidden="true" />
             </a>
             <a
               href={personalInfo.githubUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-slate-500 transition hover:text-brand-600 dark:hover:text-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+              className="rounded text-slate-500 transition hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-brand-400"
               aria-label="GitHub"
             >
-              <Github className="h-6 w-6" aria-hidden="true" />
+              <Github className="h-5 w-5" aria-hidden="true" />
             </a>
             <a
               href={`mailto:${personalInfo.email}`}
-              className="text-slate-500 transition hover:text-brand-600 dark:hover:text-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded"
+              className="rounded text-slate-500 transition hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-brand-400"
               aria-label="Email"
             >
-              <Mail className="h-6 w-6" aria-hidden="true" />
+              <Mail className="h-5 w-5" aria-hidden="true" />
             </a>
           </div>
         </div>
-
-        {/* Right Content - Profile Card */}
-        <div className="animate-fade-in-up relative mt-12 lg:mt-0">
-          <div className="glass relative z-10 overflow-hidden rounded-[2.5rem] border-white/20 bg-white/40 shadow-2xl backdrop-blur-3xl dark:border-white/10 dark:bg-slate-900/40">
-            <div className="absolute inset-0 bg-gradient-to-br from-brand-500/10 via-transparent to-brand-500/10"></div>
-
-            <div className="relative p-8 sm:p-10">
-              {/* PJ Logo */}
-              <div className="mb-8 flex items-center justify-center">
-                <span className="h-32 w-32 sm:h-36 sm:w-36 rounded-3xl shadow-glow animate-pulse-slow flex items-center justify-center overflow-hidden">
-                  <svg viewBox="0 0 36 36" className="h-full w-full" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                      <linearGradient id="pjGradientHero" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#2c3ee5" />
-                        <stop offset="100%" stopColor="#435ef1" />
-                      </linearGradient>
-                    </defs>
-                    <rect width="36" height="36" rx="8" fill="url(#pjGradientHero)" />
-                    <text
-                      x="50%"
-                      y="50%"
-                      dominantBaseline="central"
-                      textAnchor="middle"
-                      fill="white"
-                      fontFamily="Poppins, sans-serif"
-                      fontWeight="800"
-                      fontSize="16"
-                    >
-                      PJ
-                    </text>
-                  </svg>
-                </span>
-              </div>
-
-              <div className="flex items-center gap-5">
-                <div className="relative">
-                  <span className="h-16 w-16 rounded-2xl shadow-lg flex items-center justify-center overflow-hidden">
-                    <svg viewBox="0 0 36 36" className="h-full w-full" xmlns="http://www.w3.org/2000/svg">
-                      <defs>
-                        <linearGradient id="pjGradientAvatar" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor="#2c3ee5" />
-                          <stop offset="100%" stopColor="#435ef1" />
-                        </linearGradient>
-                      </defs>
-                      <rect width="36" height="36" rx="8" fill="url(#pjGradientAvatar)" />
-                      <text
-                        x="50%"
-                        y="50%"
-                        dominantBaseline="central"
-                        textAnchor="middle"
-                        fill="white"
-                        fontFamily="Poppins, sans-serif"
-                        fontWeight="800"
-                        fontSize="16"
-                      >
-                        PJ
-                      </text>
-                    </svg>
-                  </span>
-                  <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-4 border-white bg-emerald-500 dark:border-slate-900"></div>
-                </div>
-                <div>
-                  <div className="text-xl font-bold text-slate-900 dark:text-white">{personalInfo.name}</div>
-                  <div className="text-sm font-medium text-brand-600 dark:text-brand-400">
-                    {personalInfo.shortTitle}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 border-t border-slate-200/60 pt-6 dark:border-white/10">
-                <div className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-3">Quick Links</div>
-                <div className="flex flex-wrap gap-2">
-                  <a
-                    href={`mailto:${personalInfo.email}`}
-                    className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
-                  >
-                    Email
-                  </a>
-                  <a
-                    href="#contact"
-                    className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
-                  >
-                    Contact
-                  </a>
-                  <a
-                    href={personalInfo.linkedInUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
-                  >
-                    LinkedIn
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Decorative Background Elements */}
-          <div className="absolute -right-12 -top-12 -z-10 h-64 w-64 rounded-full bg-brand-500/20 blur-3xl"></div>
-          <div className="absolute -bottom-8 -left-8 -z-10 h-40 w-40 rounded-full bg-emerald-500/10 blur-2xl"></div>
-        </div>
       </div>
 
-      {/* Stats Section */}
-      <div className="animate-fade-in-up mt-20 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Inline stats strip — replaces 4 giant glass cards */}
+      <dl className="animate-fade-in-up mt-16 grid grid-cols-2 gap-x-8 gap-y-4 border-t border-slate-200 pt-8 sm:grid-cols-4 dark:border-slate-800">
         {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="animate-fade-in-up group glass relative overflow-hidden rounded-3xl p-8 transition-all hover:shadow-glow hover:-translate-y-1"
-          >
-            <div className="absolute right-0 top-0 -mr-4 -mt-4 h-24 w-24 rounded-full bg-brand-500/5 transition-transform group-hover:scale-150"></div>
-            <div className="relative">
-              <div className="text-sm font-bold uppercase tracking-[0.15em] text-slate-600 dark:text-slate-400">
-                {stat.label}
-              </div>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-4xl font-black tracking-tight text-slate-900 dark:text-white">{stat.value}</span>
-                {stat.suffix && <span className="text-sm font-bold text-emerald-500">{stat.suffix}</span>}
-              </div>
-              <p className="mt-3 text-xs font-medium text-slate-600 leading-relaxed">{stat.description}</p>
-              {stat.badge && (
-                <div className="mt-3 flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span>{stat.badge}</span>
-                </div>
-              )}
-              {stat.progress !== undefined && (
-                <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400"
-                    style={{ width: `${stat.progress}%` }}
-                  ></div>
-                </div>
-              )}
-            </div>
+          <div key={stat.label} className="flex flex-col">
+            <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-500">{stat.label}</dt>
+            <dd className="mt-1 flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white">
+                {stat.value}
+              </span>
+              {stat.suffix && <span className="text-xs font-mono text-slate-500">{stat.suffix}</span>}
+            </dd>
+            <p className="mt-1 text-[11px] leading-snug text-slate-600 dark:text-slate-400">{stat.description}</p>
           </div>
         ))}
-      </div>
+      </dl>
     </section>
   );
 }

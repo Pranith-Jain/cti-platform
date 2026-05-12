@@ -10,43 +10,44 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Mail,
 };
 
+/**
+ * Experience — restrained cards. Mono metadata row above the role title
+ * for date / company. Subsections render as small caps headers with
+ * tight bullet lists.
+ */
 export function Experience() {
   return (
     <section id="experience" className="mt-20 scroll-mt-24">
-      {/* Header */}
-      <div className="mb-12 max-w-2xl">
-        <div className="animate-fade-in-up mb-3 text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">
+      <div className="mb-10 max-w-3xl">
+        <div className="animate-fade-in-up mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">
           Experience
         </div>
-        <h2 className="animate-fade-in-up text-3xl font-extrabold tracking-tight sm:text-4xl text-slate-900 dark:text-white">
+        <h2 className="animate-fade-in-up text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl dark:text-white">
           Experience highlights
         </h2>
       </div>
 
-      {/* Experience Cards */}
-      <div className="animate-fade-in-up grid gap-8">
+      <div className="grid gap-5">
         {experiences.map((exp, index) => (
-          <div
+          <article
             key={`${exp.title}-${index}`}
-            className="animate-fade-in-up glass rounded-2xl p-6 shadow-sm transition-all hover:shadow-md"
+            className="animate-fade-in-up rounded-xl border border-slate-200 bg-white p-5 transition hover:border-brand-500/40 dark:border-slate-800 dark:bg-slate-900"
           >
-            {/* Header */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-4">
+            <header className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:justify-between">
               <div>
                 <div className="text-base font-semibold text-slate-900 dark:text-white">{exp.title}</div>
-                <div className="text-sm text-slate-700 dark:text-slate-300">
+                <div className="mt-0.5 font-mono text-[12px] text-slate-600 dark:text-slate-400">
                   {exp.company}
-                  {exp.location && ` • ${exp.location}`} • {exp.period}
+                  {exp.location && ` · ${exp.location}`} · {exp.period}
                 </div>
               </div>
               {exp.badge && (
-                <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                <span className="inline-flex shrink-0 items-center self-start rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] text-emerald-700 dark:text-emerald-300">
                   {exp.badge}
                 </span>
               )}
-            </div>
+            </header>
 
-            {/* Sections (for main experience) */}
             {exp.sections &&
               exp.sections.map((section, sIndex) => {
                 const IconComponent = iconMap[section.icon];
@@ -58,16 +59,16 @@ export function Experience() {
                   <div
                     key={section.title}
                     id={sectionId}
-                    className={`scroll-mt-28 ${sIndex < exp.sections!.length - 1 ? 'mb-5' : ''}`}
+                    className={`scroll-mt-28 ${sIndex < exp.sections!.length - 1 ? 'mb-4' : ''}`}
                   >
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 mb-2 flex items-center gap-2">
-                      {IconComponent && <IconComponent className="w-4 h-4" />}
+                    <h4 className="mb-1.5 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-brand-600 dark:text-brand-400">
+                      {IconComponent && <IconComponent className="h-3 w-3" />}
                       {section.title}
                     </h4>
-                    <ul className="space-y-2 text-sm text-slate-700 dark:text-slate-300 ml-6">
+                    <ul className="space-y-1.5 text-[13px] text-slate-700 dark:text-slate-300">
                       {section.items.map((item, iIndex) => (
                         <li key={iIndex} className="relative pl-4">
-                          <span className="absolute left-0 text-brand-600 dark:text-brand-300">•</span>
+                          <span className="absolute left-0 top-1.5 inline-block h-1 w-1 rounded-full bg-brand-500" />
                           {item}
                         </li>
                       ))}
@@ -76,18 +77,17 @@ export function Experience() {
                 );
               })}
 
-            {/* Items (for other experiences) */}
             {exp.items && (
-              <ul className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
+              <ul className="space-y-1.5 text-[13px] text-slate-700 dark:text-slate-300">
                 {exp.items.map((item, iIndex) => (
                   <li key={iIndex} className="relative pl-4">
-                    <span className="absolute left-0 text-brand-600 dark:text-brand-300">•</span>
+                    <span className="absolute left-0 top-1.5 inline-block h-1 w-1 rounded-full bg-brand-500" />
                     {item}
                   </li>
                 ))}
               </ul>
             )}
-          </div>
+          </article>
         ))}
       </div>
     </section>

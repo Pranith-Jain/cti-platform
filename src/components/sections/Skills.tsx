@@ -10,40 +10,43 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Zap,
 };
 
+/**
+ * Skills — tighter cards, less chrome. Each card is a small panel with
+ * an icon and a bullet list. No hover-glow, no -translate, no rounded-3xl.
+ * The eyebrow uses mono caps (same rhythm as Hero/About).
+ */
 export function Skills() {
   return (
-    <section id="skills" className="mt-32 scroll-mt-24">
-      {/* Header */}
-      <div className="mb-16 max-w-3xl">
-        <div className="animate-fade-in-up mb-3 text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">
+    <section id="skills" className="mt-24 scroll-mt-24">
+      <div className="mb-10 max-w-3xl">
+        <div className="animate-fade-in-up mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">
           Expertise
         </div>
-        <h2 className="animate-fade-in-up text-4xl font-extrabold tracking-tight sm:text-5xl text-slate-900 dark:text-white">
-          Core Competencies
+        <h2 className="animate-fade-in-up text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl dark:text-white">
+          Core competencies
         </h2>
-        <p className="animate-fade-in-up mt-4 text-lg text-slate-700 dark:text-slate-400">
-          Focused on threat intelligence, cyber criminology, email security, and cloud identity defense.
+        <p className="animate-fade-in-up mt-3 text-base text-slate-700 dark:text-slate-400">
+          Threat intelligence, cyber criminology, email security, and cloud identity defense.
         </p>
       </div>
 
-      {/* Skills Grid */}
-      <div className="animate-fade-in-up grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="animate-fade-in-up grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {skills.map((skill) => {
           const IconComponent = iconMap[skill.icon];
           return (
             <div
               key={skill.title}
-              className="animate-fade-in-up group glass rounded-3xl p-8 transition-all duration-300 hover:shadow-glow hover:-translate-y-1 hover:border-brand-500/40 h-full flex flex-col"
+              className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 transition hover:border-brand-500/50 dark:border-slate-800 dark:bg-slate-900"
             >
-              <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 transition-colors group-hover:bg-brand-600 group-hover:text-white dark:bg-brand-900/30 dark:text-brand-300">
-                {IconComponent && <IconComponent className="h-6 w-6" aria-hidden="true" />}
+              <div className="mb-4 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
+                {IconComponent && <IconComponent className="h-4 w-4" aria-hidden="true" />}
               </div>
-              <div className="text-xl font-bold text-slate-900 dark:text-white">{skill.title}</div>
-              <ul className="mt-4 space-y-3 text-sm text-slate-700 dark:text-slate-400">
+              <div className="text-sm font-semibold text-slate-900 dark:text-white">{skill.title}</div>
+              <ul className="mt-3 space-y-1.5 text-[13px] text-slate-700 dark:text-slate-400">
                 {skill.items.map((item) => (
-                  <li key={item} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-brand-500"></span>
-                    {item}
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-brand-500" />
+                    <span>{item}</span>
                   </li>
                 ))}
               </ul>
