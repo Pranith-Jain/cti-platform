@@ -268,11 +268,39 @@ async function getOrInjectOg(request: Request, env: Env, ctx: ExecutionContext, 
  */
 // Cloudflare Assets canonicalizes `*.html` paths by redirecting to the
 // extension-less form (e.g. /foo.html → 307 /foo). env.ASSETS.fetch()
-// returns the redirect verbatim and our code doesn't follow it, which
-// caused Phase 2 to silently serve the SPA shell instead of the
-// prerendered HTML. Fetching the canonical (extension-less) URL works
-// around it — the file is still at __prerendered/home.html on disk.
-const PRERENDERED_ROUTES = new Map<string, string>([['/', '/__prerendered/home']]);
+// returns the redirect verbatim and our code doesn't follow it, so we
+// have to ask for the canonical (extension-less) URL directly. The
+// file is still at __prerendered/<slug>.html on disk.
+//
+// Slug rule (must match scripts/prerender.mjs): '/' → 'home',
+// '/dfir/diamond' → 'dfir__diamond' (slashes replaced with double
+// underscore to avoid creating nested directories).
+const PRERENDERED_ROUTES = new Map<string, string>([
+  // Portfolio
+  ['/', '/__prerendered/home'],
+  ['/about', '/__prerendered/about'],
+  ['/skills', '/__prerendered/skills'],
+  ['/experience', '/__prerendered/experience'],
+  ['/projects', '/__prerendered/projects'],
+  // Landings
+  ['/dfir', '/__prerendered/dfir'],
+  ['/threatintel', '/__prerendered/threatintel'],
+  // Catalogs / education
+  ['/threatintel/wiki', '/__prerendered/threatintel__wiki'],
+  ['/threatintel/awesome-lists', '/__prerendered/threatintel__awesome-lists'],
+  ['/threatintel/secops-tools', '/__prerendered/threatintel__secops-tools'],
+  ['/threatintel/cve-resources', '/__prerendered/threatintel__cve-resources'],
+  ['/threatintel/osint-framework', '/__prerendered/threatintel__osint-framework'],
+  ['/dfir/diamond', '/__prerendered/dfir__diamond'],
+  ['/dfir/owasp', '/__prerendered/dfir__owasp'],
+  ['/dfir/lolbins', '/__prerendered/dfir__lolbins'],
+  // Frameworks / training
+  ['/dfir/kill-chain', '/__prerendered/dfir__kill-chain'],
+  ['/dfir/tabletop', '/__prerendered/dfir__tabletop'],
+  ['/dfir/grc', '/__prerendered/dfir__grc'],
+  ['/dfir/data-classification', '/__prerendered/dfir__data-classification'],
+  ['/dfir/privacy-hub', '/__prerendered/dfir__privacy-hub'],
+]);
 
 async function fetchPrerenderedOrShell(request: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
   const prerenderedPath = PRERENDERED_ROUTES.get(url.pathname);

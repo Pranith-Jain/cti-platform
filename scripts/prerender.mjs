@@ -25,9 +25,41 @@ import { dirname, resolve } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 
-// Phase 1: just the home route. Phase 3 will expand this list to all
-// static-content routes after the model is proven on Phase 2.
-const ROUTES = ['/'];
+// Phase 3 (2026-05-12): expanded from `/` only to a batch of 20 static-
+// content routes. Each was verified to make 0 /api/v1/ calls on mount,
+// so renderToString actually produces useful content (not data-loading
+// fallback states).
+//
+// Routes that fetch data on mount stay SPA-only — they'd just render
+// empty containers in the prerender, which would HURT performance via
+// hydration cost. Phase 4 (runtime SSR with data loaders) is the path
+// for those.
+const ROUTES = [
+  // Portfolio (5)
+  '/',
+  '/about',
+  '/skills',
+  '/experience',
+  '/projects',
+  // Landings (2)
+  '/dfir',
+  '/threatintel',
+  // Static catalogs / education (8)
+  '/threatintel/wiki',
+  '/threatintel/awesome-lists',
+  '/threatintel/secops-tools',
+  '/threatintel/cve-resources',
+  '/threatintel/osint-framework',
+  '/dfir/diamond',
+  '/dfir/owasp',
+  '/dfir/lolbins',
+  // Frameworks / training (5)
+  '/dfir/kill-chain',
+  '/dfir/tabletop',
+  '/dfir/grc',
+  '/dfir/data-classification',
+  '/dfir/privacy-hub',
+];
 
 const SHELL_PATH = resolve(ROOT, 'dist/index.html');
 const SERVER_BUNDLE = resolve(ROOT, '.ssr-build/entry-server.js');
@@ -64,7 +96,9 @@ async function main() {
   let okCount = 0;
   for (const route of ROUTES) {
     try {
-      const { html: appHtml } = render(route);
+      // render() is async since Phase 3 — we use renderToReadableStream
+      // so React awaits every Suspense boundary (lazy routes, lazy data).
+      const { html: appHtml } = await render(route);
       const finalHtml = shell.replace(/<div id="root"><\/div>/, `<div id="root">${appHtml}</div>`);
       if (finalHtml === shell) {
         throw new Error('prerender: shell did not contain <div id="root"></div> placeholder');

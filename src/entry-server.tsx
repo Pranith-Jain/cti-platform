@@ -1,32 +1,39 @@
 import { StrictMode } from 'react';
-import { renderToString } from 'react-dom/server';
+// react-dom/server (Node CJS) only exports renderToString / renderToPipeableStream.
+// renderToReadableStream lives in react-dom/server.browser (Web Streams API)
+// which works in Node 18+ via the global Response/ReadableStream.
+import { renderToReadableStream } from 'react-dom/server.browser';
 import { StaticRouter } from 'react-router-dom/server';
 import { AppContent } from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 
 /**
- * SSR entry point. Builds via `vite build --ssr src/entry-server.tsx`
- * into `dist/server/entry-server.js`.
+ * SSR entry point — Phase 3 streaming refactor (2026-05-12).
  *
- * The prerender script (scripts/prerender.mjs) imports the built bundle's
- * `render()` and calls it per-route to produce static HTML.
+ * Phase 1/2 used `renderToString` which doesn't await Suspense boundaries.
+ * Every route under <Suspense fallback={...}><LazyRoute /></Suspense> in
+ * App.tsx came out as the SectionLoader spinner instead of real content.
+ * Only the Home route worked, because Home itself is eagerly imported.
  *
- * Phase 1 limitation: we render to string (not stream) and do not run any
- * data loaders. Components that fetch via useEffect see no data during
- * SSR — only the markup wrapper renders. Client takes over on hydration
- * and fetches the data normally. That alone is enough to fix FCP/LCP on
- * content-driven pages; data-driven pages (cve-list, briefings) won't see
- * a Lighthouse improvement until Phase 4 (runtime SSR with data loaders).
+ * Switching to `renderToReadableStream` + `stream.allReady` makes React
+ * actually walk through every Suspense boundary, await every lazy
+ * import(), and emit the resolved content. The stream is then collected
+ * into a string via Response(stream).text().
+ *
+ * Cost: render() is now async. The prerender script awaits each route.
+ * The dynamic imports each lazy() makes also fire during Node SSR — Vite
+ * emits each as a separate chunk in .ssr-build/assets/ and Node loads
+ * them on demand. Total prerender time scales with route count.
  */
 
 export interface RenderResult {
-  /** Server-rendered HTML for the page body (will be injected into index.html). */
+  /** Server-rendered HTML for the page body (injected into index.html). */
   html: string;
 }
 
-export function render(url: string): RenderResult {
-  const html = renderToString(
+export async function render(url: string): Promise<RenderResult> {
+  const stream = await renderToReadableStream(
     <StrictMode>
       <ErrorBoundary>
         <StaticRouter location={url}>
@@ -35,5 +42,9 @@ export function render(url: string): RenderResult {
       </ErrorBoundary>
     </StrictMode>
   );
+  // Wait for every Suspense boundary in the tree to resolve. Without this
+  // we'd get the same fallback-only output renderToString produced.
+  await stream.allReady;
+  const html = await new Response(stream).text();
   return { html };
 }
