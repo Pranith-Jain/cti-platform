@@ -5,9 +5,10 @@ import { RansomwareActivityPanel } from '../dfir/DarkWeb';
 /**
  * Live ransomware activity page. Thin wrapper around the
  * `RansomwareActivityPanel` widget that also lives on the unified
- * /threatintel/darkweb view — same data (Ransomlook leak posts), just
- * presented standalone with its own page chrome so the LiveSnapshotPanel
- * "feed" link lands somewhere focused.
+ * /threatintel/darkweb view. Backend merges victim claims across four
+ * trackers (Ransomlook + mythreatintel + ransomfeed.it + ransomwatch);
+ * the panel dedupes by (group + victim + day) and surfaces ~60 most
+ * recent rows.
  */
 export default function RansomwareActivity(): JSX.Element {
   return (
@@ -24,7 +25,7 @@ export default function RansomwareActivity(): JSX.Element {
           <Activity size={28} className="text-brand-600 dark:text-brand-400" /> Live ransomware activity
         </h1>
         <p className="text-slate-600 dark:text-slate-400 font-mono mb-2 max-w-3xl">
-          Recent ransomware leak-site claims aggregated from{' '}
+          Recent ransomware leak-site claims merged across four trackers —{' '}
           <a
             href="https://www.ransomlook.io/"
             target="_blank"
@@ -32,9 +33,37 @@ export default function RansomwareActivity(): JSX.Element {
             className="text-brand-600 dark:text-brand-400 hover:underline"
           >
             Ransomlook
-          </a>{' '}
-          (~100 most-recent victim posts, refreshed hourly server-side). Per-victim screenshots when Ransomlook has
-          captured one. Reference only; verify before acting.
+          </a>
+          ,{' '}
+          <a
+            href="https://t.me/mythreatintel"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-600 dark:text-brand-400 hover:underline"
+          >
+            mythreatintel
+          </a>
+          ,{' '}
+          <a
+            href="https://www.ransomfeed.it/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-600 dark:text-brand-400 hover:underline"
+          >
+            ransomfeed.it
+          </a>
+          , and{' '}
+          <a
+            href="https://github.com/joshhighet/ransomwatch"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-600 dark:text-brand-400 hover:underline"
+          >
+            ransomwatch
+          </a>
+          . Deduped by (group + victim + day), newest first. Per-victim screenshots when Ransomlook has captured one;
+          the other trackers fill coverage gaps and keep the page populated when any single source is degraded.
+          Reference only; verify before acting.
         </p>
         <p className="text-xs text-slate-500 dark:text-slate-500 font-mono mb-8">Refreshed hourly from upstream.</p>
       </div>
