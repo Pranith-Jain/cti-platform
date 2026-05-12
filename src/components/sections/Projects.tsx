@@ -14,7 +14,11 @@ function ProjectCard({ project }: ProjectCardProps): JSX.Element {
   const needsToggle = project.description.length > TRUNCATE_THRESHOLD;
 
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-5 transition hover:border-brand-500/40 dark:border-slate-800 dark:bg-slate-900">
+    <article className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand-500/40 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div
+        className="absolute right-0 top-0 -mr-12 -mt-12 h-32 w-32 rounded-full bg-brand-500/[0.04] transition-transform group-hover:scale-125"
+        aria-hidden="true"
+      />
       <header className="flex items-baseline justify-between gap-3">
         <h3 className="text-base font-semibold text-slate-900 dark:text-white">{project.title}</h3>
         {project.badge && (

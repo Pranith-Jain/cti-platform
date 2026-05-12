@@ -31,8 +31,13 @@ export function Experience() {
         {experiences.map((exp, index) => (
           <article
             key={`${exp.title}-${index}`}
-            className="animate-fade-in-up rounded-xl border border-slate-200 bg-white p-5 transition hover:border-brand-500/40 dark:border-slate-800 dark:bg-slate-900"
+            className="animate-fade-in-up relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 pl-6 transition hover:border-brand-500/40 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
           >
+            {/* Left accent rail */}
+            <div
+              className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand-500 to-brand-400"
+              aria-hidden="true"
+            />
             <header className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:justify-between">
               <div>
                 <div className="text-base font-semibold text-slate-900 dark:text-white">{exp.title}</div>
