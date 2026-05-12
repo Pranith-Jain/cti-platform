@@ -351,7 +351,7 @@ export const TOOLS: Tool[] = [
     url: 'https://abuse.ch',
     categories: ['threat-intel'],
     pricing: 'free',
-    description: 'URLhaus / MalwareBazaar / ThreatFox / Feodo Tracker — free IOC feeds. Free API key on signup.',
+    description: 'URLhaus / MalwareBazaar / ThreatFox — free IOC feeds. Free API key on signup.',
     badge: 'essential',
   },
   {

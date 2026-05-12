@@ -297,7 +297,7 @@ function Diamond(): JSX.Element {
       if (type === 'ip' || type === 'ipv6') {
         const [iocRes, geoRes, corrRes] = await Promise.allSettled([
           fetch(
-            `/api/v1/ioc/check?indicator=${encodeURIComponent(value)}&providers=greynoise,abuseipdb,otx,feodo,cinsarmy`
+            `/api/v1/ioc/check?indicator=${encodeURIComponent(value)}&providers=greynoise,abuseipdb,otx,threatfox,cinsarmy`
           ),
           fetch(`/api/v1/ip-geo?ip=${encodeURIComponent(value)}`),
           fetch('/api/v1/ioc-correlation'),

@@ -7,7 +7,6 @@ export type ProviderId =
   | 'otx'
   | 'urlscan'
   | 'hybridanalysis'
-  | 'feodo'
   | 'spamhaus'
   | 'tor'
   | 'doh'
@@ -69,7 +68,6 @@ export const PROVIDER_SUPPORT: Record<ProviderId, IndicatorType[]> = {
   otx: ['ipv4', 'ipv6', 'domain', 'url', 'hash'],
   urlscan: ['url', 'domain'],
   hybridanalysis: ['hash'],
-  feodo: ['ipv4', 'ipv6'],
   spamhaus: ['ipv4'],
   tor: ['ipv4'],
   doh: ['domain'],

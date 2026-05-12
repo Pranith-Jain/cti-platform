@@ -805,14 +805,14 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
   // the briefing window can date-filter it. Snapshot blocklists (Blocklist.de, Binary
   // Defense, Ipsum, Phishing Army, Bitwire) were removed because they publish a
   // current-state list with no per-IP "first seen" — they inflated IOC counts on quiet
-  // KEV days and made daily briefings look richer than they were.
-  const [kev, urlhaus, malwarebazaar, threatfox, openphish, feodo, tweetfeed, nvdRecent] = await Promise.all([
+  // KEV days and made daily briefings look richer than they were. Feodo Tracker
+  // (2026-05-12) was removed for the same reason: upstream publication had stopped.
+  const [kev, urlhaus, malwarebazaar, threatfox, openphish, tweetfeed, nvdRecent] = await Promise.all([
     fetchKev().catch(() => [] as KevEntry[]),
     fetchAbuseFeed('urlhaus').catch(() => [] as IocEntry[]),
     fetchAbuseFeed('malwarebazaar').catch(() => [] as IocEntry[]),
     fetchAbuseFeed('threatfox').catch(() => [] as IocEntry[]),
     fetchAbuseFeed('openphish').catch(() => [] as IocEntry[]),
-    fetchAbuseFeed('feodo').catch(() => [] as IocEntry[]),
     fetchAbuseFeed('tweetfeed').catch(() => [] as IocEntry[]),
     fetchNvdRecent(rangeStart, rangeEnd).catch(() => [] as NvdCve[]),
   ]);
@@ -843,13 +843,11 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
   const malwarebazaarMatched = malwarebazaar.filter(matchTimestamp);
   const threatfoxMatched = threatfox.filter(matchTimestamp);
   const openphishMatched = openphish.filter(matchTimestamp);
-  const feodoMatched = feodo.filter(matchTimestamp);
   const tweetfeedMatched = tweetfeed.filter(matchTimestamp);
   if (urlhausMatched.length > 0) iocPerSource['URLhaus'] = urlhausMatched.length;
   if (malwarebazaarMatched.length > 0) iocPerSource['MalwareBazaar'] = malwarebazaarMatched.length;
   if (threatfoxMatched.length > 0) iocPerSource['ThreatFox'] = threatfoxMatched.length;
   if (openphishMatched.length > 0) iocPerSource['OpenPhish'] = openphishMatched.length;
-  if (feodoMatched.length > 0) iocPerSource['Feodo Tracker'] = feodoMatched.length;
   if (tweetfeedMatched.length > 0) iocPerSource['TweetFeed'] = tweetfeedMatched.length;
 
   // Windowed feeds only — every entry carries a per-IOC timestamp inside the
@@ -859,7 +857,6 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
     ...malwarebazaarMatched,
     ...threatfoxMatched,
     ...openphishMatched,
-    ...feodoMatched,
     ...tweetfeedMatched,
   ];
 
@@ -877,7 +874,6 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
   if (urlhausMatched.length > 0) iocSources.push('URLhaus');
   if (malwarebazaarMatched.length > 0) iocSources.push('MalwareBazaar');
   if (threatfoxMatched.length > 0) iocSources.push('ThreatFox');
-  if (feodoMatched.length > 0) iocSources.push('Feodo Tracker');
   if (openphishMatched.length > 0) iocSources.push('OpenPhish');
   if (tweetfeedMatched.length > 0) iocSources.push('TweetFeed');
 

@@ -1,7 +1,6 @@
 import type { Context } from 'hono';
 import type { Env } from '../env';
 import {
-  parseFeodo,
   parseUrlhaus,
   parseThreatfox,
   parseIpsum,
@@ -14,7 +13,7 @@ import { trackEvent, visitorCountry } from '../lib/analytics';
  * Cyber Threat Map
  *
  * Aggregates current malicious infrastructure indicators across IOC types:
- *   - IPs from Feodo, URLhaus, ThreatFox, Ipsum, CINS Army, Bitwire — each
+ *   - IPs from URLhaus, ThreatFox, Ipsum, CINS Army, Bitwire — each
  *     batch-geolocated via ip-api.com and aggregated by country for the map.
  *   - URLs from URLhaus + ThreatFox.
  *   - Domains from ThreatFox.
@@ -24,7 +23,7 @@ import { trackEvent, visitorCountry } from '../lib/analytics';
  */
 
 /** Exported so /api/v1/snapshot can read the same cached payload directly. */
-export const THREAT_MAP_CACHE_KEY = 'https://threat-map-cache.internal/v3-multitype';
+export const THREAT_MAP_CACHE_KEY = 'https://threat-map-cache.internal/v4-no-feodo';
 const CACHE_KEY = THREAT_MAP_CACHE_KEY;
 const CACHE_TTL_SECONDS = 3600;
 const MAX_IPS = 500; // ip-api.com batch is 100; we'll do up to 5 batches
@@ -128,16 +127,14 @@ async function geolocateBatch(ips: string[]): Promise<Map<string, { country: str
  */
 export async function fetchThreatMap(): Promise<ThreatMapResponse> {
   // Fan out to all IOC feeds we have access to, in parallel.
-  const [feodoText, urlhausText, threatfoxText, ipsumText, cinsText, bitwireText, malwarebazaarText] =
-    await Promise.all([
-      fetchText('https://feodotracker.abuse.ch/downloads/ipblocklist.csv'),
-      fetchText('https://urlhaus.abuse.ch/downloads/csv_recent/'),
-      fetchText('https://threatfox.abuse.ch/export/csv/recent/'),
-      fetchText('https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt'),
-      fetchText('https://cinsscore.com/list/ci-badguys.txt'),
-      fetchText('https://raw.githubusercontent.com/bitwire-it/ipblocklist/main/outbound.txt'),
-      fetchText('https://bazaar.abuse.ch/export/csv/recent/'),
-    ]);
+  const [urlhausText, threatfoxText, ipsumText, cinsText, bitwireText, malwarebazaarText] = await Promise.all([
+    fetchText('https://urlhaus.abuse.ch/downloads/csv_recent/'),
+    fetchText('https://threatfox.abuse.ch/export/csv/recent/'),
+    fetchText('https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt'),
+    fetchText('https://cinsscore.com/list/ci-badguys.txt'),
+    fetchText('https://raw.githubusercontent.com/bitwire-it/ipblocklist/main/outbound.txt'),
+    fetchText('https://bazaar.abuse.ch/export/csv/recent/'),
+  ]);
 
   // Build a map of IP → set of sources, capped at MAX_IPS unique IPs.
   const ipSources = new Map<string, Set<string>>();
@@ -147,11 +144,6 @@ export async function fetchThreatMap(): Promise<ThreatMapResponse> {
     ipSources.get(ip)!.add(source);
   };
 
-  if (feodoText) {
-    for (const e of parseFeodo(feodoText, 80)) {
-      if (e.type === 'ipv4') addIp(e.value, 'feodo');
-    }
-  }
   if (urlhausText) {
     // URLhaus entries are URLs; extract host and only add if it parses as IPv4.
     for (const e of parseUrlhaus(urlhausText, 200)) {
@@ -187,7 +179,6 @@ export async function fetchThreatMap(): Promise<ThreatMapResponse> {
   const byCountry = new Map<string, CountryAgg>();
   const samples: ThreatMapResponse['samples'] = [];
   const sourceCounts: Record<string, number> = {
-    feodo: 0,
     urlhaus: 0,
     threatfox: 0,
     ipsum: 0,

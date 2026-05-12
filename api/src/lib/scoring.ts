@@ -8,7 +8,6 @@ const WEIGHTS: Record<IndicatorType, Partial<Record<ProviderId, number>>> = {
     shodan: 2,
     virustotal: 1,
     otx: 1,
-    feodo: 4,
     spamhaus: 4,
     threatfox: 4,
     urlhaus: 3,
@@ -30,7 +29,6 @@ const WEIGHTS: Record<IndicatorType, Partial<Record<ProviderId, number>>> = {
     shodan: 2,
     virustotal: 1,
     otx: 1,
-    feodo: 4,
     threatfox: 4,
     greynoise: 2,
   },
@@ -92,7 +90,7 @@ export interface CompositeScore {
  *   2. After the bias, take the max of (biased floor, weighted average).
  *   3. Verdict thresholds unchanged: ≥70 malicious, ≥40 suspicious, else clean.
  *
- * Example (user's report): feodo 90 + bitwire 80 + otx 80 with 13 zeros →
+ * Example (user's report): spamhaus 90 + bitwire 80 + otx 80 with 13 zeros →
  *   weightedAvg ≈ 17, but two strong hits ⇒ score floor 75 → verdict malicious.
  */
 export function compositeScore(type: IndicatorType, results: ProviderResult[]): CompositeScore {

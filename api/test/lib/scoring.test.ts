@@ -39,7 +39,7 @@ describe('compositeScore', () => {
       ok('virustotal', 30),
       ok('abuseipdb', 30),
       ok('shodan', 30),
-      ok('feodo', 30),
+      ok('threatfox', 30),
       ok('otx', 30),
     ]);
     const med = compositeScore('ipv4', [ok('virustotal', 30), ok('abuseipdb', 30), ok('shodan', 30)]);

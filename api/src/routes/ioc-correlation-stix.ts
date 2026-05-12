@@ -112,7 +112,6 @@ function patternFor(
 
 /** External-reference URLs for the upstream sources we know how to link out to. */
 const SOURCE_PORTAL: Record<string, { name: string; url?: string }> = {
-  feodo: { name: 'Abuse.ch Feodo Tracker', url: 'https://feodotracker.abuse.ch/' },
   urlhaus: { name: 'Abuse.ch URLhaus', url: 'https://urlhaus.abuse.ch/' },
   threatfox: { name: 'Abuse.ch ThreatFox', url: 'https://threatfox.abuse.ch/' },
   malwarebazaar: { name: 'Abuse.ch MalwareBazaar', url: 'https://bazaar.abuse.ch/' },

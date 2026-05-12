@@ -81,7 +81,7 @@ export function About() {
                 <div className="text-emerald-400">streaming verdicts…</div>
                 <div className="text-slate-400">virustotal · clean · 0/92</div>
                 <div className="text-slate-400">abuseipdb · clean · 0%</div>
-                <div className="text-slate-400">feodo · clean · 0/list</div>
+                <div className="text-slate-400">threatfox · clean · 0/list</div>
                 <div className="text-slate-400">spamhaus · clean · 0/1626</div>
                 <div className="text-slate-400">greynoise · clean · RIOT</div>
                 <div className="text-slate-500">…18 more sources…</div>

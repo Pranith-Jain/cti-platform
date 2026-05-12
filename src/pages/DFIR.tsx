@@ -15,7 +15,6 @@ const PROVIDER_GROUPS: { label: string; items: string[] }[] = [
   {
     label: 'Public lists & DoH (no signup)',
     items: [
-      'Feodo Tracker',
       'Spamhaus',
       'Tor Exit',
       'OpenPhish',

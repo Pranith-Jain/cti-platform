@@ -275,10 +275,9 @@ export default function ThreatMap(): JSX.Element {
           <Globe size={28} className="text-brand-600 dark:text-brand-400" /> Cyber Threat Map
         </h1>
         <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-3xl">
-          Live distribution of malicious infrastructure across IPs, URLs, domains, and file hashes. Sources: Feodo
-          Tracker, URLhaus, ThreatFox, Ipsum (3+ source consensus), CINS Army, Bitwire, and MalwareBazaar. IPs are
-          geolocated and aggregated by country; URLs / domains / hashes appear in dedicated panels. Refreshes hourly,
-          real data.
+          Live distribution of malicious infrastructure across IPs, URLs, domains, and file hashes. Sources: URLhaus,
+          ThreatFox, Ipsum (3+ source consensus), CINS Army, Bitwire, and MalwareBazaar. IPs are geolocated and
+          aggregated by country; URLs / domains / hashes appear in dedicated panels. Refreshes hourly, real data.
         </p>
       </div>
 

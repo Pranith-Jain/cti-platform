@@ -7,7 +7,6 @@ export type SourceId =
   | 'urlhaus'
   | 'malwarebazaar'
   | 'threatfox'
-  | 'feodo'
   | 'openphish'
   | 'cisa-kev'
   | 'blocklist-de'
@@ -44,7 +43,6 @@ export const FEED_SOURCES: FeedSourceMeta[] = [
   { id: 'urlhaus', label: 'URLhaus', iocType: 'url' },
   { id: 'malwarebazaar', label: 'MalwareBazaar', iocType: 'hash' },
   { id: 'threatfox', label: 'ThreatFox', iocType: 'mixed' },
-  { id: 'feodo', label: 'Feodo Tracker', iocType: 'ipv4' },
   { id: 'openphish', label: 'OpenPhish', iocType: 'url' },
   { id: 'cisa-kev', label: 'CISA KEV', iocType: 'cve' },
   { id: 'blocklist-de', label: 'Blocklist.de', iocType: 'ipv4' },

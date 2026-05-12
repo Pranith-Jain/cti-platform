@@ -18,7 +18,6 @@ export interface IocFeedSummary {
     | 'urlhaus'
     | 'malwarebazaar'
     | 'threatfox'
-    | 'feodo'
     | 'openphish'
     | 'cisa-kev'
     | 'blocklist-de'
@@ -171,24 +170,6 @@ export function parseThreatfox(body: string, cap: number = CAP): IocEntry[] {
     const context = unquote(cols[7] ?? '') || undefined;
     const timestamp = unquote(cols[0] ?? '') || undefined;
     entries.push({ type, value, context, timestamp });
-    if (entries.length >= cap) break;
-  }
-  return entries;
-}
-
-// ─── Feodo ───────────────────────────────────────────────────────────────────
-// Columns: first_seen(0), ip(1), port(2), malware(3), last_online(4)
-// Feed is newest-first → take first CAP rows.
-
-export function parseFeodo(body: string, cap: number = CAP): IocEntry[] {
-  const entries: IocEntry[] = [];
-  for (const cols of csvLines(body)) {
-    if (cols.length < 2) continue;
-    const value = unquote(cols[1] ?? '');
-    if (!value) continue;
-    const context = unquote(cols[3] ?? '') || undefined;
-    const timestamp = unquote(cols[0] ?? '') || undefined;
-    entries.push({ type: 'ipv4', value, context, timestamp });
     if (entries.length >= cap) break;
   }
   return entries;
@@ -470,11 +451,6 @@ export const FEED_SOURCES: Record<SourceId, FeedSource> = {
     name: 'Abuse.ch ThreatFox',
     url: 'https://threatfox.abuse.ch/export/csv/recent/',
   },
-  feodo: {
-    id: 'feodo',
-    name: 'Abuse.ch Feodo Tracker',
-    url: 'https://feodotracker.abuse.ch/downloads/ipblocklist.csv',
-  },
   openphish: {
     id: 'openphish',
     name: 'OpenPhish',
@@ -545,9 +521,6 @@ export function buildSummary(sourceId: SourceId, rawBody: string, cap: number = 
       break;
     case 'threatfox':
       entries = parseThreatfox(rawBody, cap);
-      break;
-    case 'feodo':
-      entries = parseFeodo(rawBody, cap);
       break;
     case 'openphish':
       entries = parseOpenPhish(rawBody, cap);

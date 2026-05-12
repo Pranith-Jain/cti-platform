@@ -1,7 +1,6 @@
 import type { Context } from 'hono';
 import type { Env } from '../env';
 import {
-  parseFeodo,
   parseUrlhaus,
   parseThreatfox,
   parseIpsum,
@@ -29,7 +28,7 @@ import { trackEvent, visitorCountry } from '../lib/analytics';
  * source_count desc.
  */
 
-export const IOC_CORRELATION_CACHE_KEY = 'https://ioc-correlation-cache.internal/v3-18sources';
+export const IOC_CORRELATION_CACHE_KEY = 'https://ioc-correlation-cache.internal/v4-no-feodo';
 const CACHE_KEY = IOC_CORRELATION_CACHE_KEY;
 const CACHE_TTL_SECONDS = 3600;
 const FETCH_TIMEOUT_MS = 12_000;
@@ -144,7 +143,6 @@ const IPV4_RE = /^(?:\d{1,3}\.){3}\d{1,3}$/;
 export async function fetchIocCorrelation(): Promise<IocCorrelationResponse> {
   // Fetch every IOC feed in parallel. Each entry tracks whether it succeeded.
   const [
-    feodoText,
     urlhausText,
     threatfoxText,
     ipsumText,
@@ -159,7 +157,6 @@ export async function fetchIocCorrelation(): Promise<IocCorrelationResponse> {
     sansIscText,
     c2IntelText,
   ] = await Promise.all([
-    fetchText('https://feodotracker.abuse.ch/downloads/ipblocklist.csv'),
     fetchText('https://urlhaus.abuse.ch/downloads/csv_recent/'),
     fetchText('https://threatfox.abuse.ch/export/csv/recent/'),
     fetchText('https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt'),
@@ -200,12 +197,6 @@ export async function fetchIocCorrelation(): Promise<IocCorrelationResponse> {
   };
 
   // ─── IP feeds ────────────────────────────────────────────────────────────
-  if (feodoText) {
-    const e = parseFeodo(feodoText, PER_FEED_CAP);
-    for (const x of e) if (x.type === 'ipv4') add(ipBucket, x.value, 'feodo', x.context, x.timestamp);
-    trackSource('feodo', true, e.length);
-  } else trackSource('feodo', false, 0);
-
   if (ipsumText) {
     const e = parseIpsum(ipsumText, PER_FEED_CAP);
     for (const x of e) add(ipBucket, x.value, 'ipsum', x.context, x.timestamp);

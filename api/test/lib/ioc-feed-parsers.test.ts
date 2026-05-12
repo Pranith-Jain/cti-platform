@@ -3,7 +3,6 @@ import {
   parseUrlhaus,
   parseMalwarebazaar,
   parseThreatfox,
-  parseFeodo,
   parseOpenPhish,
   parseCisaKev,
   buildSummary,
@@ -127,39 +126,6 @@ describe('parseThreatfox', () => {
   it('maps md5_hash ioc_type to hash', () => {
     const entries = parseThreatfox(TF_FIXTURE);
     expect(entries[3]).toMatchObject({ type: 'hash' });
-  });
-});
-
-// ─── Feodo ───────────────────────────────────────────────────────────────────
-const FEODO_FIXTURE = `
-################################################################
-# Feodo Tracker IP Blocklist
-################################################################
-# Firstseen,DstIP,DstPort,Malware,LastOnline
-################################################################
-"2026-05-08 10:00:00","192.168.1.100","443","Dridex","2026-05-08"
-"2026-05-07 09:00:00","10.0.0.1","8080","Emotet","2026-05-07"
-"2026-05-06 08:00:00","172.16.0.5","4444","QakBot","2026-05-06"
-`.trim();
-
-describe('parseFeodo', () => {
-  it('parses ipv4 rows and skips comments', () => {
-    const entries = parseFeodo(FEODO_FIXTURE);
-    expect(entries).toHaveLength(3);
-  });
-
-  it('extracts ip as value and malware as context', () => {
-    const entries = parseFeodo(FEODO_FIXTURE);
-    expect(entries[0]).toMatchObject({
-      type: 'ipv4',
-      value: '192.168.1.100',
-      context: 'Dridex',
-      timestamp: '2026-05-08 10:00:00',
-    });
-  });
-
-  it('returns empty for empty input', () => {
-    expect(parseFeodo('')).toHaveLength(0);
   });
 });
 

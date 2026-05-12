@@ -37,7 +37,7 @@ The portfolio site and the API run from the same Cloudflare Worker. Same origin,
 
 - **Commercial (API key)**: VirusTotal, AbuseIPDB, Shodan, OTX, URLScan, Hybrid Analysis
 - **abuse.ch (one shared free key)**: ThreatFox, URLhaus, MalwareBazaar
-- **Public lists / no signup**: Feodo Tracker, Spamhaus DROP/EDROP, Tor exit list, OpenPhish, Cloudflare DoH, Bitwire, Blocklist.de, Binary Defense, Ipsum (3+ source consensus), Phishing Army, CIRCL Hashlookup, TweetFeed, CINS Army
+- **Public lists / no signup**: Spamhaus DROP/EDROP, Tor exit list, OpenPhish, Cloudflare DoH, Bitwire, Blocklist.de, Binary Defense, Ipsum (3+ source consensus), Phishing Army, CIRCL Hashlookup, TweetFeed, CINS Army
 
 ## Tech stack
 

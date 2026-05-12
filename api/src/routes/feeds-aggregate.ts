@@ -47,7 +47,6 @@ const ALLOWED_HOSTS = new Set([
   'urlhaus.abuse.ch',
   'bazaar.abuse.ch',
   'mb-api.abuse.ch',
-  'feodotracker.abuse.ch',
   'sslbl.abuse.ch',
   'openphish.com',
   'www.openphish.com',

@@ -51,7 +51,6 @@ export type ProviderId =
   | 'otx'
   | 'urlscan'
   | 'hybridanalysis'
-  | 'feodo'
   | 'spamhaus'
   | 'tor'
   | 'doh'

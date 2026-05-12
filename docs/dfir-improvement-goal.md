@@ -30,7 +30,7 @@ Improvement = security + UX + breadth + depth. Not just "add more tools."
    behalf. Tag them `paid: true`.
 
 2. **Free upstream sources only.** Acceptable sources (current set):
-   abuse.ch family (URLhaus/MalwareBazaar/ThreatFox/Feodo), OpenPhish,
+   abuse.ch family (URLhaus/MalwareBazaar/ThreatFox), OpenPhish,
    Blocklist.de, Binary Defense, Ipsum, Phishing Army, TweetFeed, Bitwire,
    CISA KEV, NVD, MITRE ATT&CK (TAXII 2.1 + GitHub raw mirror), 0xB10C OFAC
    SDN feed, ScamSniffer scam-database, Blockscout, ip-api.com, AbuseIPDB

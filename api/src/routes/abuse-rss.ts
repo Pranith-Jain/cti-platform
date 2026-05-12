@@ -9,7 +9,7 @@ import type { Context } from 'hono';
 import type { Env } from '../env';
 import { FEED_SOURCES, buildSummary, type IocEntry, type SourceId } from '../lib/ioc-feed-parsers';
 
-const SUPPORTED: SourceId[] = ['urlhaus', 'threatfox', 'malwarebazaar', 'feodo'];
+const SUPPORTED: SourceId[] = ['urlhaus', 'threatfox', 'malwarebazaar'];
 const FETCH_UA = 'Mozilla/5.0 (compatible; pranithjain-dfir/1.0; +https://pranithjain.qzz.io)';
 
 function escapeXml(s: string): string {

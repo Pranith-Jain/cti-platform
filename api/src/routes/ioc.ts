@@ -12,7 +12,6 @@ import { shodan } from '../providers/shodan';
 import { otx } from '../providers/otx';
 import { urlscan } from '../providers/urlscan';
 import { hybridanalysis } from '../providers/hybridanalysis';
-import { feodo } from '../providers/feodo';
 import { spamhaus } from '../providers/spamhaus';
 import { tor } from '../providers/tor';
 import { doh } from '../providers/doh';
@@ -44,7 +43,6 @@ const ADAPTERS: Record<ProviderId, ProviderAdapter> = {
   otx,
   urlscan,
   hybridanalysis,
-  feodo,
   spamhaus,
   tor,
   doh,
