@@ -264,7 +264,9 @@ async function getOrInjectOg(request: Request, env: Env, ctx: ExecutionContext, 
  * prerendered file directly so users see real content before React parses;
  * the SPA shell is reserved for fallback / unknown routes.
  *
- * Phase 2 (2026-05-12) ships only `/`. Phase 3 will expand this list.
+ * Phase 2 (2026-05-12) ships only `/`. Phase 3 expanded to 20 static
+ * content routes; Phase 3.1 added 5 live-feed surfaces whose prerendered
+ * HTML contains chrome + loading-state, with data hydrated client-side.
  */
 // Cloudflare Assets canonicalizes `*.html` paths by redirecting to the
 // extension-less form (e.g. /foo.html → 307 /foo). env.ASSETS.fetch()
@@ -300,6 +302,12 @@ const PRERENDERED_ROUTES = new Map<string, string>([
   ['/dfir/grc', '/__prerendered/dfir__grc'],
   ['/dfir/data-classification', '/__prerendered/dfir__data-classification'],
   ['/dfir/privacy-hub', '/__prerendered/dfir__privacy-hub'],
+  // Live-feed surfaces — prerendered chrome + loading state (Phase 3.1)
+  ['/threatintel/threat-feeds', '/__prerendered/threatintel__threat-feeds'],
+  ['/threatintel/writeups', '/__prerendered/threatintel__writeups'],
+  ['/threatintel/cyber-crime', '/__prerendered/threatintel__cyber-crime'],
+  ['/threatintel/ransomware-activity', '/__prerendered/threatintel__ransomware-activity'],
+  ['/threatintel/live-iocs', '/__prerendered/threatintel__live-iocs'],
 ]);
 
 async function fetchPrerenderedOrShell(request: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {

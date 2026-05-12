@@ -30,10 +30,12 @@ const ROOT = resolve(__dirname, '..');
 // so renderToString actually produces useful content (not data-loading
 // fallback states).
 //
-// Routes that fetch data on mount stay SPA-only — they'd just render
-// empty containers in the prerender, which would HURT performance via
-// hydration cost. Phase 4 (runtime SSR with data loaders) is the path
-// for those.
+// Phase 3.1 (2026-05-12 later same day): added live-feed pages too.
+// These DO fetch on mount, so the prerendered HTML contains the page
+// chrome + initial "loading…" state. useEffect is client-only so SSR
+// doesn't hang on data. Win: chrome paints from HTML (instant FCP)
+// rather than waiting for JS parse + React mount, and hydration matches
+// the initial loading-state tree so there's no tearing.
 const ROUTES = [
   // Portfolio (5)
   '/',
@@ -59,6 +61,13 @@ const ROUTES = [
   '/dfir/grc',
   '/dfir/data-classification',
   '/dfir/privacy-hub',
+  // Live-feed surfaces (5) — prerendered chrome + loading state, then
+  // client hydrates and fetches /api/v1/* on mount.
+  '/threatintel/threat-feeds',
+  '/threatintel/writeups',
+  '/threatintel/cyber-crime',
+  '/threatintel/ransomware-activity',
+  '/threatintel/live-iocs',
 ];
 
 const SHELL_PATH = resolve(ROOT, 'dist/index.html');
