@@ -1,7 +1,6 @@
 import { Suspense, lazy, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, FileJson, Trash2, Copy, Check, Filter, Globe2, Loader2, ExternalLink } from 'lucide-react';
-import type { Node, Edge } from '@xyflow/react';
 import {
   type StixBundle,
   type StixObject,
@@ -15,6 +14,14 @@ import { RelatedWikiArticles } from '../../components/dfir/RelatedWikiArticles';
 // Lazy-loaded — @xyflow/react is ~133KB. Only mount once the user has a parsed
 // bundle so the route's initial chunk stays slim.
 const StixGraph = lazy(() => import('./StixGraph'));
+
+// Minimal local type shapes. We deliberately do NOT `import type { Node, Edge }`
+// from '@xyflow/react' — Rollup's module-graph pass registers even type-only
+// static imports as edges, which then emits a `<link rel="modulepreload">` for
+// vendor-xyflow on every page. The whole point of the lazy split was to keep
+// that 178KB chunk off the entry path until a user actually visits /dfir/stix.
+type FlowNode = { id: string; [k: string]: unknown };
+type FlowEdge = { id: string; [k: string]: unknown };
 
 const SAMPLE_BUNDLE: StixBundle = {
   type: 'bundle',
@@ -202,12 +209,12 @@ export default function StixViewer(): JSX.Element {
   const types = useMemo(() => Object.keys(stats).sort(), [stats]);
 
   const { nodes, edges } = useMemo(() => {
-    if (!bundle) return { nodes: [] as Node[], edges: [] as Edge[] };
+    if (!bundle) return { nodes: [] as FlowNode[], edges: [] as FlowEdge[] };
     const g = bundleToGraph(bundle, filterTypes);
-    return { nodes: g.nodes as unknown as Node[], edges: g.edges as unknown as Edge[] };
+    return { nodes: g.nodes as unknown as FlowNode[], edges: g.edges as unknown as FlowEdge[] };
   }, [bundle, filterTypes]);
 
-  const onNodeClick = useCallback((_e: unknown, node: Node) => {
+  const onNodeClick = useCallback((_e: unknown, node: FlowNode) => {
     const raw = (node.data as { raw?: StixObject } | undefined)?.raw ?? null;
     setSelected(raw);
   }, []);

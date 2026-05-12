@@ -48,19 +48,24 @@ function StixNodeBox({
 
 const NODE_TYPES: NodeTypes = { stixNode: StixNodeBox };
 
+// Loose structural prop types. The parent (StixViewer) deliberately does NOT
+// import { Node, Edge } from '@xyflow/react' even as a type — Rollup's module
+// graph treats type-only static imports as edges and emits a modulepreload
+// link for the vendor-xyflow chunk on every page. We accept the looser shape
+// here and cast to xyflow's strict types at the boundary.
 interface StixGraphProps {
-  nodes: Node[];
-  edges: Edge[];
-  onNodeClick: (e: unknown, node: Node) => void;
+  nodes: Array<{ id: string; [k: string]: unknown }>;
+  edges: Array<{ id: string; [k: string]: unknown }>;
+  onNodeClick: (e: unknown, node: { id: string; [k: string]: unknown }) => void;
 }
 
 export default function StixGraph({ nodes, edges, onNodeClick }: StixGraphProps): JSX.Element {
   return (
     <ReactFlow
-      nodes={nodes}
-      edges={edges}
+      nodes={nodes as unknown as Node[]}
+      edges={edges as unknown as Edge[]}
       nodeTypes={NODE_TYPES}
-      onNodeClick={onNodeClick}
+      onNodeClick={onNodeClick as unknown as (e: unknown, node: Node) => void}
       fitView
       minZoom={0.2}
       maxZoom={2}

@@ -61,6 +61,24 @@ export default defineConfig(({ mode }) => ({
     target: 'es2020',
     // CSS code splitting
     cssCodeSplit: true,
+    // Vite eagerly emits <link rel="modulepreload"> for every chunk reachable
+    // from the entry, including dynamic-import chunks. That defeats the lazy
+    // split for vendor-xyflow / vendor-maps / vendor-md / exifr — every
+    // visitor would download hundreds of KB they may never need. Strip those
+    // chunks from the entry's preload list so they're fetched only when the
+    // matching `import()` actually fires.
+    modulePreload: {
+      resolveDependencies: (_filename, deps) =>
+        deps.filter(
+          (d) =>
+            !d.includes('vendor-xyflow') &&
+            !d.includes('vendor-maps') &&
+            !d.includes('vendor-md') &&
+            !d.includes('exifr') &&
+            !d.includes('full.esm') &&
+            !d.includes('wiki-articles')
+        ),
+    },
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'lucide-react'],
