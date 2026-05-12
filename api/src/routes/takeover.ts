@@ -40,6 +40,10 @@ export async function takeoverCheckHandler(c: Context<{ Bindings: Env }>) {
   }
 
   const finalCname = chain[chain.length - 1];
+  if (!finalCname) {
+    result.notes.push('No CNAME chain. NXDOMAIN or apex/A-record only — takeover unlikely via this vector.');
+    return c.json(result, 200, { 'Cache-Control': 'public, max-age=3600' });
+  }
   const match = TAKEOVER_FINGERPRINTS.find((fp) => fp.cname.test(finalCname));
 
   if (!match) {

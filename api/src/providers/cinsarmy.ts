@@ -33,7 +33,8 @@ export const cinsarmy: ProviderAdapter = async (indicator, _env, signal) => {
     for (const line of text.split(/\r?\n/)) {
       const t = line.trim();
       if (!t || t.startsWith('#')) continue;
-      list.add(t.split(/\s+/)[0]);
+      const first = t.split(/\s+/)[0];
+      if (first) list.add(first);
     }
 
     const hit = list.has(indicator.value);

@@ -40,7 +40,7 @@ describe('parseUrlhaus', () => {
 
   it('handles empty tags field — context only shows threat', () => {
     const entries = parseUrlhaus(URLHAUS_FIXTURE);
-    expect(entries[2].context).toBe('botnet_cc');
+    expect(entries[2]!.context).toBe('botnet_cc');
   });
 
   it('returns empty array for empty input', () => {
@@ -181,8 +181,8 @@ describe('parseOpenPhish', () => {
 
   it('has no context or timestamp', () => {
     const entries = parseOpenPhish(OPENPHISH_FIXTURE);
-    expect(entries[0].context).toBeUndefined();
-    expect(entries[0].timestamp).toBeUndefined();
+    expect(entries[0]!.context).toBeUndefined();
+    expect(entries[0]!.timestamp).toBeUndefined();
   });
 
   it('ignores blank lines', () => {
@@ -294,13 +294,13 @@ describe('parseCisaKev', () => {
     const { entries } = parseCisaKev(fixture);
     expect(entries).toHaveLength(5);
     // Newest first
-    expect(entries[0].value).toBe('CVE-2025-0001');
-    expect(entries[1].value).toBe('CVE-2024-9999');
-    expect(entries[2].value).toBe('CVE-2023-3333');
-    expect(entries[3].value).toBe('CVE-2022-5555');
-    expect(entries[4].value).toBe('CVE-2021-1111');
+    expect(entries[0]!.value).toBe('CVE-2025-0001');
+    expect(entries[1]!.value).toBe('CVE-2024-9999');
+    expect(entries[2]!.value).toBe('CVE-2023-3333');
+    expect(entries[3]!.value).toBe('CVE-2022-5555');
+    expect(entries[4]!.value).toBe('CVE-2021-1111');
     // Timestamps should be in DESC order
-    expect(entries[0].timestamp! > entries[1].timestamp!).toBe(true);
+    expect(entries[0]!.timestamp! > entries[1]!.timestamp!).toBe(true);
   });
 });
 
@@ -319,6 +319,6 @@ describe('buildSummary', () => {
     const s = buildSummary('cisa-kev', CISA_KEV_FIXTURE);
     expect(s.source).toBe('cisa-kev');
     expect(s.total_in_feed).toBe(3);
-    expect(s.entries[0].type).toBe('cve');
+    expect(s.entries[0]!.type).toBe('cve');
   });
 });

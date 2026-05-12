@@ -58,8 +58,8 @@ describe('GET /api/v1/feeds/ioc-summary', () => {
     };
     expect(body.source).toBe('cisa-kev');
     expect(body.count).toBe(1);
-    expect(body.entries[0].type).toBe('cve');
-    expect(body.entries[0].value).toBe('CVE-2026-00001');
+    expect(body.entries[0]!.type).toBe('cve');
+    expect(body.entries[0]!.value).toBe('CVE-2026-00001');
     expect(body.cache_control_seconds).toBe(1800);
     // Cache-Control header should be set
     expect(r.headers.get('cache-control')).toContain('1800');
@@ -82,7 +82,7 @@ describe('GET /api/v1/feeds/ioc-summary', () => {
     const body = (await r.json()) as { source: string; count: number; entries: Array<{ type: string }> };
     expect(body.source).toBe('urlhaus');
     expect(body.count).toBe(1);
-    expect(body.entries[0].type).toBe('url');
+    expect(body.entries[0]!.type).toBe('url');
   });
 
   it('returns 502 when upstream fails', async () => {

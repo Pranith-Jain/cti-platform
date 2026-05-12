@@ -30,9 +30,9 @@ describe('ctLogs', () => {
     const r = await ctLogs('example.com');
     expect(r.length).toBeLessThanOrEqual(50);
     // sorted by recency: most recent first
-    expect(r[0].not_before >= r[r.length - 1].not_before).toBe(true);
-    expect(r[0].subjects).toEqual(expect.arrayContaining(['example.com']));
-    expect(r[0].issuer).toMatch(/Let's Encrypt|R/);
+    expect(r[0]!.not_before >= r[r.length - 1]!.not_before).toBe(true);
+    expect(r[0]!.subjects).toEqual(expect.arrayContaining(['example.com']));
+    expect(r[0]!.issuer).toMatch(/Let's Encrypt|R/);
   });
 
   it('returns [] on non-200', async () => {

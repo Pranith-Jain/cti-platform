@@ -2,74 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Wrench } from 'lucide-react';
 import { wikiMeta } from '../../data/dfir/wiki-meta';
-import { TOOL_TOPICS, type ToolTopic } from '../../data/dfir/tool-topics';
-
-/**
- * Pre-process the article body to convert the *first* mention of each
- * known topic into a markdown link to the relevant tool. Subsequent
- * mentions are left as plain text — readers don't need every "DKIM" in
- * a paragraph turned into a link, and more than that hurts readability.
- *
- * Skips:
- *   - text inside fenced code blocks (```...```)
- *   - text inside inline code (`...`)
- *   - text already inside a markdown link [...](...)
- *   - links inside headers (already styled distinctly)
- *
- * Implementation note: when a topic is wrapped, the wrapped link is spliced
- * into the segments array as a NEW skip-segment immediately. Earlier versions
- * mutated the plain segment's text in place, which let a later topic's regex
- * scan inside the freshly-injected link's title attribute and re-wrap a term
- * — producing nested `[DKIM](...)` markup inside SPF's tooltip text.
- */
-function injectToolLinks(body: string): { body: string; matched: ToolTopic[] } {
-  // Tokenise into segments we will/won't touch.
-  const segments: { kind: 'plain' | 'skip'; text: string }[] = [];
-  const SKIP_RE = /(```[\s\S]*?```|`[^`\n]*`|\[[^\]]+\]\([^)]+\))/g;
-  let last = 0;
-  for (const m of body.matchAll(SKIP_RE)) {
-    if (m.index === undefined) continue;
-    if (m.index > last) segments.push({ kind: 'plain', text: body.slice(last, m.index) });
-    segments.push({ kind: 'skip', text: m[0] });
-    last = m.index + m[0].length;
-  }
-  if (last < body.length) segments.push({ kind: 'plain', text: body.slice(last) });
-
-  const matched = new Map<string, ToolTopic>();
-  const usedTopics = new Set<string>();
-
-  for (const topic of TOOL_TOPICS) {
-    if (usedTopics.has(topic.term.toLowerCase())) continue;
-    const escaped = topic.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(`\\b(${escaped})\\b`, 'i');
-    // Find the FIRST plain segment containing the term, then splice it into
-    // three sub-segments: [plain-before, skip-link, plain-after]. Subsequent
-    // iterations only see plain-before / plain-after — the link's title
-    // text is in a skip-segment and is invisible to the scanner.
-    for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i];
-      if (!seg || seg.kind !== 'plain') continue;
-      const m = re.exec(seg.text);
-      if (!m) continue;
-      const before = seg.text.slice(0, m.index);
-      const matchText = m[0];
-      const link = `[${matchText}](${topic.href} "${topic.blurb}")`;
-      const after = seg.text.slice(m.index + matchText.length);
-      segments.splice(
-        i,
-        1,
-        { kind: 'plain', text: before },
-        { kind: 'skip', text: link },
-        { kind: 'plain', text: after }
-      );
-      usedTopics.add(topic.term.toLowerCase());
-      matched.set(topic.href, topic);
-      break;
-    }
-  }
-
-  return { body: segments.map((s) => s.text).join(''), matched: [...matched.values()] };
-}
+import { type ToolTopic } from '../../data/dfir/tool-topics';
+import { injectToolLinks } from '../../lib/dfir/inject-tool-links';
 
 export default function WikiArticle(): JSX.Element {
   const { slug } = useParams<{ slug: string }>();

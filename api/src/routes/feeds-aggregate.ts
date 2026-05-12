@@ -175,13 +175,13 @@ function decodeEntities(s: string): string {
 function pickTag(body: string, tag: string): string {
   const re = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)</${tag}>`, 'i');
   const m = body.match(re);
-  return m ? decodeEntities(m[1]) : '';
+  return m && m[1] !== undefined ? decodeEntities(m[1]) : '';
 }
 
 function pickAttr(body: string, tag: string, attr: string): string {
   const re = new RegExp(`<${tag}\\b[^>]*\\b${attr}=["']([^"']+)["']`, 'i');
   const m = body.match(re);
-  return m ? m[1] : '';
+  return m && m[1] !== undefined ? m[1] : '';
 }
 
 /** Parse RSS or Atom feed body into items. Tolerant; never throws. */
@@ -192,6 +192,7 @@ function parseFeedBody(body: string, sourceUrl: string, host: string, perSource:
   let match: RegExpExecArray | null;
   while ((match = itemRe.exec(body)) !== null) {
     const inner = match[2];
+    if (!inner) continue;
     const title = pickTag(inner, 'title') || '(untitled)';
     let link = pickTag(inner, 'link');
     if (!link) link = pickAttr(inner, 'link', 'href');

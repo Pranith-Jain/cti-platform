@@ -74,7 +74,7 @@ describe('otx adapter', () => {
   });
 
   it('builds correct endpoint for each type', async () => {
-    const cases: Array<{ type: string; value: string; expectedPath: string }> = [
+    const cases: Array<{ type: 'ipv4' | 'ipv6' | 'domain' | 'url' | 'hash'; value: string; expectedPath: string }> = [
       { type: 'ipv4', value: '1.2.3.4', expectedPath: '/indicators/IPv4/1.2.3.4/general' },
       { type: 'ipv6', value: '::1', expectedPath: '/indicators/IPv6/%3A%3A1/general' },
       { type: 'domain', value: 'example.com', expectedPath: '/indicators/domain/example.com/general' },

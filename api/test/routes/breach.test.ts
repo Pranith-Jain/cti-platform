@@ -150,11 +150,11 @@ describe('GET /api/v1/breach/email', () => {
     expect(body.source).toBe('xposedornot');
     expect(body.breach_count).toBe(1);
     const breaches = body.breaches as Array<Record<string, unknown>>;
-    expect(breaches[0].name).toBe('LinkedIn');
-    expect(breaches[0].domain).toBe('linkedin.com');
-    expect(breaches[0].breach_date).toBe('2012');
-    expect(breaches[0].pwn_count).toBe(164000000);
-    expect(breaches[0].data_classes).toEqual(['emails', 'passwords']);
+    expect(breaches[0]!.name).toBe('LinkedIn');
+    expect(breaches[0]!.domain).toBe('linkedin.com');
+    expect(breaches[0]!.breach_date).toBe('2012');
+    expect(breaches[0]!.pwn_count).toBe(164000000);
+    expect(breaches[0]!.data_classes).toEqual(['emails', 'passwords']);
   });
 
   it('returns cache-control on success', async () => {
@@ -254,9 +254,9 @@ describe('GET /api/v1/breach/domain', () => {
     expect(body.source).toBe('xposedornot');
     const breaches = body.breaches as Array<Record<string, unknown>>;
     expect(breaches.length).toBeGreaterThan(0);
-    expect(breaches[0].name).toBe('LinkedIn');
-    expect(breaches[0].breach_date).toBe('2012-05-01');
-    expect(breaches[0].pwn_count).toBe(160042644);
+    expect(breaches[0]!.name).toBe('LinkedIn');
+    expect(breaches[0]!.breach_date).toBe('2012-05-01');
+    expect(breaches[0]!.pwn_count).toBe(160042644);
   });
 
   it('returns found=false when no breaches for domain', async () => {

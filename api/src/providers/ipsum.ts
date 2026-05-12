@@ -37,6 +37,7 @@ export const ipsum: ProviderAdapter = async (indicator, _env, signal) => {
       if (!t || t.startsWith('#')) continue;
       const parts = t.split(/\s+/);
       const ip = parts[0];
+      if (!ip) continue;
       const score = parseInt(parts[1] ?? '0', 10);
       map.set(ip, isNaN(score) ? 0 : score);
     }

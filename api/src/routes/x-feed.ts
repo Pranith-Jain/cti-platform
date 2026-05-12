@@ -234,6 +234,7 @@ function parseRssItems(xml: string): Array<{ title: string; description: string;
   let m: RegExpExecArray | null;
   while ((m = itemRe.exec(xml)) !== null) {
     const block = m[1];
+    if (!block) continue;
     const title = /<title[^>]*>([\s\S]*?)<\/title>/.exec(block)?.[1] ?? '';
     const description = /<description[^>]*>([\s\S]*?)<\/description>/.exec(block)?.[1] ?? '';
     const link = /<link[^>]*>([\s\S]*?)<\/link>/.exec(block)?.[1] ?? '';

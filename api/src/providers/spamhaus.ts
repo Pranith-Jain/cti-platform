@@ -52,6 +52,7 @@ function parseRanges(text: string): [number, number][] {
     const t = line.trim();
     if (!t || t.startsWith(';') || t.startsWith('#')) continue;
     const cidr = t.split(/[;\s]/)[0];
+    if (!cidr) continue;
     const r = cidrRange(cidr);
     if (r) out.push(r);
   }
@@ -60,6 +61,7 @@ function parseRanges(text: string): [number, number][] {
 
 function cidrRange(cidr: string): [number, number] | null {
   const [ip, bitsStr] = cidr.split('/');
+  if (!ip || !bitsStr) return null;
   const bits = parseInt(bitsStr, 10);
   const start = ipv4ToInt(ip);
   if (start === null || isNaN(bits) || bits < 0 || bits > 32) return null;

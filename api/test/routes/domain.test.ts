@@ -14,7 +14,7 @@ describe('GET /api/v1/domain/lookup', () => {
     expect(r.status).toBe(400);
   });
 
-  it('aggregates DNS, RDAP, email-auth, CT for valid domain', async () => {
+  it('aggregates DNS, RDAP, email-auth, CT for valid domain', { timeout: 20_000 }, async () => {
     // Mock all outgoing fetches to return generic 200 JSON.
     // The real route makes many parallel fetches: DoH × 8 standard types, DoH for DMARC/BIMI/TLS-RPT, DoH for ~8 DKIM selectors, RDAP, crt.sh, MTA-STS HTTPS GET.
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(

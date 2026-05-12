@@ -73,15 +73,15 @@ describe('parseStixBundle', () => {
   it('extracts actors, campaigns, attack patterns, indicators', () => {
     const r = parseStixBundle(SAMPLE_BUNDLE);
     expect(r.actors).toHaveLength(1);
-    expect(r.actors[0].name).toBe('APT-ShadowByte');
-    expect(r.actors[0].aliases).toEqual(['ShadowByte', 'FinancialHunter']);
+    expect(r.actors[0]!.name).toBe('APT-ShadowByte');
+    expect(r.actors[0]!.aliases).toEqual(['ShadowByte', 'FinancialHunter']);
     expect(r.campaigns).toHaveLength(1);
-    expect(r.campaigns[0].actor_id).toBe('intrusion-set--1');
+    expect(r.campaigns[0]!.actor_id).toBe('intrusion-set--1');
     expect(r.attack_patterns).toHaveLength(1);
-    expect(r.attack_patterns[0].mitre_id).toBe('T1566.001');
+    expect(r.attack_patterns[0]!.mitre_id).toBe('T1566.001');
     expect(r.indicators).toHaveLength(1);
-    expect(r.indicators[0].type).toBe('ipv4');
-    expect(r.indicators[0].value).toBe('192.168.1.100');
+    expect(r.indicators[0]!.type).toBe('ipv4');
+    expect(r.indicators[0]!.value).toBe('192.168.1.100');
   });
 
   it('handles empty/malformed bundle', () => {

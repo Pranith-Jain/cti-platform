@@ -224,6 +224,7 @@ async function fetchRecentCommits(source: SourceConfig): Promise<FetchResult<Rec
     let m: RegExpExecArray | null;
     while ((m = entryRe.exec(body)) !== null && out.length < 8) {
       const inner = m[1];
+      if (!inner) continue;
       const title = (inner.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1] ?? '')
         .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/, '$1')
         .trim()

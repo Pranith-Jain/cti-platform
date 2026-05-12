@@ -299,43 +299,56 @@ export async function fetchWriteups(): Promise<WriteupsResponse> {
     deduped.push(it);
   }
 
-  // Sort newest-first within each source (we'll round-robin across sources below).
-  const cmpDate = (a: Writeup, b: Writeup) => {
-    if (a.published && b.published) return b.published.localeCompare(a.published);
-    if (a.published) return -1;
-    if (b.published) return 1;
-    return 0;
+  return {
+    generated_at: new Date().toISOString(),
+    sources: sourceMeta,
+    total: deduped.length,
+    items: roundRobinBySource(deduped, MAX_ITEMS),
   };
-  deduped.sort(cmpDate);
+}
 
-  // Round-robin across sources for the visible top N so a chatty feed (Unit 42
-  // at 15/wk, Recorded Future at 15/wk, …) can't push slower feeds (BushidoToken
-  // at 1/mo, Aqua Security at 2/mo) off the visible list entirely. Each pass
-  // picks the next-newest item from a source we haven't drained yet; we stop
-  // when we either hit MAX_ITEMS or every source bucket is empty.
-  const bySource = new Map<string, Writeup[]>();
-  for (const it of deduped) {
+/**
+ * Newest-first sort comparator. Undated items sort to the tail.
+ */
+export function cmpByPublished<T extends { published?: string }>(a: T, b: T): number {
+  if (a.published && b.published) return b.published.localeCompare(a.published);
+  if (a.published) return -1;
+  if (b.published) return 1;
+  return 0;
+}
+
+/**
+ * Round-robin selection across sources so a chatty feed (Unit 42 at 15/wk,
+ * Recorded Future at 15/wk, …) can't push slower feeds (BushidoToken at
+ * 1/mo, Aqua Security at 2/mo) off the visible list entirely. Each pass
+ * picks the newest head-item from every non-drained source, in source-head
+ * date order, so the visible list still feels chronological while every
+ * source gets representation. Exported for unit testing.
+ */
+export function roundRobinBySource<T extends { source: string; published?: string }>(
+  items: T[],
+  maxItems: number
+): T[] {
+  // Sort once globally so within each source the head is newest.
+  const sorted = [...items].sort(cmpByPublished);
+  const bySource = new Map<string, T[]>();
+  for (const it of sorted) {
     const bucket = bySource.get(it.source) ?? [];
     bucket.push(it);
     bySource.set(it.source, bucket);
   }
-  // Each bucket is already newest-first because `deduped` was. Build the
-  // round-robin order: rank sources by their next-item date so the visible
-  // list still feels chronological — but no source can hog 5 slots in a row.
-  const visible: Writeup[] = [];
+  const visible: T[] = [];
   let exhausted = false;
-  while (visible.length < MAX_ITEMS && !exhausted) {
+  while (visible.length < maxItems && !exhausted) {
     let picked = false;
-    // Order this pass by the date of each source's head item — picks newest
-    // first across the heads, then second-newest across the heads, etc.
-    const heads: Array<{ source: string; head: Writeup }> = [];
+    const heads: Array<{ source: string; head: T }> = [];
     for (const [source, bucket] of bySource) {
       const head = bucket[0];
       if (head) heads.push({ source, head });
     }
-    heads.sort((a, b) => cmpDate(a.head, b.head));
+    heads.sort((a, b) => cmpByPublished(a.head, b.head));
     for (const { source } of heads) {
-      if (visible.length >= MAX_ITEMS) break;
+      if (visible.length >= maxItems) break;
       const bucket = bySource.get(source);
       if (!bucket || bucket.length === 0) continue;
       const next = bucket.shift();
@@ -346,13 +359,7 @@ export async function fetchWriteups(): Promise<WriteupsResponse> {
     }
     if (!picked) exhausted = true;
   }
-
-  return {
-    generated_at: new Date().toISOString(),
-    sources: sourceMeta,
-    total: deduped.length,
-    items: visible,
-  };
+  return visible;
 }
 
 export async function writeupsHandler(c: Context<{ Bindings: Env }>): Promise<Response> {

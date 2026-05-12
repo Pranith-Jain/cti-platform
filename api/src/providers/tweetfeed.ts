@@ -47,7 +47,7 @@ export const tweetfeed: ProviderAdapter = async (indicator, _env, signal) => {
       const cols = line.split(',');
       if (cols.length < 4) continue;
       const type = cols[2]?.toLowerCase().trim();
-      if (!wantedTypes.has(type)) continue;
+      if (!type || !wantedTypes.has(type)) continue;
       if (cols[3]?.toLowerCase().trim() !== target) continue;
       match = {
         reporter: cols[1] ?? '',

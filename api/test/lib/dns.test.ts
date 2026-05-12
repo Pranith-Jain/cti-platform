@@ -51,11 +51,13 @@ describe('resolveRecord', () => {
     expect(r.error).toMatch(/500/);
   });
 
-  it('handles fetch rejection', async () => {
+  it('handles fetch rejection with sanitized error', async () => {
+    // dns.ts sanitizes upstream errors to a generic message to avoid
+    // leaking internal service names / stack traces to API callers.
     vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('network'));
     const r = await resolveRecord('example.com', 'A');
     expect(r.records).toEqual([]);
-    expect(r.error).toMatch(/network/);
+    expect(r.error).toBe('dns lookup failed');
   });
 });
 
