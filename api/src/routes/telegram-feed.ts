@@ -40,7 +40,7 @@ interface ChannelSpec {
 /**
  * Curated channel set. Each handle is liveness-probed before inclusion —
  * we only ship channels that (a) expose t.me/s/<handle> previews and
- * (b) have posted within the last ~30 days. Last verified 2026-05-11.
+ * (b) have posted within the last ~30 days. Last verified 2026-05-12.
  *
  * Channels we used to carry but had to drop because they went silent or
  * disabled previews (kept here as a "do not re-add without re-checking"
@@ -48,6 +48,29 @@ interface ChannelSpec {
  * FalconFeedsio (May'24), bellingcat (Jan'24), ransomwatch (no preview),
  * DDoSecrets / IntelCrab / osintfounder / cisa_alerts / krebsonsecurity
  * (preview disabled or channel removed).
+ *
+ * 2026-05-12 probe round (~50 handles tested) skipped because of preview
+ * disabled / channel removed / stale (>30d): cve_notify, dailycve, cves,
+ * CVEnew, cve_alerts, 0daytoday, 0day_today, exploit_dev, CyberNewsfeed
+ * (Dec'24), cyberonews, feed_threatintel, GossiTheDog, secblog,
+ * cybersecurity_alerts, cyberalerts, threatintelligence (Mar'26, just
+ * past 30d), osint_lite, osintessentials (Dec'23), osintbase (Nov'22),
+ * osinternational, osint_resources, osint_dose, osinttv (recent but
+ * only 4 msgs in a month), osint_unlimited, dataleak_news, leaksbase,
+ * databreaches_news, breach_alerts, breachalerts, hackleak, dataleakers,
+ * dataleaknet, scam_alerts, scam_radar, scamalert, antiscam, cyberscams,
+ * scamcheckers (Oct'22), fraud_alerts, antifraud_uk, pwn3d_labs,
+ * cvepost, secalert (Dec'23), cveofficial, cvedaily, cve_news, vulninfo,
+ * cyber_security_official (2022), Pwn3d, DailyDarkWeb, cybernewsoffl,
+ * darkwebnews (Feb'25), soc_radar, lookcyber, threatpost, SocRadar,
+ * cybernewslive, infostealer_leaks, stealer_logs (May'24), darkfeed_io,
+ * leakedsource, breachednews, dataleak_alert, leaks_news, databreachtoday.
+ *
+ * Carding-specific channels were INTENTIONALLY skipped. Public carding
+ * channels on Telegram are almost exclusively vendor channels promoting
+ * stolen-card sales, not defensive research. Surfacing them on a security
+ * portfolio site would carry legal and ethical risk. Phishing / scam
+ * warning channels (phishingradar below) are the closest defensive proxy.
  */
 const CHANNELS: ChannelSpec[] = [
   // Malware research
@@ -84,6 +107,31 @@ const CHANNELS: ChannelSpec[] = [
     name: 'Cyber OSINT',
     blurb: 'OSINT-style cyber-news firehose',
     topic: 'osint',
+  },
+  // CVE / vulnerability disclosure channels (verified 2026-05-12: each has
+  // 40+ recent posts and a sub-day publish cadence). Classed as 'osint'
+  // because they're disclosure intelligence rather than breaking news.
+  { handle: 'cve0day', name: 'CVE 0day', blurb: 'CVE / 0day disclosure firehose', topic: 'osint' },
+  { handle: 'cvenotify', name: 'CVE Notify', blurb: 'High-cadence CVE alerts (NVD-style)', topic: 'osint' },
+  {
+    handle: 'cvefeed',
+    name: 'CVE & Vulnerability RSS',
+    blurb: 'CVE / vulnerability RSS aggregator',
+    topic: 'osint',
+  },
+  // Vendor-backed CTI news (Telefónica Tech). Daily volume, English-language.
+  {
+    handle: 'CyberSecurityPulse',
+    name: 'CyberSecurityPulse',
+    blurb: 'Telefónica Tech daily CTI pulse — incidents, advisories, research',
+    topic: 'news',
+  },
+  // Phishing / scam warnings. German-language but covers global brands.
+  {
+    handle: 'phishingradar',
+    name: 'Phishing Radar',
+    blurb: 'Phishing + scam warnings (DE) — brand-impersonation alerts',
+    topic: 'news',
   },
   // Breach / leak feeds
   { handle: 'dataleak', name: 'DataLeak', blurb: 'Data-breach repost channel', topic: 'leaks' },
@@ -377,7 +425,7 @@ export async function fetchTelegramFeed(): Promise<TelegramFeedResponse> {
 }
 
 /** Exported so /api/v1/snapshot can read the same cached payload directly. */
-export const TELEGRAM_FEED_CACHE_KEY = 'https://telegram-feed-cache.internal/v6-cyberosint';
+export const TELEGRAM_FEED_CACHE_KEY = 'https://telegram-feed-cache.internal/v7-cve-firehose';
 
 export async function telegramFeedHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   const cache = (caches as unknown as { default: Cache }).default;
