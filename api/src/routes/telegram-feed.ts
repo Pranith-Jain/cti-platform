@@ -133,6 +133,17 @@ const CHANNELS: ChannelSpec[] = [
     blurb: 'Phishing + scam warnings (DE) — brand-impersonation alerts',
     topic: 'news',
   },
+  // Spanish-language multi-source CTI firehose. Posts "🚨 ALERTA CVE 🚨"
+  // and "🚨🚨 ALERTA RANSOMWARE 🚨🚨" templates with structured fields
+  // (Víctima / Grupo / País / Web / Descripción). Verified 2026-05-12: 40
+  // recent posts, today's last activity. Same publisher backs a broader
+  // CTI dashboard (leaks / darknet / negotiations / malware samples).
+  {
+    handle: 'mythreatintel',
+    name: 'My Threat Intel',
+    blurb: 'Spanish CTI firehose — CVE + ransomware-victim alerts',
+    topic: 'osint',
+  },
   // Breach / leak feeds
   { handle: 'dataleak', name: 'DataLeak', blurb: 'Data-breach repost channel', topic: 'leaks' },
   // News mirrors
@@ -425,7 +436,7 @@ export async function fetchTelegramFeed(): Promise<TelegramFeedResponse> {
 }
 
 /** Exported so /api/v1/snapshot can read the same cached payload directly. */
-export const TELEGRAM_FEED_CACHE_KEY = 'https://telegram-feed-cache.internal/v7-cve-firehose';
+export const TELEGRAM_FEED_CACHE_KEY = 'https://telegram-feed-cache.internal/v8-mythreatintel';
 
 export async function telegramFeedHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   const cache = (caches as unknown as { default: Cache }).default;

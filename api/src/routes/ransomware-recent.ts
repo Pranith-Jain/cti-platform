@@ -18,13 +18,15 @@ import { classifySector, type Sector } from '../lib/sector-classifier';
  */
 
 /** Exported so /api/v1/snapshot can read the same cached payload directly. */
-export const RANSOMWARE_RECENT_CACHE_KEY = 'https://ransomware-recent-cache.internal/v4-multi-source';
+export const RANSOMWARE_RECENT_CACHE_KEY = 'https://ransomware-recent-cache.internal/v5-ransomwatch';
 const CACHE_KEY = RANSOMWARE_RECENT_CACHE_KEY;
 const CACHE_TTL_SECONDS = 3600;
 const FETCH_TIMEOUT_MS = 15_000;
 const UPSTREAM = 'https://www.ransomlook.io/api/recent';
 /** Secondary tracker. RSS of victim claims. Independently aggregated. */
 const RANSOMFEED_RSS = 'https://www.ransomfeed.it/rss.php';
+/** Tertiary tracker. JSON dump on GitHub, ~16k historical + current entries. */
+const RANSOMWATCH_JSON = 'https://raw.githubusercontent.com/joshhighet/ransomwatch/main/posts.json';
 const MAX_ITEMS = 60;
 
 interface RansomlookEntry {
@@ -140,17 +142,67 @@ async function fetchRansomfeedVictims(): Promise<RansomwareVictim[]> {
   }
 }
 
-/** Merge two victim lists, dedupe by (group + victim + day), keep newest. */
-function mergeVictims(primary: RansomwareVictim[], secondary: RansomwareVictim[]): RansomwareVictim[] {
+/**
+ * Parse joshhighet/ransomwatch's posts.json into our normalized victim shape.
+ *
+ * The file contains ~16k historical entries with the shape
+ *   { post_title, group_name, discovered }
+ * No description, no website, no screenshot. We still find it useful as a
+ * gap-filler — ransomwatch monitors leak sites that Ransomlook misses and
+ * vice versa. The dataset is large (~2.2MB); we read the tail and only
+ * keep the last 7 days so the merge stays bounded.
+ */
+async function fetchRansomwatchVictims(): Promise<RansomwareVictim[]> {
+  try {
+    const res = await fetch(RANSOMWATCH_JSON, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'pranithjain.qzz.io DFIR toolkit (free, read-only)',
+      },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      cf: { cacheTtlByStatus: { '200-299': 3600, '400-599': 0 }, cacheEverything: true },
+    } as RequestInit);
+    if (!res.ok) return [];
+    const raw = (await res.json()) as Array<{ post_title?: string; group_name?: string; discovered?: string }>;
+    if (!Array.isArray(raw)) return [];
+    const cutoffMs = Date.now() - 7 * 24 * 3600 * 1000;
+    const out: RansomwareVictim[] = [];
+    // ransomwatch appends new entries at the end of the array; walk backwards.
+    for (let i = raw.length - 1; i >= 0 && out.length < MAX_ITEMS; i--) {
+      const e = raw[i];
+      if (!e || !e.post_title || !e.group_name || !e.discovered) continue;
+      const discovered = toIsoDate(e.discovered);
+      const ts = Date.parse(discovered);
+      if (!Number.isFinite(ts) || ts < cutoffMs) break; // entries are ordered, can stop
+      const victim = e.post_title.trim();
+      out.push({
+        victim,
+        group: e.group_name.trim().toLowerCase(),
+        discovered,
+        source_url: 'https://github.com/joshhighet/ransomwatch',
+        sector: classifySector(victim, undefined),
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/** Merge N victim lists, dedupe by (group + victim + day), keep newest. */
+function mergeVictims(...lists: RansomwareVictim[][]): RansomwareVictim[] {
   const byKey = new Map<string, RansomwareVictim>();
   const key = (v: RansomwareVictim) => {
     const day = v.discovered.slice(0, 10); // YYYY-MM-DD
     return `${v.group}|${v.victim.toLowerCase().trim()}|${day}`;
   };
-  // Insert primary first so it wins ties (Ransomlook entries have screen_url
-  // which the UI uses). The secondary fills gaps where the primary missed.
-  for (const v of primary) byKey.set(key(v), v);
-  for (const v of secondary) if (!byKey.has(key(v))) byKey.set(key(v), v);
+  // Insert in source-priority order. Earlier lists win ties — call sites pass
+  // Ransomlook first because its entries carry screen_url which the UI inlines.
+  for (const list of lists) {
+    for (const v of list) {
+      if (!byKey.has(key(v))) byKey.set(key(v), v);
+    }
+  }
   return [...byKey.values()].sort((a, b) => b.discovered.localeCompare(a.discovered));
 }
 
@@ -169,11 +221,12 @@ export async function fetchRansomwareRecent(): Promise<{
   let upstreamOk = false;
   let rateLimited: { retryAfter: string } | undefined;
 
-  // Ransomlook (primary) + ransomfeed.it (secondary) fetched in parallel.
-  // We dedupe by (group + victim + day) so heavy overlap doesn't bloat
-  // counts. Ransomlook entries win ties because they carry the .onion
-  // screenshot URL the UI renders inline.
-  const [primarySettled, secondaryVictims] = await Promise.all([
+  // Ransomlook (primary) + ransomfeed.it (secondary) + ransomwatch (tertiary)
+  // fetched in parallel. We dedupe by (group + victim + day) so heavy overlap
+  // collapses to a single row. Priority order at tie-break: Ransomlook first
+  // (carries .onion screenshot URLs the UI inlines), ransomfeed.it next
+  // (carries descriptions), ransomwatch last (id-only — fills coverage gaps).
+  const [primarySettled, secondaryVictims, tertiaryVictims] = await Promise.all([
     (async () => {
       try {
         const ctrl = new AbortController();
@@ -192,6 +245,7 @@ export async function fetchRansomwareRecent(): Promise<{
       }
     })(),
     fetchRansomfeedVictims(),
+    fetchRansomwatchVictims(),
   ]);
 
   try {
@@ -224,14 +278,14 @@ export async function fetchRansomwareRecent(): Promise<{
     /* upstream unreachable — fall through; secondary may still have data */
   }
 
-  // If the secondary returned victims even when the primary failed, we treat
-  // upstreamOk as true so the response is cacheable and the UI doesn't show
-  // "all sources down" when at least one tracker is healthy.
-  if (!upstreamOk && secondaryVictims.length > 0) {
+  // Single-source-down tolerance: if EITHER non-primary tracker returned
+  // victims, we treat upstreamOk as true so the response stays cacheable.
+  // The UI shouldn't show "all sources down" when 2/3 trackers are healthy.
+  if (!upstreamOk && (secondaryVictims.length > 0 || tertiaryVictims.length > 0)) {
     upstreamOk = true;
   }
 
-  const victims = mergeVictims(primary, secondaryVictims).slice(0, MAX_ITEMS);
+  const victims = mergeVictims(primary, secondaryVictims, tertiaryVictims).slice(0, MAX_ITEMS);
 
   const groupCounts = new Map<string, number>();
   for (const v of victims) groupCounts.set(v.group, (groupCounts.get(v.group) ?? 0) + 1);
@@ -261,7 +315,7 @@ export async function fetchRansomwareRecent(): Promise<{
 
   const body: ResponseBody = {
     generated_at: new Date().toISOString(),
-    source: 'ransomlook.io + ransomfeed.it (merged + deduped)',
+    source: 'ransomlook.io + ransomfeed.it + ransomwatch (merged + deduped)',
     count: victims.length,
     groups,
     sectors,
