@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import {
   Activity,
+  AlertOctagon,
   AlertTriangle,
   ArrowRight,
   BarChart3,
@@ -127,6 +128,13 @@ const SECTIONS: Section[] = [
         label: 'Scam Watch',
         desc: 'Live FTC and FBI IC3 alerts, deepfake-scam news, and Reddit victim reports. Search and filter built in.',
         icon: AlertTriangle,
+      },
+      {
+        to: '/threatintel/cyber-crime',
+        label: 'Cyber crime & fraud feeds',
+        desc: 'Live incident coverage: DOJ indictments and takedowns, Chainalysis and Elliptic crypto-crime tracing, Krebs/BleepingComputer/HackRead breach reporting, DataBreaches.net, CISA, The Record. Round-robin so no one source dominates.',
+        icon: AlertOctagon,
+        badge: 'live',
       },
       {
         to: '/threatintel/tech-ai-news',
