@@ -11,9 +11,16 @@ import { AppShell } from './components/AppShell';
 import { BackgroundLayer } from './components/BackgroundLayer';
 import { CommandPalette } from './components/dfir/CommandPalette';
 
+// Note (2026-05-12): tried React.lazy on these four shell components to
+// trim the entry chunk. Lighthouse showed desktop wiki regressed 77→71
+// and exif 84→71 because each new chunk adds a network round-trip that
+// outweighs the parse savings. Keeping them eager.
+
 // Top-level pages are lazy-loaded so the initial paint only ships the JS
 // needed for the current route. Home stays eagerly imported because it's
-// the most-likely landing page — avoids a Suspense flash there.
+// the most-likely landing page — lighthouse measurement 2026-05-12 showed
+// lazy-Home regressed wiki score 77→64 and root 72→69. The Suspense
+// fallback shifts FCP and adds CLS that outweighs the parse savings.
 import Home from './pages/Home';
 const About = lazy(() => import('./pages/About'));
 const Skills = lazy(() => import('./pages/Skills'));
