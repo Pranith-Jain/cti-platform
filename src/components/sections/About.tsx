@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Terminal, ArrowRight } from 'lucide-react';
 import { stats } from '../../data/content';
+import { DropCapParagraph, FiledTag } from '../editorial';
 
 /**
  * About — prose left, live-toolkit-mock right.
@@ -15,18 +16,16 @@ export function About() {
       <div className="grid items-start gap-12 lg:grid-cols-[1.1fr_0.9fr]">
         {/* LEFT: prose */}
         <div className="animate-fade-in-up">
-          <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">
-            02 — About
-          </div>
+          <FiledTag number="02" subject="About — Subject Brief" accent="brand" />
           <h2 className="font-serif text-3xl font-normal italic tracking-tight text-slate-900 sm:text-4xl dark:text-white">
             Alerts first, then everything else
           </h2>
           <div className="mt-7 max-w-[65ch] space-y-5 text-base leading-relaxed text-slate-700 dark:text-slate-300">
-            <p>
+            <DropCapParagraph>
               The work that taught me anything useful was the alert work. Phishing, BEC, malware, lookalike domains. Two
               hundred and fifty incidents in, you start seeing the same attacker patterns, the same defensive blind
               spots, and the same five steps you keep repeating by hand.
-            </p>
+            </DropCapParagraph>
             <p>
               That&apos;s where the automation came from. With{' '}
               <span className="font-semibold text-brand-700 dark:text-brand-400">n8n and a few MCP servers</span>, I

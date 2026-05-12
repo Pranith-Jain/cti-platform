@@ -1,5 +1,6 @@
 import { ArrowUpRight } from 'lucide-react';
 import { featuredArticles } from '../../data/content';
+import { FiledTag } from '../editorial';
 
 /**
  * Featured — editorial divider rows. F/D letter mark on the left rail
@@ -10,9 +11,7 @@ export function Featured() {
   return (
     <section id="featured" className="mt-24 scroll-mt-24">
       <div className="mb-8 max-w-3xl">
-        <div className="animate-fade-in-up mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">
-          05 — Recognition
-        </div>
+        <FiledTag number="05" subject="Recognition — Press Index" accent="amber" />
         <h2 className="animate-fade-in-up font-serif text-3xl font-normal italic tracking-tight text-slate-900 sm:text-4xl dark:text-white">
           Where the work shows up
         </h2>

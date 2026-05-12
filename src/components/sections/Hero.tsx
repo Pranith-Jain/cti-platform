@@ -1,6 +1,7 @@
 import { Linkedin, Github, Mail, ArrowRight, ArrowUpRight, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { personalInfo, stats } from '../../data/content';
+import { FiledTag } from '../editorial';
 
 /**
  * Hero — italic-serif display voice (adopted from impeccable.style),
@@ -14,12 +15,9 @@ export function Hero() {
   return (
     <section className="relative pt-6 lg:pt-10">
       <div className="grid items-start gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:gap-14">
-        {/* LEFT: prose */}
-        <div className="animate-fade-in-up">
-          {/* Numbered eyebrow */}
-          <div className="mb-5 font-mono text-[10px] uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">
-            01 — Welcome
-          </div>
+        {/* LEFT: prose with sequential cascade reveal */}
+        <div className="hero-cascade">
+          <FiledTag number="01" subject="Welcome — Subject Profile" accent="brand" />
 
           {/* Live status pill */}
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 font-mono text-[11px] text-emerald-700 transition-transform duration-200 ease-spring hover:scale-105 dark:text-emerald-300">

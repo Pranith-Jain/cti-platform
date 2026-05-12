@@ -1,6 +1,7 @@
 import { Mail, Calendar, Linkedin, Github, FileText } from 'lucide-react';
 import { personalInfo } from '../../data/content';
 import { CopyToClipboard } from '../../components/CopyToClipboard';
+import { FiledTag } from '../editorial';
 
 /**
  * Contact — dark slate panel restored with dot-grid texture + subtle
@@ -25,7 +26,7 @@ export function Contact() {
           />
         </div>
         <div className="relative mx-auto max-w-3xl">
-          <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-brand-300">07 — Contact</div>
+          <FiledTag number="07" subject="Contact — Open Channel" accent="rose" inverted />
           <h2
             id="contact-heading"
             className="font-serif text-3xl font-normal italic tracking-tight text-white sm:text-4xl lg:text-5xl"

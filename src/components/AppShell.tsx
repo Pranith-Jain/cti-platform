@@ -64,8 +64,8 @@ export function AppShell({ mode, isDark, onToggleTheme, children }: AppShellProp
   const nav = mode === 'dfir' ? DFIR_NAV : TI_NAV;
   const brand: BrandSpec =
     mode === 'dfir'
-      ? { short: 'DFIR', long: 'DFIR Toolkit', accent: 'text-brand-600 dark:text-brand-400' }
-      : { short: 'TI', long: 'Threat Intel', accent: 'text-rose-600 dark:text-rose-400' };
+      ? { short: 'Dossier', long: 'DFIR · Tooling', accent: 'text-brand-600 dark:text-brand-400' }
+      : { short: 'Wire', long: 'Threat Intel', accent: 'text-rose-600 dark:text-rose-400' };
 
   const isActive = (item: NavItem) =>
     item.exact ? location.pathname === item.to : location.pathname.startsWith(item.to);
@@ -95,11 +95,11 @@ function AppHeader({
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center gap-4">
-        {/* Brand */}
+        {/* Masthead */}
         <Link to={nav[0]?.to ?? '/'} className="flex items-baseline gap-2 shrink-0">
-          <span className={`font-mono font-bold text-sm ${brand.accent}`}>{brand.short}</span>
-          <span className="hidden sm:inline text-[11px] font-mono text-slate-500 dark:text-slate-500">
-            / {brand.long.toLowerCase()}
+          <span className={`font-serif text-base font-light italic leading-none ${brand.accent}`}>{brand.short}</span>
+          <span className="hidden font-mono text-[9px] uppercase tracking-[0.28em] text-slate-500 sm:inline dark:text-slate-500">
+            / {brand.long}
           </span>
         </Link>
 

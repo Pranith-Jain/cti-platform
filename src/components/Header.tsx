@@ -104,19 +104,19 @@ export function Header({ isDark, onToggleTheme }: HeaderProps) {
       <header
         className={`sticky top-0 z-50 transition-all duration-300 ${
           isScrolled
-            ? 'border-b border-slate-200/60 bg-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/80'
-            : 'border-b border-transparent bg-white/65 backdrop-blur-xl dark:bg-slate-950/60'
+            ? 'border-b border-slate-200/60 bg-white/85 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85'
+            : 'border-b border-transparent bg-white/75 backdrop-blur-xl dark:bg-slate-950/70'
         }`}
         role="banner"
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          {/* Logo */}
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2.5 sm:px-6 sm:py-3">
+          {/* Masthead */}
           <Link
             to="/"
-            className="group inline-flex items-center gap-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 rounded-lg"
-            aria-label="Pranith Jain Portfolio - Back to home"
+            className="group inline-flex items-baseline gap-3 rounded focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+            aria-label="P. Jain Dossier — Back to home"
           >
-            <span className="h-9 w-9 rounded-xl shadow-glow flex items-center justify-center overflow-hidden">
+            <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-lg shadow-sm">
               <svg viewBox="0 0 36 36" className="h-full w-full" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <defs>
                   <linearGradient id="pjGradientHeader" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -139,8 +139,13 @@ export function Header({ isDark, onToggleTheme }: HeaderProps) {
                 </text>
               </svg>
             </span>
-            <span className="hidden text-sm font-semibold tracking-tight sm:inline text-slate-900 dark:text-white">
-              Pranith Jain<span className="text-slate-600 dark:text-slate-300"> • Portfolio</span>
+            <span className="hidden flex-col leading-none sm:flex">
+              <span className="font-mono text-[9px] uppercase tracking-[0.32em] text-slate-500 group-hover:text-brand-600 dark:group-hover:text-brand-400">
+                P.&nbsp;Jain · Dossier
+              </span>
+              <span className="mt-1 font-mono text-[8px] uppercase tracking-[0.4em] text-slate-400 dark:text-slate-600">
+                Issue&nbsp;26.05 — Threat&nbsp;Intel
+              </span>
             </span>
           </Link>
 
@@ -167,10 +172,10 @@ export function Header({ isDark, onToggleTheme }: HeaderProps) {
                             toggleDropdown(link.href);
                           }
                         }}
-                        className={`flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
+                        className={`flex items-center gap-1 rounded px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
                           isActive(link.href)
-                            ? 'text-brand-600 dark:text-brand-400 bg-brand-500/10'
-                            : 'text-slate-700 hover:bg-slate-900/5 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white'
+                            ? 'bg-brand-500/10 text-brand-700 dark:text-brand-300'
+                            : 'text-slate-600 hover:bg-slate-900/5 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white'
                         }`}
                         aria-expanded={openDropdown === link.href}
                         aria-haspopup="true"
@@ -209,10 +214,10 @@ export function Header({ isDark, onToggleTheme }: HeaderProps) {
                       to={link.href}
                       onMouseEnter={() => preloadRoute(link.href)}
                       onFocus={() => preloadRoute(link.href)}
-                      className={`rounded-full px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
+                      className={`rounded px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
                         isActive(link.href)
-                          ? 'text-brand-600 dark:text-brand-400 bg-brand-500/10'
-                          : 'text-slate-700 hover:bg-slate-900/5 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white'
+                          ? 'bg-brand-500/10 text-brand-700 dark:text-brand-300'
+                          : 'text-slate-600 hover:bg-slate-900/5 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white'
                       }`}
                     >
                       {link.label}
