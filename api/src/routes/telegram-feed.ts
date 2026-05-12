@@ -79,6 +79,12 @@ const CHANNELS: ChannelSpec[] = [
     blurb: 'Defensive-CTI / IR write-ups + threat-actor tracking',
     topic: 'osint',
   },
+  {
+    handle: 'cyberosintosint',
+    name: 'Cyber OSINT',
+    blurb: 'OSINT-style cyber-news firehose',
+    topic: 'osint',
+  },
   // Breach / leak feeds
   { handle: 'dataleak', name: 'DataLeak', blurb: 'Data-breach repost channel', topic: 'leaks' },
   // News mirrors
@@ -371,7 +377,7 @@ export async function fetchTelegramFeed(): Promise<TelegramFeedResponse> {
 }
 
 /** Exported so /api/v1/snapshot can read the same cached payload directly. */
-export const TELEGRAM_FEED_CACHE_KEY = 'https://telegram-feed-cache.internal/v5-quality';
+export const TELEGRAM_FEED_CACHE_KEY = 'https://telegram-feed-cache.internal/v6-cyberosint';
 
 export async function telegramFeedHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   const cache = (caches as unknown as { default: Cache }).default;

@@ -88,6 +88,11 @@ export const WRITEUP_SOURCES: WriteupSourceSpec[] = [
   { kind: 'rss', url: 'https://hackread.com/feed/', label: 'HackRead' },
   { kind: 'rss', url: 'https://www.databreaches.net/feed/', label: 'DataBreaches.net' },
   { kind: 'rss', url: 'https://www.cisa.gov/cybersecurity-advisories/all.xml', label: 'CISA Advisories' },
+  // Aikido Security's company blog publishes supply-chain malware research
+  // including the Shai-Hulud npm worm coverage. The intel.aikido.dev /malware
+  // surface (12k+ AIKIDO-* IDs) has no public feed — the blog is the
+  // closest machine-readable view of their research output.
+  { kind: 'rss', url: 'https://www.aikido.dev/blog/rss.xml', label: 'Aikido Security' },
 
   // ─── Skipped sources (documented so we don't re-add them blindly) ────
   // ransomnews.online (requested 2026-05-12): no machine-readable feed.
@@ -99,6 +104,13 @@ export const WRITEUP_SOURCES: WriteupSourceSpec[] = [
   // socprime.com/active-threats/feed/ (requested 2026-05-12): the category
   //   subfeed 404s. The site-wide socprime.com/feed/ above is the working
   //   surface and includes the same active-threats articles.
+  // intel.aikido.dev (requested 2026-05-12): supply-chain malware database
+  //   with 12,329 AIKIDO-* CVE IDs in its sitemap. /api/packages returns 10
+  //   most-recent packages, but the rolling sample almost never contains
+  //   `isMalware: true` items (Aikido reviews in batches). The /malware
+  //   page is client-rendered with no inline data island. We use the
+  //   sister company-blog feed www.aikido.dev/blog/rss.xml above instead,
+  //   which surfaces the same supply-chain research as articles.
   // bleepingcomputer.com/feed/tag/ransomware/: returns 403 to server-side
   //   fetchers (bot detection). Re-add if we add residential-IP egress.
   // therecord.media/feed: 5 items only and content overlaps with Recorded
