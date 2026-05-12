@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 import type { Env } from '../env';
 import { classifySector, type Sector } from '../lib/sector-classifier';
+import { fetchMythreatintelRansomwareVictims } from '../lib/mythreatintel-parser';
 
 /**
  * Recent ransomware leak-site posts via Ransomlook.io's free `/api/recent`
@@ -18,7 +19,7 @@ import { classifySector, type Sector } from '../lib/sector-classifier';
  */
 
 /** Exported so /api/v1/snapshot can read the same cached payload directly. */
-export const RANSOMWARE_RECENT_CACHE_KEY = 'https://ransomware-recent-cache.internal/v5-ransomwatch';
+export const RANSOMWARE_RECENT_CACHE_KEY = 'https://ransomware-recent-cache.internal/v6-mythreatintel';
 const CACHE_KEY = RANSOMWARE_RECENT_CACHE_KEY;
 const CACHE_TTL_SECONDS = 3600;
 const FETCH_TIMEOUT_MS = 15_000;
@@ -221,12 +222,13 @@ export async function fetchRansomwareRecent(): Promise<{
   let upstreamOk = false;
   let rateLimited: { retryAfter: string } | undefined;
 
-  // Ransomlook (primary) + ransomfeed.it (secondary) + ransomwatch (tertiary)
-  // fetched in parallel. We dedupe by (group + victim + day) so heavy overlap
-  // collapses to a single row. Priority order at tie-break: Ransomlook first
-  // (carries .onion screenshot URLs the UI inlines), ransomfeed.it next
-  // (carries descriptions), ransomwatch last (id-only — fills coverage gaps).
-  const [primarySettled, secondaryVictims, tertiaryVictims] = await Promise.all([
+  // Four trackers fetched in parallel. Dedupe by (group + victim + day);
+  // priority order at tie-break:
+  //   1. Ransomlook        — carries .onion screenshot URLs the UI inlines
+  //   2. mythreatintel     — Spanish CTI channel, real-time, has descriptions
+  //   3. ransomfeed.it     — RSS of victim claims, has descriptions
+  //   4. ransomwatch       — id-only, fills coverage gaps from leak-site scrapes
+  const [primarySettled, mtiVictims, secondaryVictims, tertiaryVictims] = await Promise.all([
     (async () => {
       try {
         const ctrl = new AbortController();
@@ -244,6 +246,10 @@ export async function fetchRansomwareRecent(): Promise<{
         return null;
       }
     })(),
+    // mythreatintel parser returns a structurally-compatible shape; the only
+    // extra field is `country`, which RansomwareVictim doesn't yet carry —
+    // safe to upcast.
+    fetchMythreatintelRansomwareVictims().catch(() => []),
     fetchRansomfeedVictims(),
     fetchRansomwatchVictims(),
   ]);
@@ -278,14 +284,17 @@ export async function fetchRansomwareRecent(): Promise<{
     /* upstream unreachable — fall through; secondary may still have data */
   }
 
-  // Single-source-down tolerance: if EITHER non-primary tracker returned
-  // victims, we treat upstreamOk as true so the response stays cacheable.
-  // The UI shouldn't show "all sources down" when 2/3 trackers are healthy.
-  if (!upstreamOk && (secondaryVictims.length > 0 || tertiaryVictims.length > 0)) {
+  // Single-source-down tolerance: cacheable as long as ANY non-primary
+  // tracker returned data. The page shouldn't blank when 3/4 trackers are
+  // healthy.
+  if (!upstreamOk && (mtiVictims.length > 0 || secondaryVictims.length > 0 || tertiaryVictims.length > 0)) {
     upstreamOk = true;
   }
 
-  const victims = mergeVictims(primary, secondaryVictims, tertiaryVictims).slice(0, MAX_ITEMS);
+  const victims = mergeVictims(primary, mtiVictims as RansomwareVictim[], secondaryVictims, tertiaryVictims).slice(
+    0,
+    MAX_ITEMS
+  );
 
   const groupCounts = new Map<string, number>();
   for (const v of victims) groupCounts.set(v.group, (groupCounts.get(v.group) ?? 0) + 1);
@@ -315,7 +324,7 @@ export async function fetchRansomwareRecent(): Promise<{
 
   const body: ResponseBody = {
     generated_at: new Date().toISOString(),
-    source: 'ransomlook.io + ransomfeed.it + ransomwatch (merged + deduped)',
+    source: 'ransomlook.io + mythreatintel + ransomfeed.it + ransomwatch (merged + deduped)',
     count: victims.length,
     groups,
     sectors,
