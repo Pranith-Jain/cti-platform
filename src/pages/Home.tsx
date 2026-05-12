@@ -1,29 +1,20 @@
-import { Suspense, lazy } from 'react';
+import { Hero, Featured, Contact } from '../components/sections';
 
-const Hero = lazy(() => import('../components/sections').then((m) => ({ default: m.Hero })));
-const Featured = lazy(() => import('../components/sections').then((m) => ({ default: m.Featured })));
-const Contact = lazy(() => import('../components/sections').then((m) => ({ default: m.Contact })));
-
-function SectionLoader() {
-  return (
-    <div className="min-h-[200px] flex items-center justify-center" aria-hidden="true">
-      <div className="w-8 h-8 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
-    </div>
-  );
-}
-
+/**
+ * Home page sections (Hero / Featured / Contact) used to be React.lazy
+ * imports wrapped in Suspense. That was a regression for SSR because
+ * `renderToString` doesn't wait for Suspense to resolve and emits
+ * spinner fallbacks into the prerendered HTML, hurting LCP and forcing
+ * extra hydration work. Eager imports here add ~5KB to the Home chunk
+ * but let the prerender pipeline emit real Hero / Featured / Contact
+ * markup.
+ */
 export default function Home() {
   return (
     <>
-      <Suspense fallback={<SectionLoader />}>
-        <Hero />
-      </Suspense>
-      <Suspense fallback={<SectionLoader />}>
-        <Featured />
-      </Suspense>
-      <Suspense fallback={<SectionLoader />}>
-        <Contact />
-      </Suspense>
+      <Hero />
+      <Featured />
+      <Contact />
     </>
   );
 }

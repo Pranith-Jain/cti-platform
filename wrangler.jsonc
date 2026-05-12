@@ -10,7 +10,14 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "html_handling": "drop-trailing-slash"
+    "html_handling": "drop-trailing-slash",
+    // run_worker_first: by default Cloudflare serves matched static assets
+    // directly without invoking the Worker. That broke SSR Phase 2 — the
+    // Worker's PRERENDERED_ROUTES handler never ran for `/` because CF
+    // intercepted it and served dist/index.html (the SPA shell) instead.
+    // With this true, the Worker handles every request and explicitly
+    // calls env.ASSETS.fetch() when it wants an asset.
+    "run_worker_first": true
   },
   "kv_namespaces": [
     {

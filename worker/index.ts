@@ -258,6 +258,49 @@ async function getOrInjectOg(request: Request, env: Env, ctx: ExecutionContext, 
   return withOg;
 }
 
+/**
+ * Set of routes that have been prerendered to static HTML during the build
+ * (see scripts/prerender.mjs). For these routes the Worker serves the
+ * prerendered file directly so users see real content before React parses;
+ * the SPA shell is reserved for fallback / unknown routes.
+ *
+ * Phase 2 (2026-05-12) ships only `/`. Phase 3 will expand this list.
+ */
+// Cloudflare Assets canonicalizes `*.html` paths by redirecting to the
+// extension-less form (e.g. /foo.html → 307 /foo). env.ASSETS.fetch()
+// returns the redirect verbatim and our code doesn't follow it, which
+// caused Phase 2 to silently serve the SPA shell instead of the
+// prerendered HTML. Fetching the canonical (extension-less) URL works
+// around it — the file is still at __prerendered/home.html on disk.
+const PRERENDERED_ROUTES = new Map<string, string>([['/', '/__prerendered/home']]);
+
+async function fetchPrerenderedOrShell(request: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
+  const prerenderedPath = PRERENDERED_ROUTES.get(url.pathname);
+  if (!prerenderedPath) {
+    const r = await getOrInjectOg(request, env, ctx, url);
+    const h = new Headers(r.headers);
+    h.set('x-ssr-source', 'spa-shell');
+    return new Response(r.body, { status: r.status, statusText: r.statusText, headers: h });
+  }
+  const internal = new URL(request.url);
+  internal.pathname = prerenderedPath;
+  const prerenderRes = await env.ASSETS.fetch(new Request(internal.toString(), request));
+  if (prerenderRes.status === 404) {
+    const r = await getOrInjectOg(request, env, ctx, url);
+    const h = new Headers(r.headers);
+    h.set('x-ssr-source', 'shell-fallback-404');
+    return new Response(r.body, { status: r.status, statusText: r.statusText, headers: h });
+  }
+  const headers = new Headers(prerenderRes.headers);
+  headers.set('cache-control', `public, max-age=${OG_CACHE_TTL_SECONDS}`);
+  headers.set('x-ssr-source', 'prerendered');
+  return new Response(prerenderRes.body, {
+    status: prerenderRes.status,
+    statusText: prerenderRes.statusText,
+    headers,
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -265,8 +308,8 @@ export default {
       const apiRes = await apiApp.fetch(request, env as never, ctx);
       return withSecurityHeaders(apiRes);
     }
-    const withOg = await getOrInjectOg(request, env, ctx, url);
-    return withSecurityHeaders(withOg);
+    const html = await fetchPrerenderedOrShell(request, env, ctx, url);
+    return withSecurityHeaders(html);
   },
 
   /**
