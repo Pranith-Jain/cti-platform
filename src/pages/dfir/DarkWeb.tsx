@@ -713,6 +713,8 @@ export function BreachDisclosuresPanel(): JSX.Element {
 // Recent Ransomware Activity panel — pulls Ransomlook.io's leak-site posts
 // ─────────────────────────────────────────────────────────────────────────
 
+type RansomwareOrigin = 'ransomlook' | 'mti' | 'ransomfeed' | 'ransomwatch';
+
 interface RansomwareVictim {
   victim: string;
   group: string;
@@ -721,7 +723,34 @@ interface RansomwareVictim {
   source_url: string;
   /** Clearnet URL for a screenshot of the .onion leak page (Ransomlook-rehosted). */
   screen_url?: string;
+  /** Which of the four trackers surfaced this victim. */
+  origin?: RansomwareOrigin;
+  /** ISO-3166 country (only set when upstream provided it; mythreatintel today). */
+  country?: string;
 }
+
+const ORIGIN_PILL: Record<RansomwareOrigin, { label: string; cls: string; tooltip: string }> = {
+  ransomlook: {
+    label: 'RL',
+    cls: 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+    tooltip: 'Ransomlook — primary tracker with .onion screenshots',
+  },
+  mti: {
+    label: 'MTI',
+    cls: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+    tooltip: 'mythreatintel Telegram channel — real-time Spanish CTI firehose',
+  },
+  ransomfeed: {
+    label: 'RFI',
+    cls: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    tooltip: 'ransomfeed.it — RSS of victim claims',
+  },
+  ransomwatch: {
+    label: 'RW',
+    cls: 'border-violet-500/40 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+    tooltip: 'ransomwatch — joshhighet/ransomwatch GitHub posts.json',
+  },
+};
 
 interface RansomwareResponse {
   generated_at: string;
@@ -903,6 +932,22 @@ export function RansomwareActivityPanel(): JSX.Element {
                     <span className="text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300">
                       {v.group}
                     </span>
+                    {v.origin && ORIGIN_PILL[v.origin] && (
+                      <span
+                        className={`text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded border ${ORIGIN_PILL[v.origin].cls}`}
+                        title={ORIGIN_PILL[v.origin].tooltip}
+                      >
+                        {ORIGIN_PILL[v.origin].label}
+                      </span>
+                    )}
+                    {v.country && (
+                      <span
+                        className="text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded border border-slate-300 dark:border-slate-700 text-slate-500"
+                        title={`Country attributed by upstream: ${v.country}`}
+                      >
+                        {v.country}
+                      </span>
+                    )}
                   </div>
                   <div className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-1">
                     claimed {formatRelativeTime(v.discovered)}

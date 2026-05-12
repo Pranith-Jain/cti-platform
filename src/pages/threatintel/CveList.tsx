@@ -26,7 +26,11 @@ interface RecentCve {
   kev_due?: string;
   kev_ransomware?: boolean;
   actors?: Array<{ slug: string; mitre_id?: string; mitre_url?: string; mitre_name?: string }>;
-  origin: 'nvd' | 'kev';
+  origin: 'nvd' | 'kev' | 'mti' | 'cvefeed';
+  /** Telegram permalink when origin is 'mti'. */
+  mti_permalink?: string;
+  /** External link when origin is 'cvefeed' — cvefeed.io detail page. */
+  cvefeed_url?: string;
 }
 
 interface CveResponse {
@@ -44,6 +48,29 @@ const SEVERITY_PILL: Record<RecentCve['severity'], string> = {
   LOW: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   NONE: 'border-slate-300 dark:border-slate-700 text-slate-500',
   UNKNOWN: 'border-slate-300 dark:border-slate-700 text-slate-500',
+};
+
+const ORIGIN_PILL: Record<RecentCve['origin'], { label: string; cls: string; tooltip: string }> = {
+  nvd: {
+    label: 'NVD',
+    cls: 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400',
+    tooltip: 'Canonical NIST National Vulnerability Database entry',
+  },
+  kev: {
+    label: 'KEV',
+    cls: 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+    tooltip: 'CISA Known Exploited Vulnerabilities — actively exploited in the wild',
+  },
+  mti: {
+    label: 'MTI',
+    cls: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+    tooltip: 'Gap-filled from mythreatintel Telegram channel — not yet in NVD',
+  },
+  cvefeed: {
+    label: 'cvefeed.io',
+    cls: 'border-violet-500/40 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+    tooltip: 'Gap-filled from cvefeed.io high-severity feed — not yet in NVD',
+  },
 };
 
 function shortRel(iso: string): string {
@@ -336,6 +363,12 @@ export default function CveList(): JSX.Element {
                     {c.severity}
                   </span>
                   {c.score !== null && <span className="text-slate-500">{c.score.toFixed(1)}</span>}
+                  <span
+                    className={`uppercase tracking-wider px-1.5 py-0.5 rounded border ${ORIGIN_PILL[c.origin].cls}`}
+                    title={ORIGIN_PILL[c.origin].tooltip}
+                  >
+                    {ORIGIN_PILL[c.origin].label}
+                  </span>
                   <span
                     className="text-slate-400"
                     title={c.origin === 'kev' ? `Added to KEV ${c.kev_added}` : `Published ${c.published}`}

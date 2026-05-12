@@ -19,7 +19,7 @@ import { fetchMythreatintelRansomwareVictims } from '../lib/mythreatintel-parser
  */
 
 /** Exported so /api/v1/snapshot can read the same cached payload directly. */
-export const RANSOMWARE_RECENT_CACHE_KEY = 'https://ransomware-recent-cache.internal/v6-mythreatintel';
+export const RANSOMWARE_RECENT_CACHE_KEY = 'https://ransomware-recent-cache.internal/v7-origin-tags';
 const CACHE_KEY = RANSOMWARE_RECENT_CACHE_KEY;
 const CACHE_TTL_SECONDS = 3600;
 const FETCH_TIMEOUT_MS = 15_000;
@@ -40,6 +40,13 @@ interface RansomlookEntry {
   screen?: string;
 }
 
+/**
+ * Which tracker contributed this victim to the merged response. Set by each
+ * fetcher; preserved by mergeVictims() so the frontend can render an
+ * origin-pill per row.
+ */
+export type RansomwareOrigin = 'ransomlook' | 'mti' | 'ransomfeed' | 'ransomwatch';
+
 export interface RansomwareVictim {
   victim: string;
   group: string;
@@ -55,6 +62,10 @@ export interface RansomwareVictim {
   screen_url?: string;
   /** Heuristic sector classification — see lib/sector-classifier.ts. */
   sector?: Sector;
+  /** Which of the four trackers surfaced this victim. */
+  origin: RansomwareOrigin;
+  /** ISO-3166 country name when the upstream provided it (mythreatintel only today). */
+  country?: string;
 }
 
 interface ResponseBody {
@@ -134,6 +145,7 @@ async function fetchRansomfeedVictims(): Promise<RansomwareVictim[]> {
         source_url: link.trim() || 'https://www.ransomfeed.it/',
         // ransomfeed.it doesn't expose screenshots.
         sector: classifySector(victim, cleanedDesc),
+        origin: 'ransomfeed' as const,
       });
       if (items.length >= MAX_ITEMS) break;
     }
@@ -182,6 +194,7 @@ async function fetchRansomwatchVictims(): Promise<RansomwareVictim[]> {
         discovered,
         source_url: 'https://github.com/joshhighet/ransomwatch',
         sector: classifySector(victim, undefined),
+        origin: 'ransomwatch' as const,
       });
     }
     return out;
@@ -277,6 +290,7 @@ export async function fetchRansomwareRecent(): Promise<{
               : 'https://www.ransomlook.io/recent',
             screen_url: e.screen ? `https://www.ransomlook.io/${e.screen.replace(/^\//, '')}` : undefined,
             sector: classifySector(victim, description),
+            origin: 'ransomlook' as const,
           };
         });
     }

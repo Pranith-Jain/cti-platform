@@ -201,6 +201,8 @@ export interface MtiRansomwareVictim {
   /** ISO-3166 country name from the channel's `País:` field, when present. */
   country?: string;
   sector?: Sector;
+  /** Origin tag for the merged ransomware-recent payload. Always 'mti' here. */
+  origin: 'mti';
 }
 
 export async function fetchMythreatintelRansomwareVictims(): Promise<MtiRansomwareVictim[]> {
@@ -228,6 +230,7 @@ export async function fetchMythreatintelRansomwareVictims(): Promise<MtiRansomwa
       ...(cleanDesc ? { description: cleanDesc } : {}),
       source_url: web && web.startsWith('http') ? web : msg.permalink,
       sector: classifySector(victim, cleanDesc),
+      origin: 'mti' as const,
     });
   }
   return out;
