@@ -10,6 +10,7 @@ import { Layout } from './components/Layout';
 import { AppShell } from './components/AppShell';
 import { BackgroundLayer } from './components/BackgroundLayer';
 import { GrainOverlay } from './components/GrainOverlay';
+import { IntelTicker } from './components/IntelTicker';
 import { CommandPalette } from './components/dfir/CommandPalette';
 
 // Note (2026-05-12): tried React.lazy on these four shell components to
@@ -927,6 +928,7 @@ export function AppContent() {
       <GrainOverlay />
 
       <ScrollProgress progress={progress} />
+      <IntelTicker />
       <Header isDark={isDark} onToggleTheme={toggleTheme} />
       <CommandPalette />
 
