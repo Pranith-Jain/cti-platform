@@ -31,10 +31,20 @@ const clientBuild = {
       // Manual chunk splitting for better caching. Each entry below produces
       // a dedicated chunk so that bumping one consumer doesn't invalidate
       // the vendor's edge cache.
+      //
+      // 2026-05-12 perf experiment: tried removing `vendor-icons` to let
+      // Rollup tree-shake icons per route. RESULT: mobile / regressed
+      // 63→39 and mobile /threatintel/wiki regressed 64→53 because icons
+      // used by always-mounted components (Header, AppShell, Footer,
+      // CommandPalette, BackToTop) got inlined into the index chunk and
+      // got parsed on every cold load. The shared vendor-icons chunk
+      // amortizes that cost across pages. Reverted; the comment stays as
+      // a "don't try this again" marker.
       manualChunks: {
-        // Core React stack.
+        // Core React stack (or preact/compat on the client; see resolve.alias).
         'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-        // Icon set used across every page.
+        // Icon set used across every page. Kept as a shared chunk — see
+        // the failed experiment note above.
         'vendor-icons': ['lucide-react'],
         // Graph viz used ONLY by /dfir/stix. Splitting it ensures the
         // 133KB xyflow runtime is its own chunk that's lazy-fetched.
