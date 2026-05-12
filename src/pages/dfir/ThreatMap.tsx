@@ -282,7 +282,16 @@ export default function ThreatMap(): JSX.Element {
         </p>
       </div>
 
-      {loading && !data && <p className="font-mono text-sm text-slate-500">Aggregating IOCs and geolocating…</p>}
+      {/* Reserve the eventual content height while loading so the page
+          doesn't jump when data arrives. Without this the loading line is
+          ~20px and the loaded grid is ~700px+, producing CLS 0.869
+          (measured 2026-05-12). The min-height isn't a perfect match for
+          every viewport but eliminates the catastrophic shift. */}
+      {loading && !data && (
+        <div className="font-mono text-sm text-slate-500 flex items-center justify-center" style={{ minHeight: 700 }}>
+          Aggregating IOCs and geolocating…
+        </div>
+      )}
       {error && <p className="font-mono text-sm text-rose-600 dark:text-rose-400">error: {error}</p>}
 
       {data && (
@@ -320,11 +329,18 @@ export default function ThreatMap(): JSX.Element {
             {/* Map */}
             <div
               className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 overflow-hidden relative"
-              style={{ minHeight: 420 }}
+              // Reserve the map's intrinsic aspect ratio (900×460 SVG) so the
+              // Suspense fallback occupies the same space the loaded
+              // ComposableMap will take. Without this the placeholder is
+              // 420px and the map renders ~490px on desktop width, producing
+              // CLS 0.869 (measured 2026-05-12). minHeight floors the box on
+              // very narrow viewports where the aspect-ratio alone would
+              // give a too-short reservation.
+              style={{ aspectRatio: '900 / 460', minHeight: 280 }}
             >
               <Suspense
                 fallback={
-                  <div className="flex items-center justify-center h-[420px] text-slate-500 font-mono text-xs gap-2">
+                  <div className="flex items-center justify-center w-full h-full text-slate-500 font-mono text-xs gap-2">
                     <Loader2 size={14} className="animate-spin" /> loading world map…
                   </div>
                 }
