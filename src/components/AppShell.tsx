@@ -9,13 +9,17 @@ interface NavItem {
 
 const TI_NAV: NavItem[] = [
   { label: 'Overview', to: '/threatintel', exact: true },
+  { label: 'MITRE', to: '/threatintel/mitre' },
+  { label: 'ATLAS', to: '/threatintel/atlas' },
   { label: 'Live', to: '/threatintel/live-iocs' },
   { label: 'Pulse', to: '/threatintel/pulse' },
+  { label: 'DarkWeb', to: '/threatintel/darkweb' },
+  { label: 'Ransomware', to: '/threatintel/ransomware-activity' },
   { label: 'Correlation', to: '/threatintel/correlation' },
   { label: 'Actors', to: '/threatintel/actor-timeline' },
+  { label: 'Briefings', to: '/threatintel/briefings' },
   { label: 'Writeups', to: '/threatintel/writeups' },
   { label: 'Metrics', to: '/threatintel/metrics' },
-  { label: 'Status', to: '/threatintel/status' },
 ];
 
 interface AppShellProps {
@@ -52,8 +56,8 @@ function AppHeader({
   onToggleTheme: () => void;
 }): JSX.Element {
   return (
-    <header className="sticky top-0 z-40 border-b border-rule bg-surface-page">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center gap-5">
+      <header className="sticky top-0 z-40 border-b border-rule bg-surface-page/80 backdrop-blur-md supports-[backdrop-filter]:bg-surface-page/70">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center gap-5">
         <Link
           to={nav[0]?.to ?? '/'}
           className="shrink-0 font-mono text-[11px] uppercase tracking-[0.22em] text-accent transition-colors duration-enter hover:text-brand-700"
@@ -144,7 +148,7 @@ function AppStatusBar(): JSX.Element {
   }, []);
 
   return (
-    <footer className="border-t border-rule bg-surface-page">
+    <footer className="border-t border-rule bg-surface-page/80 backdrop-blur-md supports-[backdrop-filter]:bg-surface-page/70">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-9 flex items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3">
         <div className="flex items-center gap-3">
           <StatusPip status={status} error={error} />
