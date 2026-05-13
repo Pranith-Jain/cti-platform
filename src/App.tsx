@@ -20,6 +20,15 @@ const VictimReleaksPage = lazy(() => import('./pages/threatintel/VictimReleaks')
 const LiveIocsPage = lazy(() => import('./pages/threatintel/LiveIocs'));
 const CyberCrimePage = lazy(() => import('./pages/threatintel/CyberCrime'));
 const ThreatPulsePage = lazy(() => import('./pages/threatintel/ThreatPulse'));
+const BriefingsPage = lazy(() => import('./pages/threatintel/Briefings'));
+const BriefingDetailPage = lazy(() => import('./pages/threatintel/BriefingDetail'));
+const ActorsPage = lazy(() => import('./pages/threatintel/Actors'));
+const ActorDetailPage = lazy(() => import('./pages/threatintel/ActorDetail'));
+const WikiPage = lazy(() => import('./pages/threatintel/Wiki'));
+const WikiArticlePage = lazy(() => import('./pages/threatintel/WikiArticle'));
+const ThreatMapPage = lazy(() => import('./pages/threatintel/ThreatMap'));
+const RulesPage = lazy(() => import('./pages/threatintel/Rules'));
+const DarkWebPage = lazy(() => import('./pages/threatintel/DarkWeb'));
 
 function SectionLoader() {
   return (
@@ -192,6 +201,78 @@ export function AppContent() {
       <Route path="/threatintel/phishing-urls" element={<Navigate to="/threatintel/live-iocs" replace />} />
       <Route path="/threatintel/malware-samples" element={<Navigate to="/threatintel/live-iocs" replace />} />
       <Route path="/threatintel/ransom-library" element={<Navigate to="/threatintel" replace />} />
+      <Route
+        path="/threatintel/briefings"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <BriefingsPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/briefings/:slug"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <BriefingDetailPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/actors"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <ActorsPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/actors/:slug"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <ActorDetailPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/wiki"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <WikiPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/wiki/:slug"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <WikiArticlePage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/threat-map"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <ThreatMapPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/rules"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <RulesPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/darkweb"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <DarkWebPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
       <Route path="*" element={<Navigate to="/threatintel" replace />} />
     </Routes>
   );

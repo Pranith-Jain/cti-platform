@@ -1,0 +1,32 @@
+import type { WikiCategory } from '../../data/dfir/wiki-articles';
+
+interface Props {
+  categories: WikiCategory[];
+  active: WikiCategory | 'all';
+  onSelect: (c: WikiCategory | 'all') => void;
+}
+
+export function CategoryPills({ categories, active, onSelect }: Props): JSX.Element {
+  const items: Array<WikiCategory | 'all'> = ['all', ...categories];
+  return (
+    <div className="flex flex-wrap gap-2 mb-8">
+      {items.map((c) => {
+        const isActive = c === active;
+        return (
+          <button
+            key={c}
+            type="button"
+            onClick={() => onSelect(c)}
+            className={`px-3 py-1 text-xs font-mono uppercase tracking-wider border transition-colors ${
+              isActive
+                ? 'bg-accent-soft text-accent border-accent/40'
+                : 'bg-surface-page text-ink-2 border-rule hover:border-accent/40'
+            }`}
+          >
+            {c === 'all' ? 'All' : c}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
