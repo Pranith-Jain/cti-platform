@@ -29,6 +29,11 @@ const WikiArticlePage = lazy(() => import('./pages/threatintel/WikiArticle'));
 const ThreatMapPage = lazy(() => import('./pages/threatintel/ThreatMap'));
 const RulesPage = lazy(() => import('./pages/threatintel/Rules'));
 const DarkWebPage = lazy(() => import('./pages/threatintel/DarkWeb'));
+const OnionWatchPage = lazy(() => import('./pages/threatintel/OnionWatch'));
+const ScamWatchPage = lazy(() => import('./pages/threatintel/ScamWatch'));
+const TechAiNewsPage = lazy(() => import('./pages/threatintel/TechAiNews'));
+const TelegramWatchPage = lazy(() => import('./pages/threatintel/TelegramWatch'));
+const ThreatFeedsPage = lazy(() => import('./pages/threatintel/ThreatFeeds'));
 
 function SectionLoader() {
   return (
@@ -270,6 +275,46 @@ export function AppContent() {
         element={
           <ErrorBoundary><Suspense fallback={<SectionLoader />}>
             <DarkWebPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/onion-watch"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <OnionWatchPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/scam-watch"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <ScamWatchPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/tech-ai-news"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <TechAiNewsPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/telegram-watch"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <TelegramWatchPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/threat-feeds"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <ThreatFeedsPage />
           </Suspense></ErrorBoundary>
         }
       />
