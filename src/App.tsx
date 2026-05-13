@@ -30,6 +30,7 @@ const ThreatMapPage = lazy(() => import('./pages/threatintel/ThreatMap'));
 const RulesPage = lazy(() => import('./pages/threatintel/Rules'));
 const DarkWebPage = lazy(() => import('./pages/threatintel/DarkWeb'));
 const AtlasMatrixPage = lazy(() => import('./pages/threatintel/AtlasMatrix'));
+const MitreMatrixPage = lazy(() => import('./pages/threatintel/MitreMatrix'));
 const OnionWatchPage = lazy(() => import('./pages/threatintel/OnionWatch'));
 const ScamWatchPage = lazy(() => import('./pages/threatintel/ScamWatch'));
 const TechAiNewsPage = lazy(() => import('./pages/threatintel/TechAiNews'));
@@ -268,6 +269,14 @@ export function AppContent() {
         element={
           <ErrorBoundary><Suspense fallback={<SectionLoader />}>
             <RulesPage />
+          </Suspense></ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/mitre"
+        element={
+          <ErrorBoundary><Suspense fallback={<SectionLoader />}>
+            <MitreMatrixPage />
           </Suspense></ErrorBoundary>
         }
       />
