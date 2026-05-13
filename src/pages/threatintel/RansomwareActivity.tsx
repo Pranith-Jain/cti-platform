@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Activity } from 'lucide-react';
-import { RansomwareActivityPanel } from '../dfir/DarkWeb';
+import { RansomwareActivityPanel } from './_panels';
 
 /**
  * Live ransomware activity page. Thin wrapper around the

@@ -1,18 +1,15 @@
 {
-  "name": "pranith-jain-portfolio",
+  "name": "cti-platform",
   "version": "2.0.0",
-  "description": "Pranith Jain - Portfolio Website (React + Vite + TypeScript)",
+  "description": "CTI Platform — Threat intelligence surface on the edge (React + Vite + TypeScript)",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:web": "vite",
     "dev:api": "wrangler dev --port 8787",
-    "wiki:meta": "node scripts/extract-wiki-meta.mjs",
-    "prebuild": "node scripts/extract-wiki-meta.mjs",
     "build:client": "vite build",
     "build:server": "vite build --ssr src/entry-server.tsx",
-    "build:prerender": "node scripts/prerender.mjs",
-    "build": "npm run build:client && npm run build:server && npm run build:prerender",
+    "build": "npm run build:client && npm run build:server",
     "deploy": "npm run build && wrangler deploy",
     "preview": "vite preview",
     "test": "vitest",
@@ -66,13 +63,12 @@
     "wrangler": "^4.88.0"
   },
   "keywords": [
-    "portfolio",
+    "threat-intelligence",
+    "cti",
     "react",
     "vite",
     "tailwind",
-    "cybersecurity",
-    "email-security",
-    "threat-intelligence"
+    "cloudflare-workers"
   ],
   "author": "Pranith Jain",
   "license": "MIT"

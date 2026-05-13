@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Send } from 'lucide-react';
-import { TelegramFeedPanel } from '../dfir/DarkWeb';
+import { TelegramFeedPanel } from './_panels';
 
 /**
  * Cybersec Telegram firehose page. Thin wrapper around the

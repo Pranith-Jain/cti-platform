@@ -1,12 +1,12 @@
-import { Component, type ReactNode, type ErrorInfo } from 'react';
+import { Component, type ReactNode, type ErrorInfo, useState, useCallback } from 'react';
 import { AlertTriangle, RefreshCw, Home, ChevronDown, ChevronUp } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
   resetOnChange?: boolean;
-  className?: string;
 }
 
 interface State {
@@ -19,155 +19,95 @@ interface State {
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-      errorInfo: null,
-      isExpanded: false,
-    };
+    this.state = { hasError: false, error: null, errorInfo: null, isExpanded: false };
   }
 
   static getDerivedStateFromError(error: Error): Partial<State> {
-    return {
-      hasError: true,
-      error,
-    };
+    return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    this.setState({
-      error,
-      errorInfo,
-    });
-
-    // Call onError callback if provided
+    this.setState({ error, errorInfo });
     this.props.onError?.(error, errorInfo);
-
-    // Log error for debugging
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.error('ErrorBoundary:', error.message);
   }
 
   componentDidUpdate(prevProps: Props): void {
-    // Reset error state when children change
     if (this.props.resetOnChange && prevProps.children !== this.props.children) {
-      this.setState({
-        hasError: false,
-        error: null,
-        errorInfo: null,
-      });
+      this.setState({ hasError: false, error: null, errorInfo: null });
     }
   }
 
   handleReset = (): void => {
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null,
-      isExpanded: false,
-    });
-  };
-
-  toggleDetails = (): void => {
-    this.setState((prev) => ({
-      isExpanded: !prev.isExpanded,
-    }));
+    this.setState({ hasError: false, error: null, errorInfo: null, isExpanded: false });
   };
 
   render(): ReactNode {
-    const { hasError, error, errorInfo, isExpanded } = this.state;
-    const { children, fallback } = this.props;
-
-    if (hasError && error) {
-      if (fallback) {
-        return fallback;
-      }
-
+    if (this.state.hasError && this.state.error) {
       return (
-        <ErrorFallback
-          error={error}
-          errorInfo={errorInfo}
-          isExpanded={isExpanded}
-          onReset={this.handleReset}
-          onToggleDetails={this.toggleDetails}
-        />
+        this.props.fallback ?? (
+          <ErrorFallback
+            error={this.state.error}
+            isExpanded={this.state.isExpanded}
+            onReset={this.handleReset}
+            onToggle={() => this.setState((s) => ({ isExpanded: !s.isExpanded }))}
+          />
+        )
       );
     }
-
-    return children;
+    return this.props.children;
   }
 }
 
-interface ErrorFallbackProps {
+function ErrorFallback({
+  error,
+  isExpanded,
+  onReset,
+  onToggle,
+}: {
   error: Error;
-  errorInfo: ErrorInfo | null;
   isExpanded: boolean;
   onReset: () => void;
-  onToggleDetails: () => void;
-}
-
-function ErrorFallback({ error, errorInfo, isExpanded, onReset, onToggleDetails }: ErrorFallbackProps) {
+  onToggle: () => void;
+}) {
   return (
-    <div className="animate-fade-in-up w-full p-6 rounded-2xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/30">
+    <div className="border border-threat/30 bg-threat/5 p-6">
       <div className="flex items-start gap-4">
-        <div className="shrink-0">
-          <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center">
-            <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-400" />
-          </div>
+        <div className="shrink-0 w-10 h-10 border border-threat/30 bg-threat/10 flex items-center justify-center">
+          <AlertTriangle className="w-5 h-5 text-threat" />
         </div>
-
         <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-bold text-rose-800 dark:text-rose-200 mb-1">Something went wrong</h3>
-          <p className="text-sm text-rose-600 dark:text-rose-300 mb-4">
-            {error.message || 'An unexpected error occurred. The error has been logged.'}
-          </p>
+          <h3 className="font-mono font-semibold text-ink-1 mb-1">Runtime Error</h3>
+          <p className="text-sm text-ink-2 mb-3">{error.message || 'An unexpected error occurred.'}</p>
 
-          {/* Error Details (collapsible) */}
           <button
-            onClick={onToggleDetails}
-            className="flex items-center gap-2 text-xs text-rose-500 dark:text-rose-400 hover:text-rose-600 dark:hover:text-rose-300 transition-colors mb-3"
+            onClick={onToggle}
+            className="flex items-center gap-1 text-xs font-mono text-ink-3 hover:text-ink-1 transition-colors mb-3"
           >
-            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            {isExpanded ? 'Hide' : 'Show'} error details
+            {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            {isExpanded ? 'Hide' : 'Show'} details
           </button>
 
-          {isExpanded && errorInfo && (
-            <div className="animate-fade-in-up overflow-hidden">
-              <div className="p-3 rounded-lg bg-slate-900 dark:bg-black/50 text-left">
-                <div className="text-[10px] font-mono text-rose-300 mb-2 uppercase tracking-wider">Stack Trace</div>
-                <pre className="text-[10px] font-mono text-slate-300 overflow-x-auto whitespace-pre-wrap break-all max-h-48">
-                  {error.stack}
-                </pre>
-                {errorInfo.componentStack && (
-                  <>
-                    <div className="text-[10px] font-mono text-rose-300 mt-3 mb-2 uppercase tracking-wider">
-                      Component Stack
-                    </div>
-                    <pre className="text-[10px] font-mono text-slate-300 overflow-x-auto whitespace-pre-wrap break-all max-h-32">
-                      {errorInfo.componentStack}
-                    </pre>
-                  </>
-                )}
-              </div>
+          {isExpanded && (
+            <div className="bg-surface-sunken border border-rule p-3 mb-4 max-h-48 overflow-auto">
+              <pre className="text-[10px] font-mono text-ink-2 whitespace-pre-wrap break-all">{error.stack}</pre>
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2 mt-4">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={onReset}
-              className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-sm font-medium transition-colors flex items-center gap-2"
+              className="inline-flex items-center gap-1.5 border border-accent bg-accent/10 px-3 py-1.5 font-mono text-xs text-accent transition-colors duration-enter hover:bg-accent hover:text-surface-page"
             >
-              <RefreshCw className="w-4 h-4" />
-              Try Again
+              <RefreshCw className="w-3 h-3" /> Retry
             </button>
-            <a
-              href="#top"
+            <Link
+              to="/"
               onClick={onReset}
-              className="px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-medium transition-colors flex items-center gap-2"
+              className="inline-flex items-center gap-1.5 border border-rule px-3 py-1.5 font-mono text-xs text-ink-2 transition-colors duration-enter hover:border-ink-1 hover:text-ink-1"
             >
-              <Home className="w-4 h-4" />
-              Go Home
-            </a>
+              <Home className="w-3 h-3" /> Home
+            </Link>
           </div>
         </div>
       </div>
@@ -175,50 +115,12 @@ function ErrorFallback({ error, errorInfo, isExpanded, onReset, onToggleDetails 
   );
 }
 
-// Hook to use error boundary functionality in function components
-import { useState, useCallback } from 'react';
-
-// eslint-disable-next-line react-refresh/only-export-components
 export function useErrorBoundary() {
   const [error, setError] = useState<Error | null>(null);
-
-  const resetError = useCallback(() => {
-    setError(null);
-  }, []);
-
-  const throwError = useCallback((err: Error) => {
-    setError(err);
-    throw err;
-  }, []);
-
-  const ErrorComponent = useCallback(
-    ({ children }: { children: ReactNode }) => {
-      if (error) {
-        return (
-          <ErrorFallback
-            error={error}
-            errorInfo={null}
-            isExpanded={false}
-            onReset={resetError}
-            onToggleDetails={() => {}}
-          />
-        );
-      }
-      return <>{children}</>;
-    },
-    [error, resetError]
-  );
-
-  return {
-    error,
-    throwError,
-    resetError,
-    ErrorComponent,
-  };
+  const resetError = useCallback(() => setError(null), []);
+  return { error, resetError, setError };
 }
 
-// Lazy loading wrapper with error boundary
-// eslint-disable-next-line react-refresh/only-export-components
 export function withErrorBoundary<P extends object>(WrappedComponent: React.ComponentType<P>, fallback?: ReactNode) {
   return function WithErrorBoundary(props: P) {
     return (
@@ -227,33 +129,4 @@ export function withErrorBoundary<P extends object>(WrappedComponent: React.Comp
       </ErrorBoundary>
     );
   };
-}
-
-// Section-specific error boundaries
-export function SectionErrorBoundary({ sectionName, children }: { sectionName: string; children: ReactNode }) {
-  const handleError = useCallback(
-    (error: Error, errorInfo: ErrorInfo) => {
-      // Log section-specific errors
-      console.error(`Error in ${sectionName}:`, error, errorInfo);
-    },
-    [sectionName]
-  );
-
-  return (
-    <ErrorBoundary
-      onError={handleError}
-      fallback={
-        <div className="w-full p-8 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 text-center">
-          <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">{sectionName} Section</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-            This section encountered an error and couldn't load.
-          </p>
-          <p className="text-xs text-slate-400 dark:text-slate-500">The rest of the page is still functional.</p>
-        </div>
-      }
-    >
-      {children}
-    </ErrorBoundary>
-  );
 }

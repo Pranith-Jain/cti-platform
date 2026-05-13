@@ -1,43 +1,16 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Command, Moon, Sun, type LucideIcon } from 'lucide-react';
-import { preloadRoute } from '../lib/route-preloaders';
-
-/**
- * App-shell chrome for the two stand-alone surfaces hosted next to the
- * portfolio: /dfir/* (interactive DFIR tools) and /threatintel/* (live CTI
- * platform).
- *
- * Goal: make those routes feel like their own web app, not pages inside a
- * portfolio. The portfolio Header / Footer / background-gradient are
- * suppressed by App.tsx when the route matches, and this shell takes over
- * with its own compact top bar, in-app nav, and bottom status row.
- *
- * Two visual variants (dfir / threatintel) share the same shell. The only
- * differences are the brand label, the in-app nav links, and an optional
- * "live status pip" on threatintel that polls /api/v1/feed-status for an
- * at-a-glance health indicator.
- */
 
 interface NavItem {
   label: string;
   to: string;
-  /** When true, mark active only on exact-match; otherwise use prefix-match. */
   exact?: boolean;
 }
 
-const DFIR_NAV: NavItem[] = [
-  { label: 'Tools', to: '/dfir', exact: true },
-  { label: 'IOC Check', to: '/dfir/ioc-check' },
-  { label: 'URL Preview', to: '/dfir/url-preview' },
-  { label: 'Domain', to: '/dfir/domain' },
-  { label: 'CVE', to: '/dfir/cve' },
-  { label: 'Diamond', to: '/dfir/diamond' },
-];
-
 const TI_NAV: NavItem[] = [
   { label: 'Overview', to: '/threatintel', exact: true },
-  { label: 'Live Feeds', to: '/threatintel/live-iocs' },
+  { label: 'Live', to: '/threatintel/live-iocs' },
+  { label: 'Pulse', to: '/threatintel/pulse' },
   { label: 'Correlation', to: '/threatintel/correlation' },
   { label: 'Actors', to: '/threatintel/actor-timeline' },
   { label: 'Writeups', to: '/threatintel/writeups' },
@@ -45,78 +18,60 @@ const TI_NAV: NavItem[] = [
   { label: 'Status', to: '/threatintel/status' },
 ];
 
-interface BrandSpec {
-  short: string;
-  long: string;
-  accent: string;
-  icon?: LucideIcon;
-}
-
 interface AppShellProps {
-  mode: 'dfir' | 'threatintel';
   isDark: boolean;
   onToggleTheme: () => void;
   children: React.ReactNode;
 }
 
-export function AppShell({ mode, isDark, onToggleTheme, children }: AppShellProps): JSX.Element {
+export function AppShell({ isDark, onToggleTheme, children }: AppShellProps): JSX.Element {
   const location = useLocation();
-  const nav = mode === 'dfir' ? DFIR_NAV : TI_NAV;
-  const brand: BrandSpec =
-    mode === 'dfir'
-      ? { short: 'Dossier', long: 'DFIR · Tooling', accent: 'text-brand-600 dark:text-brand-400' }
-      : { short: 'Wire', long: 'Threat Intel', accent: 'text-rose-600 dark:text-rose-400' };
+  const nav = TI_NAV;
 
   const isActive = (item: NavItem) =>
     item.exact ? location.pathname === item.to : location.pathname.startsWith(item.to);
 
   return (
-    <div className="min-h-screen flex flex-col text-slate-900 dark:text-slate-50">
-      <AppHeader brand={brand} nav={nav} isActive={isActive} isDark={isDark} onToggleTheme={onToggleTheme} />
+    <div className="min-h-screen flex flex-col">
+      <AppHeader nav={nav} isActive={isActive} isDark={isDark} onToggleTheme={onToggleTheme} />
       <main className="flex-1">{children}</main>
-      <AppStatusBar mode={mode} />
+      <AppStatusBar />
     </div>
   );
 }
 
 function AppHeader({
-  brand,
   nav,
   isActive,
   isDark,
   onToggleTheme,
 }: {
-  brand: BrandSpec;
   nav: NavItem[];
   isActive: (item: NavItem) => boolean;
   isDark: boolean;
   onToggleTheme: () => void;
 }): JSX.Element {
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center gap-4">
-        {/* Masthead */}
-        <Link to={nav[0]?.to ?? '/'} className="flex items-baseline gap-2 shrink-0">
-          <span className={`font-serif text-base font-light italic leading-none ${brand.accent}`}>{brand.short}</span>
-          <span className="hidden font-mono text-[9px] uppercase tracking-[0.28em] text-slate-500 sm:inline dark:text-slate-500">
-            / {brand.long}
-          </span>
+    <header className="sticky top-0 z-40 border-b border-rule bg-surface-page">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center gap-5">
+        <Link
+          to={nav[0]?.to ?? '/'}
+          className="shrink-0 font-mono text-[11px] uppercase tracking-[0.22em] text-accent transition-colors duration-enter hover:text-brand-700"
+        >
+          THREAT INTEL
         </Link>
 
-        {/* In-app nav */}
-        <nav className="flex-1 hidden md:flex items-center gap-0.5 overflow-x-auto">
+        <nav className="flex-1 hidden md:flex items-center gap-5 overflow-x-auto" aria-label="Tool navigation">
           {nav.map((item) => {
             const active = isActive(item);
             return (
               <Link
                 key={item.to}
                 to={item.to}
-                onMouseEnter={() => preloadRoute(item.to)}
-                onFocus={() => preloadRoute(item.to)}
-                className={`text-[12px] font-mono px-2.5 py-1 rounded transition-colors whitespace-nowrap ${
+                className={`text-[13px] font-medium tracking-tight whitespace-nowrap transition-colors duration-enter ${
                   active
-                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    ? 'text-ink-1 underline decoration-accent decoration-2 underline-offset-8'
+                    : 'text-ink-2 hover:text-ink-1 hover:underline hover:decoration-accent hover:decoration-2 hover:underline-offset-8'
                 }`}
               >
                 {item.label}
@@ -125,62 +80,32 @@ function AppHeader({
           })}
         </nav>
 
-        {/* Mobile-friendly nav indicator (selected only) */}
-        <div className="flex-1 md:hidden font-mono text-[11px] text-slate-600 dark:text-slate-400 truncate">
+        <div className="flex-1 md:hidden font-mono text-[12px] text-ink-2 truncate">
           {nav.find((n) => isActive(n))?.label ?? '…'}
         </div>
 
-        {/* Utility row */}
-        <div className="flex items-center gap-1 shrink-0">
-          <CmdkHint />
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            aria-label="Toggle theme"
-            className="p-1.5 rounded text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            {isDark ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
-          <Link
-            to="/"
-            className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800"
-            title="Back to portfolio"
-          >
-            <ArrowLeft size={11} /> portfolio
-          </Link>
+        <div className="flex items-center gap-3 shrink-0">
+          <ThemeTogglePair isDark={isDark} onToggle={onToggleTheme} />
         </div>
       </div>
     </header>
   );
 }
 
-function CmdkHint(): JSX.Element | null {
-  const [isMac, setIsMac] = useState<boolean | null>(null);
-  useEffect(() => {
-    if (typeof navigator === 'undefined') return;
-    setIsMac(/Mac|iPhone|iPad/.test(navigator.platform));
-  }, []);
-  if (isMac === null) return null;
+function ThemeTogglePair({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }): JSX.Element {
   return (
     <button
       type="button"
-      onClick={() => {
-        // Dispatch a synthetic Cmd+K to open the command palette. The palette
-        // is mounted globally in App.tsx so any route can summon it.
-        const ev = new KeyboardEvent('keydown', {
-          key: 'k',
-          metaKey: isMac,
-          ctrlKey: !isMac,
-          bubbles: true,
-        });
-        window.dispatchEvent(ev);
-      }}
-      className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
-      aria-label="Open command palette"
-      title="Command palette"
+      onClick={onToggle}
+      className="inline-flex items-baseline gap-1.5 font-mono text-[10px] uppercase tracking-[0.22em]"
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
     >
-      <Command size={10} />
-      <span>{isMac ? '⌘' : 'Ctrl'} K</span>
+      <span className={isDark ? 'text-ink-3' : 'text-accent'}>Light</span>
+      <span aria-hidden="true" className="text-ink-3">
+        /
+      </span>
+      <span className={isDark ? 'text-accent' : 'text-ink-3'}>Dark</span>
     </button>
   );
 }
@@ -191,17 +116,11 @@ interface FeedStatusBrief {
   rows: Array<{ id: string; status: 'ok' | 'degraded' | 'down' | 'cold' }>;
 }
 
-/**
- * Slim status row at the bottom of the app. For /threatintel, polls
- * /api/v1/feed-status every 60s and surfaces the overall health pip.
- * For /dfir, shows the static "all tools client-side or edge-only" note.
- */
-function AppStatusBar({ mode }: { mode: 'dfir' | 'threatintel' }): JSX.Element {
+function AppStatusBar(): JSX.Element {
   const [status, setStatus] = useState<FeedStatusBrief | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (mode !== 'threatintel') return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -222,33 +141,23 @@ function AppStatusBar({ mode }: { mode: 'dfir' | 'threatintel' }): JSX.Element {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [mode]);
+  }, []);
 
   return (
-    <footer className="border-t border-slate-200/60 dark:border-white/10 bg-white/60 dark:bg-slate-950/60 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-9 flex items-center justify-between gap-3 text-[10px] font-mono text-slate-500 dark:text-slate-500">
+    <footer className="border-t border-rule bg-surface-page">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-9 flex items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3">
         <div className="flex items-center gap-3">
-          {mode === 'dfir' ? (
-            <>
-              <span>Edge-hosted on Cloudflare Workers.</span>
-              <span className="hidden sm:inline">No signup, no key.</span>
-            </>
-          ) : (
-            <StatusPip status={status} error={error} />
-          )}
+          <StatusPip status={status} error={error} />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <a
             href="https://github.com/Pranith-Jain/Pranith-Jain.github.io"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-slate-900 dark:hover:text-slate-100"
+            className="transition-colors duration-enter hover:text-accent"
           >
             github
           </a>
-          <Link to="/" className="hover:text-slate-900 dark:hover:text-slate-100">
-            portfolio
-          </Link>
         </div>
       </div>
     </footer>
@@ -259,7 +168,7 @@ function StatusPip({ status, error }: { status: FeedStatusBrief | null; error: s
   if (error) {
     return (
       <span className="inline-flex items-center gap-1.5">
-        <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-500" />
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-500" aria-hidden="true" />
         feed-status unreachable
       </span>
     );
@@ -267,7 +176,7 @@ function StatusPip({ status, error }: { status: FeedStatusBrief | null; error: s
   if (!status) {
     return (
       <span className="inline-flex items-center gap-1.5">
-        <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" />
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-ink-3 animate-pulse" aria-hidden="true" />
         checking feeds…
       </span>
     );
@@ -280,7 +189,7 @@ function StatusPip({ status, error }: { status: FeedStatusBrief | null; error: s
       : status.overall === 'degraded'
         ? 'bg-amber-500'
         : status.overall === 'cold'
-          ? 'bg-slate-400'
+          ? 'bg-ink-3'
           : 'bg-rose-500';
   const label =
     status.overall === 'ok'
@@ -293,9 +202,9 @@ function StatusPip({ status, error }: { status: FeedStatusBrief | null; error: s
   return (
     <Link
       to="/threatintel/status"
-      className="inline-flex items-center gap-1.5 hover:text-slate-900 dark:hover:text-slate-100"
+      className="inline-flex items-center gap-1.5 transition-colors duration-enter hover:text-accent"
     >
-      <span className={`inline-block w-1.5 h-1.5 rounded-full ${pipCls}`} />
+      <span className={`inline-block w-1.5 h-1.5 rounded-full ${pipCls}`} aria-hidden="true" />
       {okCount}/{total} feeds · {label}
     </Link>
   );

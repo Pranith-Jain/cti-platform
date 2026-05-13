@@ -9,16 +9,8 @@ import {
 export interface Env {
   ASSETS: { fetch: (req: Request) => Promise<Response> };
   KV_CACHE?: KVNamespace;
-  KV_SHARES?: KVNamespace;
   BRIEFINGS?: KVNamespace;
   R2_FILES?: R2Bucket;
-  VT_API_KEY?: string;
-  ABUSEIPDB_API_KEY?: string;
-  SHODAN_API_KEY?: string;
-  OTX_API_KEY?: string;
-  URLSCAN_API_KEY?: string;
-  HYBRID_ANALYSIS_API_KEY?: string;
-  ABUSECH_AUTH_KEY?: string;
 }
 
 const SECURITY_HEADERS: Record<string, string> = {
@@ -53,15 +45,6 @@ function withSecurityHeaders(response: Response): Response {
   });
 }
 
-/**
- * Per-route social metadata overrides. The SPA serves the same index.html
- * for every path, so without rewriting the OG tags at the edge, any social-
- * media bot that fetches `/threatintel/correlation` sees the portfolio-root
- * meta and routes preview-clicks back to `/`.
- *
- * Lookup is exact-match first, then longest-matching prefix (so
- * `/threatintel/anything-else` still inherits the `/threatintel` card).
- */
 interface OgOverride {
   title: string;
   description: string;
@@ -69,89 +52,58 @@ interface OgOverride {
 
 const OG_OVERRIDES: Record<string, OgOverride> = {
   '/threatintel': {
-    title: 'Threat Intel Platform · pranithjain.qzz.io',
+    title: 'Threat Intel Platform · cti-platform',
     description:
       'A working CTI surface on the edge. Live ransomware leak claims, CVE merged with CISA KEV, cross-source IOC correlation across 18 feeds, an actor-activity Gantt joined with MITRE Group profiles, victim re-leak detection, ten-panel metrics, STIX 2.1 export, and a writeups aggregator across 18 analyst blogs.',
   },
   '/threatintel/correlation': {
-    title: 'Cross-source IOC correlation · pranithjain.qzz.io',
+    title: 'Cross-source IOC correlation · cti-platform',
     description:
       'Indicators that appear in 2+ independent IOC feeds, ranked by source consensus. Single-feed flags can be false positives; cross-source overlap is the signal analysts trust. 18 feeds aggregated.',
   },
   '/threatintel/live-iocs': {
-    title: 'Live IOC stream · pranithjain.qzz.io',
+    title: 'Live IOC stream · cti-platform',
     description:
       'Chronological firehose of individual indicators. Each entry carries a reporter handle, source feed, and first-observed timestamp. 10 sources including TweetFeed, SANS ISC, C2IntelFeeds, URLhaus, ThreatFox.',
   },
   '/threatintel/actor-timeline': {
-    title: 'Ransomware actor activity timeline · pranithjain.qzz.io',
+    title: 'Ransomware actor activity timeline · cti-platform',
     description:
       'Per-actor leak-site cadence across the last 30 days, joined with curated MITRE ATT&CK Group references. Pivot from "who is posting" to "what TTPs to hunt for."',
   },
   '/threatintel/re-leaks': {
-    title: 'Victim re-leak detection · pranithjain.qzz.io',
+    title: 'Victim re-leak detection · cti-platform',
     description:
       'Victims claimed by 2+ ransomware groups in the last 12 months. Usually a failed double-extortion or an affiliate moving programs.',
   },
   '/threatintel/metrics': {
-    title: 'Threat Intel Metrics · pranithjain.qzz.io',
+    title: 'Threat Intel Metrics · cti-platform',
     description:
       'Ten panels answering the questions a CTI team actually asks. Most-active ransomware groups, CVE severity, KEV cadence, top-impersonated brands, IOC volume by source, sector targeting, malware families, re-leak hotspots.',
   },
   '/threatintel/writeups': {
-    title: 'CTI writeups feed · pranithjain.qzz.io',
+    title: 'CTI writeups feed · cti-platform',
     description:
       'Live aggregation of long-form CTI writeups from 18 analyst blogs and vendor research labs: The DFIR Report, BushidoToken, DoublePulsar, Krebs, SentinelLabs, Unit 42, Check Point Research, Huntress, and more.',
   },
   '/threatintel/cve-list': {
-    title: 'Live CVE updates · pranithjain.qzz.io',
+    title: 'Live CVE updates · cti-platform',
     description:
       'NVD published-CVE feed merged with the CISA KEV catalogue. Severity, KEV flag, ransomware-use flag, and a curated actor pill where attribution exists.',
   },
+  '/threatintel/pulse': {
+    title: 'Threat Pulse · cti-platform',
+    description:
+      'Cross-source threat correlation across Reddit, Bluesky, CTI writeups, and cybercrime news. Entities mentioned in 2+ independent surfaces ranked by source consensus.',
+  },
   '/threatintel/status': {
-    title: 'Feed status · pranithjain.qzz.io',
+    title: 'Feed status · cti-platform',
     description: 'Health of every upstream-backed feed on the threat-intel platform.',
-  },
-  '/dfir': {
-    title: 'DFIR Toolkit · pranithjain.qzz.io',
-    description:
-      'Interactive DFIR tools on the edge. IOC checker streaming verdicts from 24 providers, Diamond Model builder with auto-fill, STIX 2.1 viewer, subdomain-takeover fingerprinting, MITRE ATT&CK matrix, and a long tail of analyst utilities. Free, no signup.',
-  },
-  '/dfir/ioc-check': {
-    title: 'IOC Checker · pranithjain.qzz.io',
-    description:
-      'Paste any IP, domain, URL, hash, or CVE. Get streaming verdicts from VirusTotal, AbuseIPDB, OTX, GreyNoise, the abuse.ch trio, and a long tail of free reputation lists.',
-  },
-  '/dfir/diamond': {
-    title: 'Diamond Model auto-fill · pranithjain.qzz.io',
-    description:
-      'Build an intrusion-event Diamond Model. Paste any IOC or actor name and the four corners auto-populate from IOC checker, ip-geo, cross-source correlation, KEV-actor mapping, MalwareBazaar, and ransomware-victim cross-match.',
-  },
-  '/about': {
-    title: 'About · Pranith Jain',
-    description:
-      'Security analyst and detection engineer. Phishing, BEC, and malware incidents at human scale; defenders built at AI scale. 250+ incidents, 1300+ domains secured, 75-minute mean response time.',
-  },
-  '/projects': {
-    title: 'Projects · Pranith Jain',
-    description:
-      'A working CTI platform, a DFIR toolkit, a CTI STIX connector, email-infrastructure automation across 1,300+ domains, and a handful of older capstones.',
-  },
-  '/skills': {
-    title: 'Skills · Pranith Jain',
-    description:
-      'Email security and deliverability, threat intelligence, cyber criminology and OSINT, email threat response, cloud identity security, and AI for security automation.',
-  },
-  '/experience': {
-    title: 'Experience · Pranith Jain',
-    description:
-      'Security Analyst at Qubit Capital, Tech Associate at UnifyCX, and earlier engineering roles. Email security operations, infrastructure monitoring, phishing and BEC investigation, SOC automation, and domain-abuse monitoring.',
   },
 };
 
 function findOgOverride(pathname: string): OgOverride | null {
   if (OG_OVERRIDES[pathname]) return OG_OVERRIDES[pathname];
-  // Longest-matching prefix.
   let best: OgOverride | null = null;
   let bestLen = 0;
   for (const [k, v] of Object.entries(OG_OVERRIDES)) {
@@ -190,11 +142,6 @@ function rewriteOgMeta(html: string, override: OgOverride, fullUrl: string): str
     .replace(/<meta name="twitter:url" content="[^"]*"/i, `<meta name="twitter:url" content="${escapeAttr(fullUrl)}"`);
 }
 
-/**
- * Mutate the static index.html so the OG / Twitter / canonical metadata
- * reflects the actual route. Only kicks in for HTML responses (asset router
- * returns text/html for SPA fallback paths). Anything else passes through.
- */
 async function injectOgMeta(response: Response, url: URL): Promise<Response> {
   const ct = response.headers.get('content-type') ?? '';
   if (!ct.toLowerCase().includes('text/html')) return response;
@@ -207,33 +154,12 @@ async function injectOgMeta(response: Response, url: URL): Promise<Response> {
   return new Response(rewritten, { status: response.status, statusText: response.statusText, headers });
 }
 
-/**
- * Cache the OG-rewritten HTML in the Cache API, keyed by `pathname @ etag`.
- *
- * Why the etag matters: a redeploy bumps Vite's chunk hashes inside index.html,
- * so the rewritten HTML now references new <script src> filenames. The OLD
- * filenames are deleted from the assets binding on deploy. If we cached only
- * by pathname, users would hit stale HTML referencing deleted bundles and
- * get 404s on the chunk fetch for up to TTL.
- *
- * The asset binding's etag is content-derived, so on every redeploy the
- * underlying index.html gets a new etag → new cache key → cold rewrite →
- * cached version always matches the assets currently on disk. That makes
- * it safe to use a much longer TTL than the 10 min we'd need without the
- * etag suffix; 1d gives us very high hit rate with zero staleness risk.
- */
 const OG_CACHE_TTL_SECONDS = 86_400;
 
 async function getOrInjectOg(request: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
-  // Cache only matters for paths we actually rewrite. Skip the cache layer
-  // entirely for non-override paths — saves one cache.match round-trip.
   const override = findOgOverride(url.pathname);
   if (!override) return env.ASSETS.fetch(request);
 
-  // Asset fetch is required up-front because the cache key depends on the
-  // etag of the underlying asset. This is cheap — env.ASSETS.fetch is a
-  // local-edge lookup, and on cache hit we never read the body (no
-  // .text() call) so the bytes don't move.
   const assetRes = await env.ASSETS.fetch(request);
   const ct = assetRes.headers.get('content-type') ?? '';
   if (!ct.toLowerCase().includes('text/html')) return assetRes;
@@ -258,56 +184,14 @@ async function getOrInjectOg(request: Request, env: Env, ctx: ExecutionContext, 
   return withOg;
 }
 
-/**
- * Set of routes that have been prerendered to static HTML during the build
- * (see scripts/prerender.mjs). For these routes the Worker serves the
- * prerendered file directly so users see real content before React parses;
- * the SPA shell is reserved for fallback / unknown routes.
- *
- * Phase 2 (2026-05-12) ships only `/`. Phase 3 expanded to 20 static
- * content routes; Phase 3.1 added 5 live-feed surfaces whose prerendered
- * HTML contains chrome + loading-state, with data hydrated client-side.
- */
-// Cloudflare Assets canonicalizes `*.html` paths by redirecting to the
-// extension-less form (e.g. /foo.html → 307 /foo). env.ASSETS.fetch()
-// returns the redirect verbatim and our code doesn't follow it, so we
-// have to ask for the canonical (extension-less) URL directly. The
-// file is still at __prerendered/<slug>.html on disk.
-//
-// Slug rule (must match scripts/prerender.mjs): '/' → 'home',
-// '/dfir/diamond' → 'dfir__diamond' (slashes replaced with double
-// underscore to avoid creating nested directories).
 const PRERENDERED_ROUTES = new Map<string, string>([
-  // Portfolio
-  ['/', '/__prerendered/home'],
-  ['/about', '/__prerendered/about'],
-  ['/skills', '/__prerendered/skills'],
-  ['/experience', '/__prerendered/experience'],
-  ['/projects', '/__prerendered/projects'],
-  // Landings
-  ['/dfir', '/__prerendered/dfir'],
   ['/threatintel', '/__prerendered/threatintel'],
-  // Catalogs / education
-  ['/threatintel/wiki', '/__prerendered/threatintel__wiki'],
-  ['/threatintel/awesome-lists', '/__prerendered/threatintel__awesome-lists'],
-  ['/threatintel/secops-tools', '/__prerendered/threatintel__secops-tools'],
-  ['/threatintel/cve-resources', '/__prerendered/threatintel__cve-resources'],
-  ['/threatintel/osint-framework', '/__prerendered/threatintel__osint-framework'],
-  ['/dfir/diamond', '/__prerendered/dfir__diamond'],
-  ['/dfir/owasp', '/__prerendered/dfir__owasp'],
-  ['/dfir/lolbins', '/__prerendered/dfir__lolbins'],
-  // Frameworks / training
-  ['/dfir/kill-chain', '/__prerendered/dfir__kill-chain'],
-  ['/dfir/tabletop', '/__prerendered/dfir__tabletop'],
-  ['/dfir/grc', '/__prerendered/dfir__grc'],
-  ['/dfir/data-classification', '/__prerendered/dfir__data-classification'],
-  ['/dfir/privacy-hub', '/__prerendered/dfir__privacy-hub'],
-  // Live-feed surfaces — prerendered chrome + loading state (Phase 3.1)
   ['/threatintel/threat-feeds', '/__prerendered/threatintel__threat-feeds'],
   ['/threatintel/writeups', '/__prerendered/threatintel__writeups'],
   ['/threatintel/cyber-crime', '/__prerendered/threatintel__cyber-crime'],
   ['/threatintel/ransomware-activity', '/__prerendered/threatintel__ransomware-activity'],
   ['/threatintel/live-iocs', '/__prerendered/threatintel__live-iocs'],
+  ['/threatintel/pulse', '/__prerendered/threatintel__pulse'],
 ]);
 
 async function fetchPrerenderedOrShell(request: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
@@ -348,15 +232,6 @@ export default {
     return withSecurityHeaders(html);
   },
 
-  /**
-   * Cron-triggered work. Dispatched on cron string:
-   * - "5 0 * * *"  → daily briefing for the prior calendar day
-   * - "15 0 * * 1" → weekly briefing for the prior ISO week (Mon → Sun)
-   * - "0 * * * *"  → warm /api/v1/snapshot + /api/v1/ioc-snapshot once
-   *                  per hour. Was every 5 min — that cadence was burning
-   *                  Workers KV writes for negligible UX gain. Snapshot
-   *                  cache TTL bumped to 1h to match.
-   */
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     const cron = event.cron;
 
@@ -364,24 +239,13 @@ export default {
       ctx.waitUntil(
         (async () => {
           const start = Date.now();
-          // Use the production hostname so the cached Response key matches what
-          // user requests look up. Cache API is keyed by the full Request URL.
-          const baseUrl = 'https://pranithjain.qzz.io';
-          // Warm the underlying per-source handlers FIRST, then the snapshot
-          // composers. Snapshot endpoints (/snapshot, /ioc-snapshot) read from
-          // the per-source handlers' caches; if those aren't warm, the
-          // snapshot's first call does fresh upstream fetches that flake on
-          // ip-api throttling and similar transient failures. Ordering matters:
-          // by the time we call /snapshot, /threat-map etc are populated.
+          const baseUrl = 'https://cti-platform.qzz.io';
           const perSourceTargets = [
             '/api/v1/threat-map',
             '/api/v1/rules',
             '/api/v1/ransomware-recent',
             '/api/v1/telegram-feed',
             '/api/v1/onion-watch',
-            // 2026-05-11 additions — keep these warm so the per-type IOC
-            // pages and CVE list render instantly on the first visit
-            // each hour. Each is independent; failures don't cascade.
             '/api/v1/cve-recent',
             '/api/v1/phishing-urls',
             '/api/v1/malware-samples',
@@ -395,7 +259,6 @@ export default {
             await res.arrayBuffer();
             return { path, status: res.status };
           }
-          // Per-source first (parallel), then composers (parallel). Two waves.
           const perSource = await Promise.allSettled(perSourceTargets.map(warm));
           const composers = await Promise.allSettled(composerTargets.map(warm));
           const summary = [...perSource, ...composers]
@@ -412,7 +275,6 @@ export default {
       return;
     }
 
-    // Briefings cron path.
     if (!env.BRIEFINGS) {
       console.warn('scheduled: BRIEFINGS KV not bound, skipping');
       return;
@@ -432,7 +294,6 @@ export default {
         } catch (err) {
           console.error('scheduled: briefing build failed', err);
         }
-        // Always run the sweep, even if the build failed — keeps KV tidy.
         try {
           const result = await sweepOldBriefings(kv, BRIEFING_MAX_AGE_DAYS);
           if (result.deleted.length > 0) {

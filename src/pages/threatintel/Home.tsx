@@ -32,7 +32,6 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
-import { LiveSnapshotPanel } from '../../components/dfir/LiveSnapshotPanel';
 
 /**
  * Threat-Intel landing page — the SOLE entry point for sources, feeds, RSS,
@@ -517,9 +516,7 @@ export default function ThreatIntelHome(): JSX.Element {
       </div>
 
       {!isSearching && (
-        <section className="animate-fade-in-up">
-          <LiveSnapshotPanel compact subtitle="live intel pulse across the platform" mbClass="mb-12" />
-        </section>
+        <section className="animate-fade-in-up">{/* LiveSnapshotPanel removed — platform-split artifact */}</section>
       )}
 
       {isSearching ? (

@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "pranithjain",
+  "name": "cti-platform",
   "main": "worker/index.ts",
   "compatibility_date": "2025-04-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -11,12 +11,6 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "html_handling": "drop-trailing-slash",
-    // run_worker_first: by default Cloudflare serves matched static assets
-    // directly without invoking the Worker. That broke SSR Phase 2 — the
-    // Worker's PRERENDERED_ROUTES handler never ran for `/` because CF
-    // intercepted it and served dist/index.html (the SPA shell) instead.
-    // With this true, the Worker handles every request and explicitly
-    // calls env.ASSETS.fetch() when it wants an asset.
     "run_worker_first": true
   },
   "kv_namespaces": [
@@ -30,21 +24,6 @@
     }
   ],
   "triggers": {
-    // Daily briefing at 00:05 UTC (covers prior 24h window). Weekly at 00:15 UTC Monday (covers prior week).
-    // "0 * * * *" warms /api/v1/snapshot + /api/v1/ioc-snapshot once per hour so users always hit warm edge cache.
-    // (Was "*/5 * * * *" — 5-min cadence was burning Workers KV writes for negligible UX gain.)
     "crons": ["5 0 * * *", "15 0 * * 1", "0 * * * *"]
-  },
-  // Cloudflare Analytics Engine — usage telemetry. Free tier: 100k writes/day,
-  // 10M reads/month. Only writes high-signal events (IOC checks, threat-map
-  // fetches), never PII. Code path is wired in api/src/lib/analytics.ts and
-  // gracefully no-ops when the binding is missing.
-  //
-  // ONE-TIME ENABLE: click "Enable" once at
-  //   https://dash.cloudflare.com/6a7461d701e2e1c989e05137b0255405/workers/analytics-engine
-  // then uncomment the block below and redeploy.
-  //
-  // "analytics_engine_datasets": [
-  //   { "binding": "DFIR_ANALYTICS", "dataset": "dfir_analytics" }
-  // ]
+  }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Loader2, Newspaper, ShieldAlert } from 'lucide-react';
-import { BreachDisclosuresPanel } from '../dfir/DarkWeb';
+import { BreachDisclosuresPanel } from './_panels';
 import { fetchAggregatedFeed, formatRelativeTime, type AggregatedFeedItem } from '../../services/rssService';
 
 /**
