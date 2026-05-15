@@ -1,134 +1,94 @@
-# pranithjain.qzz.io
+# CTI Platform — Threat Intel on the Edge
 
-Personal portfolio for **Pranith Jain** — security analyst and detection engineer — bundled with a working DFIR toolkit. Hosted on Cloudflare Workers, free at the edge.
+> **Status:** Live production deployment. The entire platform runs as part of the monorepo at [github.com/Pranith-Jain/Pranith-Jain.github.io](https://github.com/Pranith-Jain/Pranith-Jain.github.io) — this repo contains the original prototype and design artifacts.
 
-**Live:** [https://pranithjain.qzz.io](https://pranithjain.qzz.io) · [/dfir](https://pranithjain.qzz.io/dfir)
+**Live:** [pranithjain.qzz.io/threatintel](https://pranithjain.qzz.io/threatintel)
 
 ---
 
-## What this repo contains
+## What's live
 
-Two things in one deploy:
+A working CTI surface on the edge. No backend servers, no database, no subscription.
 
-1. A React + Vite + TypeScript portfolio site (Home, About, Skills, Experience, Projects, Contact).
-2. A **24-tool DFIR toolkit** living under `/dfir/*`, served by a Hono-based Worker API at `/api/v1/*`.
+### Live Feeds (15 surfaces)
 
-The portfolio site and the API run from the same Cloudflare Worker. Same origin, no CORS, no separate hosting bill.
+| Surface | Description |
+|---------|-------------|
+| Dark Web Watch | Aggregated leak-site, ransomware, breach activity from 15 RSS sources with keyword watchlist |
+| Live Ransomware Activity | Recent ransomware leak-site claims from Ransomlook with per-victim screenshots |
+| Infostealer Live Tracker | HudsonRock victim exposure, demonforums ULP, stealer-log Telegram channels |
+| Threat Pulse | Fresh threat entities ranked by cross-source activity over 24h |
+| Cybersec Telegram Firehose | Curated public Telegram channel message stream |
+| Cybersec Reddit Firehose | 16 infosec subreddits |
+| Cybersec Social Firehose | 16 researchers on Bluesky + Mastodon |
+| Live Breach Disclosures | Have I Been Pwned feed with verification flags |
+| Cyber Crime & Fraud | DOJ indictments, crypto-crime tracing, breach reporting |
+| Tech & AI News | 16-source feed for AI labs and cyber M&A |
+| Cyber Threat Map | Live geolocated choropleth across 7 IOC source types |
+| Scam Watch | FTC + FBI IC3 alerts, deepfake-scam news, Reddit victim reports |
 
-## DFIR toolkit at a glance
+### Intel & Analysis (5 surfaces)
 
-**Featured tools** (`/dfir`):
+| Surface | Description |
+|---------|-------------|
+| Intel Briefings | Daily and weekly auto-generated digests with CVE, KEV, and IOC sections |
+| Writeups Feed | 18+ analyst blogs and vendor research labs aggregated live |
+| Threat Actors | APT catalogue with TTPs and MITRE technique mapping |
+| MITRE ATT&CK | Full matrix with per-technique deep-dives and actor pivot |
+| Threat Intel Metrics | 10-panel dashboard: most-active groups, CVE severity, KEV cadence, IOC volume |
 
-| Tool               | Path               | What it does                                                                                         |
-| ------------------ | ------------------ | ---------------------------------------------------------------------------------------------------- |
-| IOC Checker        | `/dfir/ioc-check`  | Streams 22 threat-intel sources in parallel for IPs, domains, URLs, hashes                           |
-| IOC Extractor      | `/dfir/extract`    | Pulls IOCs from any text blob, refang-aware                                                          |
-| Subdomain Takeover | `/dfir/takeover`   | CNAME chain + 15 dangling-service fingerprints                                                       |
-| Phishing Analyzer  | `/dfir/phishing`   | Email headers, auth, embedded URLs cross-checked against threat intel                                |
-| MITRE ATT&CK       | `/dfir/mitre`      | Matrix + technique deep-dive + actor mapping                                                         |
-| STIX Viewer        | `/dfir/stix`       | Visualise STIX 2.1 bundles as an interactive relationship graph                                      |
-| Dark Web Watch     | `/dfir/darkweb`    | Aggregated leak-site, ransomware, breach activity from 15 sources, with persistent keyword watchlist |
-| Cyber Threat Map   | `/dfir/threat-map` | Live geolocated choropleth of malicious infrastructure across 7 IOC sources                          |
-| Intel Briefings    | `/dfir/briefings`  | Daily and weekly digests, cron-built from KEV + abuse.ch + snapshot blocklists                       |
+### IOC & Detection (4 surfaces)
 
-**Utilities** (`/dfir/...`): Domain Lookup, Exposure Scanner, File Analyzer, JWT Inspector, Homograph Detector, CVE Lookup, URL Preview, ASN Lookup, Breach Checker, EXIF Parser, Decoder, Knowledge Base, Recent Lookups, Threat Actors, Privacy Check.
+| Surface | Description |
+|---------|-------------|
+| Live IOC Stream | Chronological firehose from 10 sources (TweetFeed, URLhaus, ThreatFox, C2IntelFeeds, etc.) |
+| IOC Correlation | Cross-source consensus ranking across 18 independent feeds |
+| CVE List | NVD published-CVE feed merged with CISA KEV catalogue |
+| Live CVE Updates | Severity, KEV flag, ransomware-use flag, actor attribution |
 
-**22 IOC providers** wired across IOC Checker, File Analyzer, Phishing Analyzer, and Domain Checker:
+### Catalogs & Reference (7 surfaces)
 
-- **Commercial (API key)**: VirusTotal, AbuseIPDB, Shodan, OTX, URLScan, Hybrid Analysis
-- **abuse.ch (one shared free key)**: ThreatFox, URLhaus, MalwareBazaar
-- **Public lists / no signup**: Spamhaus DROP/EDROP, Tor exit list, OpenPhish, Cloudflare DoH, Bitwire, Blocklist.de, Binary Defense, Ipsum (3+ source consensus), Phishing Army, CIRCL Hashlookup, TweetFeed, CINS Army
+| Surface | Description |
+|---------|-------------|
+| Domain Monitor | Typosquatting scanner with DNS resolution (inspired by haveibeensquatted.com) |
+| Detection Rules | Sigma, YARA, Elastic, Splunk, KQL, Suricata — live commit feeds |
+| CVE Resources Catalog | ~70 curated CVE sources |
+| SecOps Tools Catalog | ~140 hand-picked tools across 14 categories |
+| OSINT Framework | 70+ curated OSINT tools, filterable by pricing tier |
+| Telegram Catalog | Curated index of public threat-intel Telegram channels |
+| Knowledge Base | Long-form articles on Telegram OSINT tradecraft and MITRE workflows |
 
-## Tech stack
+### Data Sources
 
-| Layer     | Choice                                                                                     |
-| --------- | ------------------------------------------------------------------------------------------ |
-| Frontend  | React 18 + Vite + TypeScript + Tailwind                                                    |
-| Routing   | React Router v6 (lazy-loaded routes)                                                       |
-| Animation | Framer Motion                                                                              |
-| Map viz   | react-simple-maps with locally-bundled natural-earth atlas                                 |
-| Graph viz | @xyflow/react (lazy-loaded only on `/dfir/stix`)                                           |
-| Backend   | Cloudflare Workers + Hono                                                                  |
-| Storage   | Cloudflare KV (briefings, sparse rate-limit), Cache API (provider results, blocklist text) |
-| Cron      | Daily 00:05 UTC, Weekly Mon 00:15 UTC (briefing generation)                                |
-| Tests     | Vitest + Testing Library                                                                   |
+- **CISA KEV** — actively exploited vulnerabilities
+- **NVD** — CVE feed with CVSS scoring
+- **Ransomlook** — ransomware leak-site claims with screenshots
+- **ransomware.live PRO** — authenticated API (stats, cyberattacks, negotiation logs)
+- **HudsonRock** — infostealer victim exposure
+- **Have I Been Pwned** — breach disclosure API
+- **TweetFeed** — IOC drops from Twitter
+- **URLhaus** — malware URLs
+- **ThreatFox** — malware indicators
+- **C2IntelFeeds** — C2 server indicators
+- **Feodo Tracker** — botnet C2 trackers
+- **OpenPhish** — phishing URLs
+- **PhishStats** — phishing domain data
+- **Blocklist.de** — brute-force IPs
+- **Binary Defense** — ban list
+- **Ipsum** — multi-source IP reputation
+- **Phishing Army** — phishing domain blocklist
+- **Bitwire** — threat intelligence feed
+- **SANS ISC** — Internet Storm Center
+- **Multiple RSS feeds** — 40+ sources across cyber news, vendor blogs, analyst writeups
 
-## Repository layout
+### Architecture
 
-```
-.
-├── src/                     # React app
-│   ├── pages/
-│   │   ├── *.tsx            # Home, About, Skills, Experience, Projects, NotFound
-│   │   └── dfir/*.tsx       # Per-tool pages
-│   ├── components/
-│   │   ├── sections/*       # Hero, About section, Contact, etc.
-│   │   └── dfir/*           # IOC chips, ToolGrid, ThreatIntelFeed, etc.
-│   ├── lib/dfir/*           # Client-side parsers, indicator detection, privacy probes
-│   ├── services/            # RSS service (proxy-aware fetcher)
-│   └── data/                # content.ts, threat-actors, wiki, RSS feed catalog
-├── api/src/                 # Worker (Hono) API
-│   ├── index.ts             # Route registration
-│   ├── routes/*             # ioc, domain, file, phishing, exposure, takeover,
-│   │                        # threat-map, briefings, feeds proxy, etc.
-│   ├── providers/*          # 22 IOC providers (each ~50-80 LOC)
-│   └── lib/*                # ioc-feed-parsers, scoring, cache, rate-limit, dns,
-│                            # rdap, crt-sh, email-auth, briefing-builder
-├── worker/index.ts          # Worker entry, dispatches to api/src and serves SPA assets
-├── public/                  # Static assets (sitemap.xml, world-110m.json, robots.txt)
-├── wrangler.jsonc           # Cloudflare config
-└── vite.config.ts
-```
+- **Runtime:** Cloudflare Workers (Hono) + KV + Cache API
+- **Cron:** Daily (00:05 UTC) and weekly (Mon 00:15) briefing generation; hourly snapshot warming
+- **Security:** CSP/HSTS/X-Frame-Options, SSRF guard, rate limiting, no hardcoded secrets
 
-## Local dev
+### Quick links
 
-```bash
-npm install
-npm run dev          # Vite at http://localhost:5173
-npm run dev:api      # Worker at http://localhost:8787 (proxies /api/v1 from vite)
-npm test             # Vitest
-npm run typecheck    # tsc --noEmit
-npm run lint         # ESLint
-```
-
-## Deploy
-
-```bash
-npm run deploy       # vite build && wrangler deploy
-```
-
-Requires `wrangler login` and a Cloudflare account that owns the `pranithjain.qzz.io` zone (or fork the repo and update `wrangler.jsonc` with your own zone).
-
-## Secrets
-
-API keys (none required for the public-list providers):
-
-```bash
-npx wrangler secret put VT_API_KEY              # VirusTotal
-npx wrangler secret put ABUSEIPDB_API_KEY
-npx wrangler secret put SHODAN_API_KEY
-npx wrangler secret put OTX_API_KEY
-npx wrangler secret put URLSCAN_API_KEY
-npx wrangler secret put HYBRID_ANALYSIS_API_KEY
-npx wrangler secret put ABUSECH_AUTH_KEY        # one key unlocks ThreatFox, URLhaus, MalwareBazaar
-```
-
-The toolkit boots usefully with **zero keys** thanks to the public-list providers; commercial keys add depth.
-
-## Cost / quotas
-
-Engineered to fit the **Cloudflare Workers free tier** end-to-end:
-
-- IOC provider results cache to the **Cache API**, not KV (KV daily-write quota stays untouched).
-- `/api/v1/feeds/proxy` is exempt from KV-backed rate limiting since the SSRF allow-list is the real defense and counting hits in KV burned the daily quota.
-- World atlas (108 KB) is bundled locally to avoid CSP-forbidden CDN fetches.
-
-## Data sources
-
-See `src/data/rssFeeds.ts` for the full RSS catalog and `api/src/providers/*` for the IOC provider list. Threat-intel data refreshes hourly server-side; briefings rebuild via cron.
-
-## Credit / contact
-
-Built and maintained by Pranith Jain. Email available via the Contact section. Logo + design are mine; please don't lift them as-is.
-
-The toolkit is opinionated about which sources are worth pulling and how to weight them. PRs that add a genuinely-distinctive source or improve scoring math are welcome; PRs that just stuff the catalog less so.
+- **Live:** [pranithjain.qzz.io/threatintel](https://pranithjain.qzz.io/threatintel)
+- **DFIR Toolkit:** [pranithjain.qzz.io/dfir](https://pranithjain.qzz.io/dfir)
+- **Source:** [github.com/Pranith-Jain/Pranith-Jain.github.io](https://github.com/Pranith-Jain/Pranith-Jain.github.io)
