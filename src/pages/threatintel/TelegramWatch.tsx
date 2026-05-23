@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { BackLink } from '../../components/BackLink';
 import { ArrowLeft, ExternalLink, Search, Send, AlertTriangle, Eye } from 'lucide-react';
 import {
   CATALOG,
@@ -109,19 +110,19 @@ export default function TelegramWatch(): JSX.Element {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12 text-ink-1">
-      <Link
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
+      <BackLink
         to="/threatintel"
-        className="inline-flex items-center gap-2 text-sm text-ink-2 hover:text-accent mb-8 font-mono"
+        className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 mb-8 font-mono"
       >
-        <ArrowLeft size={14} /> /threatintel
-      </Link>
+        <ArrowLeft size={14} /> back
+      </BackLink>
 
-      <div>
-        <h1 className="text-4xl font-serif font-bold mb-2 inline-flex items-center gap-3">
-          <Send size={28} className="text-accent" /> Telegram Catalog
+      <div className="animate-fade-in-up">
+        <h1 className="text-3xl sm:text-4xl font-display font-bold mb-2 inline-flex items-center gap-3">
+          <Send size={28} className="text-brand-600 dark:text-brand-400" /> Telegram Catalog
         </h1>
-        <p className="text-ink-2 font-mono mb-2 max-w-3xl">
+        <p className="text-slate-600 dark:text-slate-400 mb-2 max-w-3xl leading-relaxed">
           {CATALOG.length} curated Telegram channels for threat-intel, malware research, OSINT, and cybercrime
           situational awareness. Channels are publicly documented in threat-intel writeups or run by reputable
           researchers.
@@ -132,7 +133,7 @@ export default function TelegramWatch(): JSX.Element {
       <section className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 mb-6">
         <div className="flex items-start gap-2">
           <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-          <div className="text-[12px] font-mono text-ink-1 leading-relaxed">
+          <div className="text-[12px] font-mono text-slate-700 dark:text-slate-300 leading-relaxed">
             <p className="mb-1.5">
               <strong>Scope:</strong> we don&apos;t scrape Telegram or proxy any of these channels. Each entry opens{' '}
               <code>t.me/&lt;handle&gt;</code> in Telegram (web or native client). For preview-only browsing without an
@@ -150,7 +151,7 @@ export default function TelegramWatch(): JSX.Element {
                 href="https://github.com/fastfire/deepdarkCTI"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-accent hover:underline inline-flex items-center gap-0.5"
+                className="text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-0.5"
               >
                 deepdarkCTI <ExternalLink size={9} />
               </a>{' '}
@@ -161,22 +162,22 @@ export default function TelegramWatch(): JSX.Element {
       </section>
 
       {/* Search + filters */}
-      <section className="rounded-lg border border-rule bg-surface-page p-4 mb-6">
+      <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 mb-6">
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, handle, description, attribution — e.g. 'ransomware', 'osint', 'vxunderground'"
-            className="w-full pl-9 pr-4 py-2.5 bg-surface-raised border border-rule rounded font-mono text-sm focus:outline-none focus:border-accent"
+            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded font-mono text-sm focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
             aria-label="Search Telegram channels"
           />
         </div>
 
         {/* Language toggles */}
         <div className="flex flex-wrap items-center gap-1.5 mt-3">
-          <span className="text-[11px] font-mono text-ink-3 mr-1">language:</span>
+          <span className="text-[11px] font-mono text-slate-500 mr-1">language:</span>
           {ALL_LANGUAGES.map((l) => {
             const active = activeLangs.has(l);
             return (
@@ -185,7 +186,9 @@ export default function TelegramWatch(): JSX.Element {
                 type="button"
                 onClick={() => toggleLang(l)}
                 className={`text-[11px] font-mono px-2 py-1 rounded border ${
-                  active ? 'border-accent bg-accent-soft text-accent' : 'border-rule text-ink-3'
+                  active
+                    ? 'border-brand-500/60 bg-brand-500/10 text-brand-700 dark:text-brand-300'
+                    : 'border-slate-300 dark:border-slate-700 text-slate-500'
                 }`}
               >
                 {LANGUAGE_LABELS[l]}
@@ -196,7 +199,7 @@ export default function TelegramWatch(): JSX.Element {
             <button
               type="button"
               onClick={clearAll}
-              className="sm:ml-auto text-[11px] font-mono text-accent hover:underline"
+              className="sm:ml-auto text-[11px] font-mono text-brand-600 dark:text-brand-400 hover:underline"
             >
               clear filters
             </button>
@@ -205,13 +208,13 @@ export default function TelegramWatch(): JSX.Element {
       </section>
 
       {/* Category pills */}
-      <section className="rounded-lg border border-rule bg-surface-page p-4 mb-6">
+      <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 mb-6">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-mono text-ink-3 mr-1">categories:</span>
+          <span className="text-[11px] font-mono text-slate-500 mr-1">categories:</span>
           {ALL_CATEGORIES.map((c) => {
             const count = catCounts.get(c) ?? 0;
             const active = activeCats.has(c);
-            const cls = active ? CATEGORY_PILL[c] : 'border-rule text-ink-3';
+            const cls = active ? CATEGORY_PILL[c] : 'border-slate-300 dark:border-slate-700 text-slate-500';
             return (
               <button
                 key={c}
@@ -228,7 +231,7 @@ export default function TelegramWatch(): JSX.Element {
         </div>
       </section>
 
-      <p className="text-[11px] font-mono text-ink-3 mb-4">
+      <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-4">
         Showing {filtered.length} of {CATALOG.length}
       </p>
 
@@ -239,22 +242,25 @@ export default function TelegramWatch(): JSX.Element {
           const previewUrl = entryPreviewUrl(e);
           const isPointer = e.handle.includes('/');
           return (
-            <li key={e.id} className="rounded-lg border border-rule bg-surface-page p-4">
+            <li
+              key={e.id}
+              className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4"
+            >
               <div className="flex items-baseline justify-between gap-2 mb-1.5">
                 <a
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-serif font-semibold text-base text-ink-1 hover:text-accent inline-flex items-center gap-1 min-w-0"
+                  className="font-display font-semibold text-base text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 inline-flex items-center gap-1 min-w-0"
                 >
                   <span className="truncate">{e.name}</span> <ExternalLink size={12} className="opacity-60 shrink-0" />
                 </a>
-                <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-rule text-ink-3 shrink-0">
+                <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700 text-slate-500 shrink-0">
                   {LANGUAGE_LABELS[e.language]}
                 </span>
               </div>
 
-              <div className="text-[11px] font-mono text-ink-3 mb-1.5 break-all">
+              <div className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-1.5 break-all">
                 {isPointer ? (
                   <>github · {e.handle}</>
                 ) : (
@@ -267,15 +273,21 @@ export default function TelegramWatch(): JSX.Element {
 
               {e.badge && (
                 <div className="mb-1.5">
-                  <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent-soft text-accent border border-accent">
+                  <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-700 dark:text-brand-300 border border-brand-500/30">
                     {e.badge}
                   </span>
                 </div>
               )}
 
-              <p className="text-[12px] font-mono text-ink-2 leading-relaxed mb-2">{e.description}</p>
+              <p className="text-[12px] font-mono text-slate-600 dark:text-slate-400 leading-relaxed mb-2">
+                {e.description}
+              </p>
 
-              {e.attribution && <p className="text-[10px] font-mono text-ink-3 mb-2">source: {e.attribution}</p>}
+              {e.attribution && (
+                <p className="text-[10px] font-mono text-slate-500 dark:text-slate-500 mb-2 italic">
+                  source: {e.attribution}
+                </p>
+              )}
 
               <div className="flex flex-wrap items-center gap-1.5">
                 {e.categories.map((c) => (
@@ -294,7 +306,7 @@ export default function TelegramWatch(): JSX.Element {
                     href={previewUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="sm:ml-auto inline-flex items-center gap-1 text-[10px] font-mono text-ink-3 hover:text-accent"
+                    className="sm:ml-auto inline-flex items-center gap-1 text-[10px] font-mono text-slate-500 hover:text-brand-600 dark:hover:text-brand-400"
                     title="Preview without joining (no Telegram account needed)"
                   >
                     <Eye size={10} /> preview
@@ -307,9 +319,9 @@ export default function TelegramWatch(): JSX.Element {
       </ul>
 
       {filtered.length === 0 && (
-        <p className="text-sm font-mono text-ink-3 mt-6">
+        <p className="text-sm font-mono text-slate-500 dark:text-slate-500 mt-6">
           Nothing matches the current filters.{' '}
-          <button onClick={clearAll} className="underline text-accent">
+          <button onClick={clearAll} className="underline text-brand-600 dark:text-brand-400">
             Clear all
           </button>
           ?

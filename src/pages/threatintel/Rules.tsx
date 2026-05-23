@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { BackLink } from '../../components/BackLink';
 import { ArrowLeft, ExternalLink, RefreshCw, Star, GitFork, GitCommit, FileCode } from 'lucide-react';
 import { RulesSnapshotPanel } from '../../components/dfir/RulesSnapshotPanel';
 interface SourceEntry {
@@ -104,19 +104,19 @@ export default function Rules(): JSX.Element {
   }, [data, typeFilter]);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12 text-ink-1">
-      <Link
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
+      <BackLink
         to="/threatintel"
-        className="inline-flex items-center gap-2 text-sm text-ink-2 hover:text-accent mb-8 font-mono"
+        className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 mb-8 font-mono"
       >
-        <ArrowLeft size={14} /> /threatintel
-      </Link>
+        <ArrowLeft size={14} /> back
+      </BackLink>
 
-      <div>
-        <h1 className="text-4xl font-serif font-bold mb-2 inline-flex items-center gap-3">
-          <FileCode size={28} className="text-accent" /> Detection Rules
+      <div className="animate-fade-in-up">
+        <h1 className="text-3xl sm:text-4xl font-display font-bold mb-2 inline-flex items-center gap-3">
+          <FileCode size={28} className="text-brand-600 dark:text-brand-400" /> Detection Rules
         </h1>
-        <p className="text-ink-2 mb-8 max-w-3xl">
+        <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-3xl">
           Live registry of the open-source detection rule sources defenders actually use: Sigma, YARA, Elastic, Splunk,
           KQL, Suricata. Pulled fresh from each repo's public metadata + commit feed, cached hourly. No GitHub auth
           required, no signup, no paid tier.
@@ -125,25 +125,33 @@ export default function Rules(): JSX.Element {
 
       <RulesSnapshotPanel />
 
-      {loading && !data && <p className="font-mono text-sm text-ink-3">Loading rule sources…</p>}
-      {error && <p className="font-mono text-sm text-rose-600 dark:text-rose-400">error: {error}</p>}
+      {loading && !data && <p className="font-mono text-sm text-slate-500">Loading rule sources…</p>}
+      {error && (
+        <p role="alert" className="font-mono text-sm text-rose-600 dark:text-rose-400">
+          error: {error}
+        </p>
+      )}
 
       {data && (
         <>
-          <header className="flex flex-wrap items-baseline gap-x-4 gap-y-2 text-xs font-mono text-ink-2 mb-6">
+          <header className="flex flex-wrap items-baseline gap-x-4 gap-y-2 text-xs font-mono text-slate-600 dark:text-slate-400 mb-6">
             <span>
-              <span className="text-ink-1 text-base font-bold">{data.sources.length}</span> rule sources
+              <span className="text-slate-900 dark:text-slate-100 text-base font-bold">{data.sources.length}</span> rule
+              sources
             </span>
             <span aria-hidden="true">·</span>
             <span>
-              <span className="text-ink-1 text-base font-bold">{data.recent_commits.length}</span> recent commits
+              <span className="text-slate-900 dark:text-slate-100 text-base font-bold">
+                {data.recent_commits.length}
+              </span>{' '}
+              recent commits
             </span>
             <span aria-hidden="true">·</span>
             <button
               type="button"
               onClick={() => void load()}
               disabled={loading}
-              className="inline-flex items-center gap-1 hover:text-accent disabled:opacity-50"
+              className="inline-flex items-center gap-1 hover:text-brand-600 dark:hover:text-brand-400 disabled:opacity-50"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> refresh
             </button>
@@ -151,12 +159,14 @@ export default function Rules(): JSX.Element {
 
           {/* Type filter */}
           <div className="flex flex-wrap items-center gap-2 mb-8 text-xs font-mono">
-            <span className="text-ink-3">Type:</span>
+            <span className="text-slate-500">Type:</span>
             <button
               type="button"
               onClick={() => setTypeFilter('all')}
               className={`px-2 py-0.5 rounded border transition-colors ${
-                typeFilter === 'all' ? 'border-accent text-ink-1 bg-accent-soft' : 'border-rule text-ink-3'
+                typeFilter === 'all'
+                  ? 'border-brand-500/50 text-slate-900 dark:text-slate-100 bg-brand-50 dark:bg-brand-900/20'
+                  : 'border-slate-200 dark:border-slate-800 text-slate-500'
               }`}
             >
               all
@@ -167,7 +177,9 @@ export default function Rules(): JSX.Element {
                 type="button"
                 onClick={() => setTypeFilter(t)}
                 className={`px-2 py-0.5 rounded border transition-colors ${
-                  typeFilter === t ? 'border-accent text-ink-1 bg-accent-soft' : 'border-rule text-ink-3'
+                  typeFilter === t
+                    ? 'border-brand-500/50 text-slate-900 dark:text-slate-100 bg-brand-50 dark:bg-brand-900/20'
+                    : 'border-slate-200 dark:border-slate-800 text-slate-500'
                 }`}
               >
                 {t}
@@ -177,23 +189,26 @@ export default function Rules(): JSX.Element {
 
           {/* Source cards */}
           <section className="mb-12">
-            <h2 className="font-serif font-bold text-xl mb-4">Sources</h2>
+            <h2 className="font-display font-bold text-xl mb-4">Sources</h2>
             <div className="grid sm:grid-cols-2 gap-3">
               {filteredSources.map((s) => (
-                <article key={s.id} className="rounded-lg border border-rule bg-surface-page p-4 flex flex-col gap-3">
+                <article
+                  key={s.id}
+                  className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 flex flex-col gap-3"
+                >
                   <header className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="font-serif font-semibold">{s.label}</h3>
-                      <p className="text-xs font-mono text-ink-3 mt-0.5 break-all">{s.repo}</p>
+                      <h3 className="font-display font-semibold">{s.label}</h3>
+                      <p className="text-xs font-mono text-slate-500 mt-0.5 break-all">{s.repo}</p>
                     </div>
                     <span
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded border whitespace-nowrap ${TYPE_COLOURS[s.type] ?? 'border-rule'}`}
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded border whitespace-nowrap ${TYPE_COLOURS[s.type] ?? 'border-slate-300'}`}
                     >
                       {s.type}
                     </span>
                   </header>
-                  <p className="text-sm text-ink-1 leading-relaxed">{s.description}</p>
-                  <div className="flex items-center gap-4 text-xs font-mono text-ink-3">
+                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{s.description}</p>
+                  <div className="flex items-center gap-4 text-xs font-mono text-slate-500">
                     <span className="inline-flex items-center gap-1">
                       <Star size={12} /> {formatNum(s.stars)}
                     </span>
@@ -211,7 +226,7 @@ export default function Rules(): JSX.Element {
                       href={s.rules_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-accent bg-accent-soft text-accent hover:border-accent"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-brand-500/40 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 hover:border-brand-500/70"
                     >
                       <FileCode size={11} /> browse rules
                     </a>
@@ -219,7 +234,7 @@ export default function Rules(): JSX.Element {
                       href={s.commits_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-rule text-ink-2 hover:border-accent"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-brand-500/40"
                     >
                       <GitCommit size={11} /> commits
                     </a>
@@ -227,7 +242,7 @@ export default function Rules(): JSX.Element {
                       href={s.repo_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-rule text-ink-2 hover:border-accent"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-brand-500/40"
                     >
                       <ExternalLink size={11} /> repo
                     </a>
@@ -236,7 +251,7 @@ export default function Rules(): JSX.Element {
                         href={s.homepage}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded border border-rule text-ink-2 hover:border-accent"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-brand-500/40"
                       >
                         <ExternalLink size={11} /> downloads
                       </a>
@@ -249,25 +264,28 @@ export default function Rules(): JSX.Element {
 
           {/* Recent commits */}
           <section className="mb-8">
-            <h2 className="font-serif font-bold text-xl mb-4">Recent rule activity</h2>
+            <h2 className="font-display font-bold text-xl mb-4">Recent rule activity</h2>
             {filteredCommits.length === 0 ? (
-              <p className="text-sm font-mono text-ink-3">No recent commits for the current filter.</p>
+              <p className="text-sm font-mono text-slate-500">No recent commits for the current filter.</p>
             ) : (
               <ul className="space-y-2">
                 {filteredCommits.map((c, i) => (
-                  <li key={`${c.source_id}-${i}`} className="rounded-lg border border-rule bg-surface-page p-3">
+                  <li
+                    key={`${c.source_id}-${i}`}
+                    className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3"
+                  >
                     <a href={c.link} target="_blank" rel="noopener noreferrer" className="group block">
                       <div className="flex items-baseline justify-between gap-3">
-                        <div className="font-mono text-sm text-ink-1 truncate group-hover:text-accent transition-colors">
+                        <div className="font-mono text-sm text-slate-900 dark:text-slate-100 truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                           {c.title}
                         </div>
-                        <ExternalLink size={11} className="text-ink-3 shrink-0 mt-1" />
+                        <ExternalLink size={11} className="text-slate-500 shrink-0 mt-1" />
                       </div>
-                      <div className="mt-1 flex items-center gap-3 text-xs font-mono text-ink-3">
-                        <span className={`px-1.5 py-0.5 rounded border ${TYPE_COLOURS[c.type] ?? 'border-rule'}`}>
+                      <div className="mt-1 flex items-center gap-3 text-xs font-mono text-slate-500">
+                        <span className={`px-1.5 py-0.5 rounded border ${TYPE_COLOURS[c.type] ?? 'border-slate-300'}`}>
                           {c.type}
                         </span>
-                        <span className="text-accent truncate">{c.source_label}</span>
+                        <span className="text-brand-600 dark:text-brand-400 truncate">{c.source_label}</span>
                         {c.author && <span className="truncate">by {c.author}</span>}
                         {c.pubDate && <span className="ml-auto">{formatRel(c.pubDate)}</span>}
                       </div>
@@ -278,14 +296,14 @@ export default function Rules(): JSX.Element {
             )}
           </section>
 
-          <footer className="text-xs font-mono text-ink-3 leading-relaxed">
+          <footer className="text-xs font-mono text-slate-500 leading-relaxed">
             Sources and commits refresh hourly. No GitHub authentication required; all data comes from public repo
             metadata and the public commits.atom feed. Want to add a source? Pin it to me on{' '}
             <a
               href="https://github.com/Pranith-Jain/Pranith-Jain.github.io/issues"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent hover:underline"
+              className="text-brand-600 dark:text-brand-400 hover:underline"
             >
               GitHub
             </a>

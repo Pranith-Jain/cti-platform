@@ -38,7 +38,7 @@ import { listBriefings } from '../lib/briefing-builder';
 const CACHE_TTL = 60 * 60;
 
 /** Exported so /api/v1/feed-status can read the same cached payload directly. */
-export const SNAPSHOT_CACHE_KEY = 'https://snapshot-cache.internal/v9-cacheread';
+export const SNAPSHOT_CACHE_KEY = 'https://snapshot-cache.internal/v10-cacheread';
 
 /** Curated feed URLs — kept in sync with the constants the panel used to use. */
 const SCAM_FEED_URLS = ['https://consumer.ftc.gov/blog/rss', 'https://www.ic3.gov/CSA/RSS'];
@@ -104,7 +104,7 @@ export async function snapshotHandler(c: Context<{ Bindings: Env }>): Promise<Re
   const cached = await cache.match(cacheKey);
   if (cached) return cached;
 
-  const kv = c.env.BRIEFINGS;
+  const briefingsDb = c.env.BRIEFINGS_DB;
 
   const [ransomware, telegram, onion, scam, threatIntel, techAi, rules, briefings, threatMap] = await Promise.all([
     safe(async () => {
@@ -119,6 +119,18 @@ export async function snapshotHandler(c: Context<{ Bindings: Env }>): Promise<Re
       const { body, upstreamOk, rateLimited } = await fetchRansomwareRecent();
       if (rateLimited) throw new Error(`upstream rate-limited (retry-after ${rateLimited.retryAfter})`);
       if (!upstreamOk) throw new Error('upstream unreachable');
+      // Write-through the shared ransomware cache (same key/shape the
+      // public /ransomware-recent handler uses, 1h TTL). Without this,
+      // every snapshot cache-miss re-fans-out to Ransomlook even though
+      // the public handler would have cached it — wasted subrequests.
+      c.executionCtx.waitUntil(
+        cache.put(
+          RANSOMWARE_RECENT_CACHE_KEY,
+          new Response(JSON.stringify(body), {
+            headers: { 'content-type': 'application/json', 'Cache-Control': 'public, max-age=3600' },
+          })
+        )
+      );
       return body;
     }),
     safe(async () => {
@@ -147,8 +159,8 @@ export async function snapshotHandler(c: Context<{ Bindings: Env }>): Promise<Re
       };
     }),
     safe(async () => {
-      if (!kv) throw new Error('briefings KV not bound');
-      const items = await listBriefings(kv, { limit: 5 });
+      if (!briefingsDb) throw new Error('briefings database not bound');
+      const items = await listBriefings(briefingsDb, { limit: 5 });
       return { items };
     }),
     // Threat-map: read the handler's own cache first; only fall through to

@@ -1,0 +1,106 @@
+import type { IndicatorType } from '../lib/indicator';
+
+export type ProviderId =
+  | 'virustotal'
+  | 'abuseipdb'
+  | 'shodan'
+  | 'censys'
+  | 'netlas'
+  | 'otx'
+  | 'urlscan'
+  | 'hybridanalysis'
+  | 'spamhaus'
+  | 'tor'
+  | 'doh'
+  | 'openphish'
+  | 'threatfox'
+  | 'urlhaus'
+  | 'malwarebazaar'
+  | 'hashlookup'
+  | 'cinsarmy'
+  | 'bitwire'
+  | 'blocklistde'
+  | 'binarydefense'
+  | 'ipsum'
+  | 'phishingArmy'
+  | 'tweetfeed'
+  | 'greynoise'
+  | 'c2tracker'
+  | 'sslbl'
+  | 'yaraify'
+  | 'phishtank'
+  | 'malwareworld'
+  | 'emailrep';
+
+export type Verdict = 'clean' | 'suspicious' | 'malicious' | 'unknown';
+
+export interface ProviderResult {
+  source: ProviderId;
+  status: 'ok' | 'error' | 'unsupported';
+  score: number; // 0-100, higher = more malicious
+  verdict: Verdict;
+  raw_summary: Record<string, unknown>;
+  tags: string[];
+  error?: string;
+  fetched_at: string; // ISO
+  cached: boolean;
+}
+
+export interface Indicator {
+  type: IndicatorType;
+  value: string;
+}
+
+export interface ProviderEnv {
+  VT_API_KEY: string;
+  ABUSEIPDB_API_KEY: string;
+  SHODAN_API_KEY: string;
+  CENSYS_PAT: string;
+  CENSYS_ORG_ID: string;
+  NETLAS_API_KEY: string;
+  OTX_API_KEY: string;
+  URLSCAN_API_KEY: string;
+  HYBRID_ANALYSIS_API_KEY: string;
+  ABUSECH_AUTH_KEY?: string;
+}
+
+export type ProviderAdapter = (indicator: Indicator, env: ProviderEnv, signal: AbortSignal) => Promise<ProviderResult>;
+
+// Per-provider request timeout. Bumped from 5s to 8s after live observation
+// of OTX timeouts on free-tier lookups. Providers run in parallel, so this
+// only delays the response if EVERY provider is slow.
+export const PROVIDER_TIMEOUT_MS = 8000;
+
+/** Which indicator types each provider supports. Used by the route to skip unsupported. */
+export const PROVIDER_SUPPORT: Record<ProviderId, IndicatorType[]> = {
+  virustotal: ['ipv4', 'ipv6', 'domain', 'url', 'hash'],
+  abuseipdb: ['ipv4', 'ipv6'],
+  shodan: ['ipv4', 'ipv6', 'domain'],
+  censys: ['ipv4', 'ipv6'],
+  netlas: ['ipv4', 'ipv6'],
+  otx: ['ipv4', 'ipv6', 'domain', 'url', 'hash'],
+  urlscan: ['url', 'domain'],
+  hybridanalysis: ['hash'],
+  spamhaus: ['ipv4'],
+  tor: ['ipv4'],
+  doh: ['domain'],
+  openphish: ['url', 'domain'],
+  threatfox: ['ipv4', 'ipv6', 'domain', 'url', 'hash'],
+  urlhaus: ['url', 'domain', 'ipv4'],
+  malwarebazaar: ['hash'],
+  hashlookup: ['hash'],
+  cinsarmy: ['ipv4'],
+  bitwire: ['ipv4'],
+  blocklistde: ['ipv4'],
+  binarydefense: ['ipv4'],
+  ipsum: ['ipv4'],
+  phishingArmy: ['domain', 'url'],
+  tweetfeed: ['ipv4', 'domain', 'url', 'hash'],
+  greynoise: ['ipv4', 'ipv6'],
+  c2tracker: ['ipv4'],
+  sslbl: ['ipv4'],
+  yaraify: ['hash'],
+  phishtank: ['url', 'domain'],
+  malwareworld: ['ipv4', 'domain'],
+  emailrep: ['email'],
+};

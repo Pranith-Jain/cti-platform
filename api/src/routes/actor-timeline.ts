@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import type { Env } from '../env';
 import { mitreGroupRef, type MitreGroupRef } from '../lib/ransomware-mitre-groups';
 import { techniquesForGroup, type Technique } from '../lib/ransomware-group-techniques';
+import { fetchMtiSource, type MtiRansomwareClaim } from '../lib/mythreatintel-api';
 
 /**
  * Actor activity timeline.
@@ -19,7 +20,7 @@ import { techniquesForGroup, type Technique } from '../lib/ransomware-group-tech
  * support, not real-time alerting.
  */
 
-export const ACTOR_TIMELINE_CACHE_KEY = 'https://actor-timeline-cache.internal/v2-ttps';
+export const ACTOR_TIMELINE_CACHE_KEY = 'https://actor-timeline-cache.internal/v3-mti';
 const CACHE_KEY = ACTOR_TIMELINE_CACHE_KEY;
 const CACHE_TTL_SECONDS = 4 * 60 * 60;
 const FETCH_TIMEOUT_MS = 20_000;
@@ -66,6 +67,13 @@ interface ActorRow {
   mirrors_total: number;
   /** MITRE ATT&CK Group reference (null when this group isn't in MITRE). */
   mitre?: MitreGroupRef;
+  /**
+   * True when the per-group ransomlook endpoint was unreachable and this row
+   * was reconstructed from the already-fetched /api/recent feed. The heatmap
+   * is still accurate for the window, but all-time count, mirrors, RaaS tag,
+   * description and references are unavailable for this group.
+   */
+  partial?: boolean;
 }
 
 interface AggregateTechnique extends Technique {
@@ -114,17 +122,25 @@ function titleCase(slug: string): string {
 }
 
 async function fetchJson<T>(url: string): Promise<T | null> {
-  try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: { Accept: 'application/json', 'User-Agent': 'pranithjain.qzz.io DFIR toolkit (free, read-only)' },
-      cf: { cacheTtl: 1800, cacheEverything: true },
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
+  // ransomlook.io is flaky from the shared Worker egress IP — a single
+  // attempt produced a "per-group endpoint unreachable" warning for most
+  // groups on every build. Retry twice with a short backoff: most groups
+  // now resolve on attempt 2, eliminating the warning noise.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 500 * attempt));
+    try {
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(attempt === 0 ? 9_000 : FETCH_TIMEOUT_MS),
+        headers: { Accept: 'application/json', 'User-Agent': 'pranithjain.qzz.io DFIR toolkit (free, read-only)' },
+        cf: { cacheTtl: 1800, cacheEverything: true },
+      });
+      if (res.ok) return (await res.json()) as T;
+      if (res.status !== 429 && res.status < 500) return null; // 4xx (not 429) won't change
+    } catch {
+      /* timeout / network — retry */
+    }
   }
+  return null;
 }
 
 /** Build the timeline x-axis: oldest day at index 0, today at index WINDOW_DAYS-1. */
@@ -139,12 +155,22 @@ function buildDayAxis(): string[] {
   return out;
 }
 
-export async function fetchActorTimeline(): Promise<ActorTimelineResponse> {
+export async function fetchActorTimeline(env?: Env): Promise<ActorTimelineResponse> {
   // Step 1: get the "recent claims" payload (already cached) so we know
   // which groups are currently active — only fetch per-group data for those.
-  const recent = await fetchJson<Array<{ post_title?: string; group_name?: string; discovered?: string }>>(
-    'https://www.ransomlook.io/api/recent'
-  );
+  // In parallel, pull MyThreatIntel ransomware victim claims so MTI-observed
+  // activity also drives ranking and the per-actor heatmap (additive; an
+  // empty/absent token simply contributes nothing).
+  const [recent, mtiClaims] = await Promise.all([
+    fetchJson<Array<{ post_title?: string; group_name?: string; discovered?: string }>>(
+      'https://www.ransomlook.io/api/recent'
+    ),
+    env
+      ? fetchMtiSource(env, 'ransomware', { limit: 500 })
+          .then((r) => (r.ok ? (r.items as MtiRansomwareClaim[]) : []))
+          .catch(() => [] as MtiRansomwareClaim[])
+      : Promise.resolve([] as MtiRansomwareClaim[]),
+  ]);
 
   const days = buildDayAxis();
   const dayIndex = new Map(days.map((d, i) => [d, i] as const));
@@ -162,13 +188,42 @@ export async function fetchActorTimeline(): Promise<ActorTimelineResponse> {
     };
   }
 
-  // Rank groups by recent claim count
+  // Rank groups by recent claim count, and — in the same pass — bucket each
+  // group's in-window post days straight from /api/recent. This second map is
+  // the fallback source: when ransomlook's flaky per-group endpoint fails for
+  // a group, we rebuild its heatmap row from data we already hold instead of
+  // emitting a "per-group fetch warning". Every group in topGroups is, by
+  // construction, present here with ≥1 post, so the fallback is always viable.
   const groupRecentCount = new Map<string, number>();
+  const recentDaysByGroup = new Map<string, string[]>();
   for (const e of recent) {
     const g = e.group_name?.trim().toLowerCase();
     if (!g) continue;
     groupRecentCount.set(g, (groupRecentCount.get(g) ?? 0) + 1);
+    const iso = toIsoDate(e.discovered);
+    if (!iso) continue;
+    const k = dayKey(iso);
+    if (k < windowStart || !dayIndex.has(k)) continue;
+    const arr = recentDaysByGroup.get(g);
+    if (arr) arr.push(k);
+    else recentDaysByGroup.set(g, [k]);
   }
+  // MyThreatIntel victim claims → per-gang in-window day buckets. Also feed
+  // groupRecentCount so an MTI-active group can enter topGroups even if
+  // Ransomlook's /api/recent under-counts it.
+  const mtiDaysByGroup = new Map<string, string[]>();
+  for (const e of mtiClaims) {
+    const g = e.gang?.trim().toLowerCase();
+    const iso = e.date ? toIsoDate(e.date) : undefined;
+    if (!g || !iso) continue;
+    const k = dayKey(iso);
+    if (k < windowStart || !dayIndex.has(k)) continue;
+    groupRecentCount.set(g, (groupRecentCount.get(g) ?? 0) + 1);
+    const arr = mtiDaysByGroup.get(g);
+    if (arr) arr.push(k);
+    else mtiDaysByGroup.set(g, [k]);
+  }
+
   const topGroups = [...groupRecentCount.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, TOP_GROUPS)
@@ -189,7 +244,31 @@ export async function fetchActorTimeline(): Promise<ActorTimelineResponse> {
 
   for (const { slug, data } of perGroupResults) {
     if (!data || !Array.isArray(data) || data.length < 2) {
-      warnings.push({ slug, reason: 'per-group endpoint unreachable or malformed' });
+      // Per-group endpoint unreachable — reconstruct a partial row from the
+      // /api/recent feed we already have. No warning: the heatmap (the point
+      // of this view) is still accurate for the window; only the secondary
+      // metadata (all-time count, mirrors, RaaS, refs) is unavailable.
+      const recentDays = recentDaysByGroup.get(slug) ?? [];
+      if (recentDays.length === 0) continue; // nothing to show; skip silently
+      const fbBuckets: ActorBucket[] = days.map((day) => ({ day, count: 0 }));
+      for (const k of recentDays) {
+        const idx = dayIndex.get(k);
+        if (idx !== undefined) fbBuckets[idx]!.count += 1;
+      }
+      const fbMitre = mitreGroupRef(slug);
+      rows.push({
+        slug,
+        display_name: titleCase(slug),
+        posts_in_window: recentDays.length,
+        all_time_count: recentDays.length, // window floor; full history unavailable
+        buckets: fbBuckets,
+        raas: false,
+        references: [],
+        mirrors_reachable: 0,
+        mirrors_total: 0,
+        mitre: fbMitre ?? undefined,
+        partial: true,
+      });
       continue;
     }
     const [meta, posts] = data;
@@ -227,6 +306,28 @@ export async function fetchActorTimeline(): Promise<ActorTimelineResponse> {
       mirrors_total,
       mitre: mitre ?? undefined,
     });
+  }
+
+  // No per-group warnings: failed lookups are transparently backfilled from
+  // /api/recent above. The only remaining warning case is the whole
+  // /api/recent feed being unreachable, handled in the early-return above.
+
+  // Overlay MyThreatIntel victim days onto each actor's heatmap. Additive:
+  // Ransomlook + MTI may both claim the same victim/day; counting both
+  // reflects cross-source corroboration, consistent with how MTI is merged
+  // elsewhere (the dedup that matters happens in ransomware-recent).
+  for (const row of rows) {
+    const mtiDays = mtiDaysByGroup.get(row.slug);
+    if (!mtiDays || mtiDays.length === 0) continue;
+    let added = 0;
+    for (const k of mtiDays) {
+      const idx = dayIndex.get(k);
+      if (idx === undefined) continue;
+      row.buckets[idx]!.count += 1;
+      added += 1;
+    }
+    row.posts_in_window += added;
+    row.all_time_count += added;
   }
 
   // Sort by activity in window desc, then all-time count
@@ -288,7 +389,7 @@ export async function actorTimelineHandler(c: Context<{ Bindings: Env }>): Promi
   const cached = await cache.match(cacheReq);
   if (cached) return cached;
 
-  const body = await fetchActorTimeline();
+  const body = await fetchActorTimeline(c.env);
 
   // If we got no rows AND no warnings, treat as transient — don't poison cache.
   const cacheable = body.groups.length > 0 || body.warnings.length > 0;

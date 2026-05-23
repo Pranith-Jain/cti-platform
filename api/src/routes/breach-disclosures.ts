@@ -1,24 +1,20 @@
 import type { Context } from 'hono';
 import type { Env } from '../env';
 
-/**
- * Recent breach disclosures from the Have I Been Pwned public breach corpus.
- *
- * HIBP exposes /api/v3/breaches without authentication for read-only access
- * to the full breach list. We cache the response for 6 h and surface the
- * 50 most recent disclosures in `AddedDate` order. Fields preserved:
- *   - Name, Title, Domain, BreachDate, AddedDate, ModifiedDate, PwnCount,
- *     Description, DataClasses, IsVerified, IsSensitive, LogoPath.
- *
- * No PII / lookup-by-email — that's handled separately by the breach
- * checker route, which uses the k-anonymity API.
- */
-
-const CACHE_KEY = 'https://breach-disclosures-cache.internal/v1';
-const CACHE_TTL_SECONDS = 6 * 3600;
-const FETCH_TIMEOUT_MS = 15_000;
+const FETCH_TIMEOUT_MS = 20_000;
 const HIBP_URL = 'https://haveibeenpwned.com/api/v3/breaches';
-const MAX_ITEMS = 50;
+/**
+ * Cap on the breach list returned. Was 50, which surfaced only the most
+ * recent month of HIBP additions. 250 covers roughly the last year of
+ * disclosures at typical HIBP-add pace and matches the depth expected by
+ * the /threatintel/breach-disclosures page, which now also surfaces an
+ * MTI leaks panel beside this HIBP corpus.
+ */
+const MAX_ITEMS = 250;
+const CACHE_TTL = 3600;
+// Cache key bumped (v6) so the post-bump payload doesn't get masked by a
+// pre-bump 50-item entry that's still inside its 1-hour TTL.
+const CACHE_KEY = 'https://breach-cache.internal/v6-hibp-only';
 
 interface HibpBreach {
   Name: string;
@@ -26,7 +22,6 @@ interface HibpBreach {
   Domain?: string;
   BreachDate?: string;
   AddedDate?: string;
-  ModifiedDate?: string;
   PwnCount?: number;
   Description?: string;
   DataClasses?: string[];
@@ -34,7 +29,6 @@ interface HibpBreach {
   IsSensitive?: boolean;
   IsRetired?: boolean;
   IsSpamList?: boolean;
-  LogoPath?: string;
 }
 
 export interface BreachDisclosure {
@@ -43,25 +37,17 @@ export interface BreachDisclosure {
   domain?: string;
   breach_date?: string;
   added_date?: string;
-  modified_date?: string;
   pwn_count?: number;
   description?: string;
   data_classes?: string[];
   verified: boolean;
   sensitive: boolean;
-  logo_path?: string;
-}
-
-interface DisclosuresResponse {
-  generated_at: string;
-  source: string;
-  count: number;
-  breaches: BreachDisclosure[];
+  /** Provenance tag — e.g. 'andreafortuna' for AF-sourced entries; HIBP omits it. */
+  origin?: string;
 }
 
 function strip(html?: string): string | undefined {
   if (!html) return undefined;
-  // HIBP returns lightly-marked-up HTML in Description. Convert to plain text.
   return html
     .replace(/<a [^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g, '$2 ($1)')
     .replace(/<[^>]+>/g, '')
@@ -74,72 +60,65 @@ function strip(html?: string): string | undefined {
 }
 
 export async function breachDisclosuresHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
+  // Try cache first
   const cache = (caches as unknown as { default: Cache }).default;
-  const cacheKey = new Request(CACHE_KEY);
-  const cached = await cache.match(cacheKey);
+  const cached = await cache.match(new Request(CACHE_KEY));
   if (cached) return cached;
 
   let breaches: BreachDisclosure[] = [];
   let upstreamOk = false;
 
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
     const res = await fetch(HIBP_URL, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'pranithjain.qzz.io DFIR toolkit (read-only public breach list)',
-      },
-      signal: ctrl.signal,
+      headers: { Accept: 'application/json', 'User-Agent': 'pranithjain.qzz.io DFIR toolkit' },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
-    clearTimeout(timer);
-
-    if (res.status === 429) {
-      const retryAfter = res.headers.get('retry-after') ?? '60';
-      return c.json({ error: 'upstream_rate_limited', upstream: 'haveibeenpwned.com', upstream_status: 429 }, 429, {
-        'retry-after': retryAfter,
-        'cache-control': 'no-store',
-      });
-    }
 
     if (res.ok) {
-      const raw = (await res.json()) as HibpBreach[];
       upstreamOk = true;
-      breaches = raw
-        .filter((b) => !b.IsRetired && !b.IsSpamList)
-        .sort((a, b) => (b.AddedDate ?? '').localeCompare(a.AddedDate ?? ''))
-        .slice(0, MAX_ITEMS)
-        .map((b) => ({
+      const raw = (await res.json()) as HibpBreach[];
+      const seen = new Set<string>();
+      for (const b of raw) {
+        if (b.IsRetired || b.IsSpamList) continue;
+        const key = b.Name.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        breaches.push({
           name: b.Name,
           title: b.Title ?? b.Name,
           domain: b.Domain || undefined,
           breach_date: b.BreachDate,
           added_date: b.AddedDate,
-          modified_date: b.ModifiedDate,
           pwn_count: b.PwnCount,
           description: strip(b.Description),
           data_classes: b.DataClasses,
           verified: !!b.IsVerified,
           sensitive: !!b.IsSensitive,
-          logo_path: b.LogoPath,
-        }));
+        });
+      }
+      breaches.sort((a, b) => (b.added_date ?? '').localeCompare(a.added_date ?? ''));
+      breaches = breaches.slice(0, MAX_ITEMS);
     }
   } catch {
-    /* fall through with empty list */
+    /* HIBP unreachable - return what we have */
   }
 
-  const body: DisclosuresResponse = {
+  const body = {
     generated_at: new Date().toISOString(),
     source: 'haveibeenpwned.com /api/v3/breaches',
     count: breaches.length,
     breaches,
   };
 
-  const response = c.json(body, 200, {
-    'Cache-Control': upstreamOk ? `public, max-age=${CACHE_TTL_SECONDS}` : 'no-store',
-  });
-  if (upstreamOk) {
-    c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()));
+  // Only persist a long-lived cache entry on a genuine upstream success.
+  // If HIBP timed out / 5xx'd, `breaches` is empty — caching that under a
+  // 200 for an hour would lock an empty list in even after HIBP recovers.
+  // Serve it with a short TTL and don't poison the shared edge cache.
+  if (!upstreamOk || breaches.length === 0) {
+    return c.json(body, 200, { 'Cache-Control': 'public, max-age=60' });
   }
+
+  const response = c.json(body, 200, { 'Cache-Control': `public, max-age=${CACHE_TTL}` });
+  c.executionCtx.waitUntil(cache.put(new Request(CACHE_KEY), response.clone()));
   return response;
 }

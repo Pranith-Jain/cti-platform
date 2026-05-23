@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Loader2, Newspaper, ShieldAlert } from 'lucide-react';
-import { BreachDisclosuresPanel } from './_panels';
+import { BackLink } from '../../components/BackLink';
+import { ArrowLeft, ExternalLink, Loader2, Newspaper, RefreshCw, ShieldAlert } from 'lucide-react';
+import { BreachDisclosuresPanel } from './DarkWeb';
+import { BreachDatabasesPanel } from '../../components/dfir/BreachDatabasesPanel';
+import { MtiLeaksPanel } from '../../components/threatintel/MtiLeaksPanel';
 import { fetchAggregatedFeed, formatRelativeTime, type AggregatedFeedItem } from '../../services/rssService';
 
 /**
@@ -12,10 +14,16 @@ import { fetchAggregatedFeed, formatRelativeTime, type AggregatedFeedItem } from
  */
 const BREACH_NEWS_FEED_IDS = [
   'databreaches',
+  'threatpost',
+  'cybernews',
+  'grahamcluley',
+  'bleepingcomputer-breaches',
+  'hackread-breaches',
+  'securityweek-breaches',
+  'cyberscoop-breaches',
   'vpnmentor-research',
   'grcsolutions-breaches',
   'comparitech-breaches',
-  'troyhunt-blog',
   'idtheftcenter',
 ];
 
@@ -30,9 +38,12 @@ export default function BreachDisclosures(): JSX.Element {
   const [news, setNews] = useState<AggregatedFeedItem[] | null>(null);
   const [newsLoading, setNewsLoading] = useState(true);
   const [newsError, setNewsError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setNewsLoading(true);
+    setNewsError(null);
     fetchAggregatedFeed(BREACH_NEWS_FEED_IDS, { limit: 40, perSource: 8 })
       .then((res) => {
         if (cancelled) return;
@@ -51,23 +62,42 @@ export default function BreachDisclosures(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
-      <Link
+      <BackLink
         to="/threatintel"
         className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 mb-8 font-mono"
       >
-        <ArrowLeft size={14} /> /threatintel
-      </Link>
+        <ArrowLeft size={14} /> back
+      </BackLink>
 
       <div className="animate-fade-in-up">
-        <h1 className="text-4xl font-display font-bold mb-2 inline-flex items-center gap-3">
-          <ShieldAlert size={28} className="text-brand-600 dark:text-brand-400" /> Live breach disclosures
-        </h1>
-        <p className="text-slate-600 dark:text-slate-400 font-mono mb-2 max-w-3xl">
-          Disclosed breaches from the{' '}
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+          <h1 className="text-3xl sm:text-4xl font-display font-bold inline-flex items-center gap-3">
+            <ShieldAlert size={28} className="text-brand-600 dark:text-brand-400" /> Live breach disclosures
+          </h1>
+          <button
+            type="button"
+            onClick={() => setRefreshKey((k) => k + 1)}
+            className="text-[11px] font-mono px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 hover:border-brand-500/40 inline-flex items-center gap-1 mt-1"
+            aria-label="Refresh breach disclosures"
+          >
+            <RefreshCw size={11} /> refresh
+          </button>
+        </div>
+        <p className="text-slate-600 dark:text-slate-400 mb-2 max-w-3xl leading-relaxed">
+          Two complementary surfaces. Up top, active leak listings from{' '}
+          <a
+            href="https://mythreatintel.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-600 dark:text-brand-400 hover:underline"
+          >
+            MyThreatIntel
+          </a>{' '}
+          (rawer firehose, what's currently being shopped or scraped). Below, the canonical{' '}
           <a
             href="https://haveibeenpwned.com/"
             target="_blank"
@@ -76,15 +106,19 @@ export default function BreachDisclosures(): JSX.Element {
           >
             Have I Been Pwned
           </a>{' '}
-          public corpus, with verification flags, sensitivity markers, and exposed data classes. Reference for
-          incident-response triage; verify in your environment before acting.
+          corpus with verification flags, sensitivity markers, and exposed data classes.
         </p>
         <p className="text-xs text-slate-500 dark:text-slate-500 font-mono mb-8">
-          Public breach disclosure corpus via Have I Been Pwned.
+          MyThreatIntel leaks (active) + HIBP public corpus (canonical) + breach-news feeds (timely commentary).
         </p>
       </div>
 
-      <BreachDisclosuresPanel />
+      {/* MTI leaks panel — the active firehose. Sits above HIBP because
+          this is the timeliness-first signal; HIBP carries the depth and
+          the data-class breakdown but lags weeks behind a fresh dump. */}
+      <MtiLeaksPanel />
+
+      <BreachDisclosuresPanel key={refreshKey} />
 
       {/* Breach-news section — RSS aggregate from breach-reporting blogs +
           research labs. Complements the HIBP corpus above (which is exhaustive
@@ -114,34 +148,50 @@ export default function BreachDisclosures(): JSX.Element {
 
         {news && news.length > 0 && (
           <ul className="grid gap-2">
-            {news.map((item, i) => (
-              <li
-                key={`${item.link}-${i}`}
-                className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 hover:border-brand-500/40 transition-colors"
-              >
-                <a
-                  href={item.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block group"
-                  title={item.title ?? item.link}
-                >
-                  <div className="flex items-baseline gap-2 mb-1 flex-wrap">
-                    <span className="font-display font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors flex-1 min-w-0">
-                      {item.title ?? '(untitled)'}
-                    </span>
-                    <ExternalLink size={11} className="text-slate-400 shrink-0" aria-hidden="true" />
-                  </div>
-                  <div className="text-[11px] font-mono text-slate-500 flex items-center gap-2 flex-wrap">
-                    {item.source && <span className="text-brand-600 dark:text-brand-400">{item.source}</span>}
-                    {item.pubDate && <span className="text-slate-400">{formatRelativeTime(item.pubDate)}</span>}
-                  </div>
-                </a>
-              </li>
-            ))}
+            {(() => {
+              const seen = new Set<string>();
+              return news
+                .filter((item) => {
+                  const normalized = (item.title ?? '')
+                    .toLowerCase()
+                    .replace(/^(breach\s*|data\s+breach\s*|disclosed\s*)/i, '')
+                    .replace(/[^a-z0-9]/g, '')
+                    .trim();
+                  if (!normalized || seen.has(normalized)) return false;
+                  seen.add(normalized);
+                  return true;
+                })
+                .map((item, i) => (
+                  <li
+                    key={`${item.link}-${i}`}
+                    className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 hover:border-brand-500/40 transition-colors"
+                  >
+                    <a
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block group"
+                      title={item.title ?? item.link}
+                    >
+                      <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+                        <span className="font-display font-semibold text-sm text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors flex-1 min-w-0">
+                          {item.title ?? '(untitled)'}
+                        </span>
+                        <ExternalLink size={11} className="text-slate-400 shrink-0" aria-hidden="true" />
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-500 flex items-center gap-2 flex-wrap">
+                        {item.source && <span className="text-brand-600 dark:text-brand-400">{item.source}</span>}
+                        {item.pubDate && <span className="text-slate-400">{formatRelativeTime(item.pubDate)}</span>}
+                      </div>
+                    </a>
+                  </li>
+                ));
+            })()}
           </ul>
         )}
       </section>
+
+      <BreachDatabasesPanel />
     </div>
   );
 }

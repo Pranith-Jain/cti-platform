@@ -15,6 +15,7 @@ import {
   parseHostsFormat,
 } from '../lib/ioc-feed-parsers';
 import { trackEvent, visitorCountry } from '../lib/analytics';
+import { fetchMtiSource, type MtiIoc } from '../lib/mythreatintel-api';
 
 /**
  * IOC Cross-Source Correlation
@@ -28,7 +29,7 @@ import { trackEvent, visitorCountry } from '../lib/analytics';
  * source_count desc.
  */
 
-export const IOC_CORRELATION_CACHE_KEY = 'https://ioc-correlation-cache.internal/v4-no-feodo';
+export const IOC_CORRELATION_CACHE_KEY = 'https://ioc-correlation-cache.internal/v6-mti-hashes';
 const CACHE_KEY = IOC_CORRELATION_CACHE_KEY;
 const CACHE_TTL_SECONDS = 3600;
 const FETCH_TIMEOUT_MS = 12_000;
@@ -140,7 +141,7 @@ function hostOf(u: string): string | null {
 
 const IPV4_RE = /^(?:\d{1,3}\.){3}\d{1,3}$/;
 
-export async function fetchIocCorrelation(): Promise<IocCorrelationResponse> {
+export async function fetchIocCorrelation(env?: Env): Promise<IocCorrelationResponse> {
   // Fetch every IOC feed in parallel. Each entry tracks whether it succeeded.
   const [
     urlhausText,
@@ -182,6 +183,19 @@ export async function fetchIocCorrelation(): Promise<IocCorrelationResponse> {
     fetchText('https://reputation.alienvault.com/reputation.generic'),
     fetchText('https://blocklistproject.github.io/Lists/ransomware.txt'),
     fetchText('https://blocklistproject.github.io/Lists/scam.txt'),
+  ]);
+
+  // Third batch — active-C2 + curated-OSINT sources added 2026-05-18.
+  // SSLBL = abuse.ch botnet-C2 IPs (malicious-SSL pinned); drb-ra
+  // domainC2s = C2 domains (complements the existing IPC2s); Botvrij =
+  // curated OSINT domains.
+  const [sslblText, c2DomainText, botvrijDomainText, mtiIocResult] = await Promise.all([
+    fetchText('https://sslbl.abuse.ch/blacklist/sslipblacklist.csv'),
+    fetchText('https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/domainC2s.csv'),
+    fetchText('https://www.botvrij.eu/data/ioclist.domain'),
+    // MyThreatIntel file-hash IOCs — a hash present here AND in another
+    // hash feed (MalwareBazaar / ThreatFox) becomes a correlated indicator.
+    env ? fetchMtiSource(env, 'iocs', { limit: PER_FEED_CAP }).catch(() => null) : Promise.resolve(null),
   ]);
 
   const ipBucket: MutableBucket = { map: new Map() };
@@ -274,6 +288,24 @@ export async function fetchIocCorrelation(): Promise<IocCorrelationResponse> {
     trackSource('malwarebazaar', true, count);
   } else trackSource('malwarebazaar', false, 0);
 
+  // ─── MyThreatIntel: file-hash IOCs (sha256) ─────────────────────────────
+  if (mtiIocResult && mtiIocResult.ok && mtiIocResult.items.length > 0) {
+    let count = 0;
+    for (const raw of mtiIocResult.items) {
+      const e = raw as MtiIoc;
+      if (!e.sha256) continue;
+      const context =
+        [e.signature, e.type, e.tags]
+          .map((x) => x?.trim())
+          .filter((x): x is string => Boolean(x) && x !== 'N/D')
+          .join(' | ') || undefined;
+      add(hashBucket, norm(e.sha256), 'mythreatintel', context, e.date);
+      count++;
+      if (count >= PER_FEED_CAP) break;
+    }
+    trackSource('mythreatintel', true, count);
+  } else trackSource('mythreatintel', false, 0);
+
   // ─── OpenPhish: URLs (also extract host into domain/ip) ─────────────────
   if (openphishText) {
     const e = parseOpenPhish(openphishText, PER_FEED_CAP);
@@ -355,6 +387,36 @@ export async function fetchIocCorrelation(): Promise<IocCorrelationResponse> {
     trackSource('blp-scam', true, e.length);
   } else trackSource('blp-scam', false, 0);
 
+  // ─── abuse.ch SSL Blacklist: botnet-C2 IPs (malicious-SSL pinned) ─────────
+  if (sslblText) {
+    const e = parsePlainTextIps(sslblText, PER_FEED_CAP);
+    for (const x of e) add(ipBucket, x.value, 'sslbl');
+    trackSource('sslbl', true, e.length);
+  } else trackSource('sslbl', false, 0);
+
+  // ─── drb-ra C2IntelFeeds: C2 DOMAINS (CSV, first column = domain) ─────────
+  if (c2DomainText) {
+    let n = 0;
+    for (const line of c2DomainText.split('\n')) {
+      if (n >= PER_FEED_CAP) break;
+      const t = line.trim();
+      if (!t || t.startsWith('#') || /^domain[,\s]/i.test(t)) continue;
+      const d = norm((t.split(',')[0] ?? '').trim());
+      if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d)) {
+        add(domainBucket, d, 'c2-intel-domains');
+        n++;
+      }
+    }
+    trackSource('c2-intel-domains', true, n);
+  } else trackSource('c2-intel-domains', false, 0);
+
+  // ─── Botvrij.eu: curated OSINT malicious domains ─────────────────────────
+  if (botvrijDomainText) {
+    const e = parsePhishingArmy(botvrijDomainText, PER_FEED_CAP);
+    for (const x of e) add(domainBucket, norm(x.value), 'botvrij');
+    trackSource('botvrij', true, e.length);
+  } else trackSource('botvrij', false, 0);
+
   const ips = ranked(ipBucket, 'ip', TOP_PER_BUCKET);
   const urls = ranked(urlBucket, 'url', TOP_PER_BUCKET);
   const domains = ranked(domainBucket, 'domain', TOP_PER_BUCKET);
@@ -399,7 +461,7 @@ export async function iocCorrelationHandler(c: Context<{ Bindings: Env }>): Prom
     });
   }
 
-  const body = await fetchIocCorrelation();
+  const body = await fetchIocCorrelation(c.env);
   const response = new Response(JSON.stringify(body), {
     status: 200,
     headers: {

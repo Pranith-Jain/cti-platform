@@ -114,18 +114,18 @@ export function RulesSnapshotPanel(): JSX.Element {
   return (
     <section className="mb-8">
       <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
-        <h2 className="font-mono font-medium text-xl inline-flex items-center gap-2 flex-wrap">
+        <h2 className="font-display font-bold text-xl inline-flex items-center gap-2 flex-wrap">
           What just shipped
           {watchlist.length > 0 && totalWatched > 0 && (
             <span
-              className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 border border-violet-500/50 bg-violet-500/15 text-violet-700 dark:text-violet-300"
+              className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border border-violet-500/50 bg-violet-500/15 text-violet-700 dark:text-violet-300"
               title={`${totalWatched} commits match your watchlist (${watchlist.join(', ')})`}
             >
               {totalWatched} watchlist hits
             </span>
           )}
         </h2>
-        <span className="text-[11px] font-mono text-ink-3">
+        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-500">
           {data ? `${totalCommits} recent commits across upstream rule repos` : err ? `load error: ${err}` : 'loading…'}
         </span>
       </div>
@@ -143,12 +143,12 @@ export function RulesSnapshotPanel(): JSX.Element {
               showNewBadge={false}
               watchCount={watched}
               watchTerms={watchlist}
-              rightAction={<span className="text-ink-3">{bucketed[c.key].length} commits</span>}
+              rightAction={<span className="text-slate-500 dark:text-slate-500">{bucketed[c.key].length} commits</span>}
               loading={!data && !err}
               error={err ?? undefined}
             >
               {data && commits.length === 0 && (
-                <p className="text-[11px] font-mono text-ink-3">No recent commits in window.</p>
+                <p className="text-[11px] font-mono text-slate-500">No recent commits in window.</p>
               )}
 
               {commits.length > 0 && (
@@ -171,13 +171,13 @@ export function RulesSnapshotPanel(): JSX.Element {
                           href={cm.link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="truncate text-ink-1 hover:text-accent flex-1 min-w-0 inline-flex items-center gap-1"
+                          className="truncate text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 flex-1 min-w-0 inline-flex items-center gap-1"
                           title={`${decodeHtml(cm.title)} — ${cm.source_label}`}
                         >
                           <GitCommit size={9} className="opacity-50 shrink-0" />
                           <span className="truncate">{decodeHtml(cm.title)}</span>
                         </a>
-                        <span className="text-ink-3 shrink-0">{shortRel(cm.pubDate)}</span>
+                        <span className="text-slate-500 shrink-0">{shortRel(cm.pubDate)}</span>
                       </li>
                     );
                   })}
@@ -189,7 +189,7 @@ export function RulesSnapshotPanel(): JSX.Element {
                   href={`https://github.com/search?q=${encodeURIComponent(c.title)}+rules&type=repositories`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-auto pt-2 text-[10px] font-mono text-accent hover:underline inline-flex items-center gap-0.5"
+                  className="mt-auto pt-2 text-[10px] font-mono text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-0.5"
                 >
                   more {c.title.split(' ')[0].toLowerCase()} repos <ExternalLink size={9} />
                 </a>

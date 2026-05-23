@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { BackLink } from '../../components/BackLink';
 import { ArrowLeft, ExternalLink, RefreshCw, Plus, X, Eye, Bell, Search, Filter, Sparkles } from 'lucide-react';
-import { useLastVisit, isNewSince } from '../../hooks';
+import { useLastVisit, isNewSince, useFocusTrap } from '../../hooks';
 import { fetchAggregatedFeed, formatRelativeTime, type AggregatedFeedItem } from '../../services/rssService';
 import { rssFeeds } from '../../data/rssFeeds';
 
@@ -30,6 +31,11 @@ const DARKWEB_FEEDS: { id: string; label: string }[] = [
   { id: 'malware-traffic-analysis', label: 'Malware Traffic Analysis' },
   { id: 'doublepulsar', label: 'DoublePulsar' },
   { id: 'sophos-xops', label: 'Sophos X-Ops' },
+  // Added 2026-05-18: dark-web / CTI research breadth, all HTTP-200+XML verified
+  { id: 'cyble-blog', label: 'Cyble Research' },
+  { id: 'socradar-blog', label: 'SOCRadar' },
+  { id: 'bushidotoken', label: 'BushidoToken' },
+  { id: 'mti-ransomware', label: 'MyThreatIntel (ransomware)' },
 ];
 
 const ALL_FEED_IDS = DARKWEB_FEEDS.map((f) => f.id);
@@ -260,35 +266,39 @@ export default function DarkWeb(): JSX.Element {
   }, [matched, watchlist]);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-12 text-ink-1">
-      <Link
+    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
+      <BackLink
         to="/threatintel"
-        className="inline-flex items-center gap-2 text-sm text-ink-2 hover:text-accent mb-8 font-mono"
+        className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 mb-8 font-mono"
       >
-        <ArrowLeft size={14} /> /threatintel
-      </Link>
+        <ArrowLeft size={14} /> back
+      </BackLink>
 
-      <div>
-        <h1 className="text-4xl font-serif font-bold mb-2">Dark Web Watch</h1>
-        <p className="text-ink-2 mb-4 max-w-2xl">
+      <div className="animate-fade-in-up">
+        <h1 className="text-3xl sm:text-4xl font-display font-bold mb-2">Dark Web Watch</h1>
+        <p className="text-slate-600 dark:text-slate-400 mb-4 max-w-2xl">
           Aggregated dark web, leak-site, breach, and security-research activity from
           {` ${DARKWEB_FEEDS.length} `}curated free sources. Use the search box for live filtering (regex like{' '}
-          <code className="font-mono text-xs bg-surface-raised px-1 rounded">/lockbit|alphv/i</code> works), filter by
-          source, narrow by date window, and add long-running keywords to your watchlist for highlighted matches across
-          visits. Watchlist + source preferences are stored locally; nothing is uploaded.
+          <code className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-1 rounded">/lockbit|alphv/i</code>{' '}
+          works), filter by source, narrow by date window, and add long-running keywords to your watchlist for
+          highlighted matches across visits. Watchlist + source preferences are stored locally; nothing is uploaded.
         </p>
-        <p className="text-xs text-ink-2 font-mono mb-8">
+        <p className="text-xs text-slate-500 dark:text-slate-500 font-mono mb-8">
           Per-source widgets —{' '}
-          <Link to="/threatintel/ransomware-activity" className="text-accent hover:underline">
+          <Link to="/threatintel/ransomware-activity" className="text-brand-600 dark:text-brand-400 hover:underline">
             ransomware activity
           </Link>
           ,{' '}
-          <Link to="/threatintel/cybersec" className="text-accent hover:underline">
+          <Link to="/threatintel/cybersec" className="text-brand-600 dark:text-brand-400 hover:underline">
             cybersec Telegram firehose
           </Link>
           ,{' '}
-          <Link to="/threatintel/breach" className="text-accent hover:underline">
+          <Link to="/threatintel/breach" className="text-brand-600 dark:text-brand-400 hover:underline">
             breach disclosures
+          </Link>
+          ,{' '}
+          <Link to="/threatintel/breach-forums" className="text-brand-600 dark:text-brand-400 hover:underline">
+            breach / leak-forum tracker
           </Link>{' '}
           — live as their own pages.
         </p>
@@ -296,21 +306,21 @@ export default function DarkWeb(): JSX.Element {
 
       <>
         {/* Search + filters */}
-        <section className="mb-6 border border-rule bg-surface-page p-5 space-y-4">
+        <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
           <div className="flex items-center gap-2">
-            <Search size={14} className="text-accent" />
+            <Search size={14} className="text-brand-600 dark:text-brand-400" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Live search. Plain words = AND. /regex/i for regex."
-              className="flex-1 px-3 py-2 bg-surface-raised border border-rule font-mono text-sm focus:outline-none"
+              className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg font-mono text-sm focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                className="text-xs font-mono text-ink-2 hover:text-rose-600 dark:hover:text-rose-400"
+                className="text-xs font-mono text-slate-500 hover:text-rose-600 dark:hover:text-rose-400"
               >
                 clear
               </button>
@@ -318,9 +328,13 @@ export default function DarkWeb(): JSX.Element {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
-            <Filter size={12} className="text-accent" />
-            <span className="text-ink-2">Sources:</span>
-            <button type="button" onClick={toggleAllSources} className="text-accent hover:underline">
+            <Filter size={12} className="text-brand-600 dark:text-brand-400" />
+            <span className="text-slate-500">Sources:</span>
+            <button
+              type="button"
+              onClick={toggleAllSources}
+              className="text-brand-600 dark:text-brand-400 hover:underline"
+            >
               {allSourcesOn ? 'clear all' : 'select all'}
             </button>
             {DARKWEB_FEEDS.map((f) => {
@@ -330,8 +344,11 @@ export default function DarkWeb(): JSX.Element {
                   key={f.id}
                   type="button"
                   onClick={() => toggleSource(f.id)}
+                  aria-pressed={on}
                   className={`px-2 py-0.5 rounded border transition-colors ${
-                    on ? 'border-rule text-ink-1 bg-accent-soft' : 'border-rule text-ink-2'
+                    on
+                      ? 'border-brand-500/50 text-slate-900 dark:text-slate-100 bg-brand-50 dark:bg-brand-900/20'
+                      : 'border-slate-200 dark:border-slate-800 text-slate-500'
                   }`}
                 >
                   {f.label}
@@ -341,28 +358,33 @@ export default function DarkWeb(): JSX.Element {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-            <span className="text-ink-2">Window:</span>
+            <span className="text-slate-500">Window:</span>
             {(['24h', '7d', '30d'] as DateWindow[]).map((w) => (
               <button
                 key={w}
                 type="button"
                 onClick={() => setDateWindow(w)}
+                aria-pressed={dateWindow === w}
                 className={`px-2 py-0.5 rounded border transition-colors ${
-                  dateWindow === w ? 'border-rule text-ink-1 bg-accent-soft' : 'border-rule text-ink-2'
+                  dateWindow === w
+                    ? 'border-brand-500/50 text-slate-900 dark:text-slate-100 bg-brand-50 dark:bg-brand-900/20'
+                    : 'border-slate-200 dark:border-slate-800 text-slate-500'
                 }`}
               >
                 last {w}
               </button>
             ))}
-            <span className="text-ink-2">(max 30 days)</span>
+            <span className="text-slate-500">(max 30 days)</span>
           </div>
         </section>
 
         {/* Watchlist control */}
-        <section className="mb-6 border border-rule bg-surface-page p-5">
+        <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
           <div className="flex items-center gap-2 mb-3">
-            <Bell size={14} className="text-accent" />
-            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-accent">Watchlist</h2>
+            <Bell size={14} className="text-brand-600 dark:text-brand-400" />
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">
+              Watchlist
+            </h2>
           </div>
           <form
             onSubmit={(e) => {
@@ -376,18 +398,18 @@ export default function DarkWeb(): JSX.Element {
               value={newTerm}
               onChange={(e) => setNewTerm(e.target.value)}
               placeholder="company name, domain, sector, threat actor…"
-              className="flex-1 px-3 py-2 bg-surface-raised border border-rule font-mono text-sm focus:outline-none"
+              className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg font-mono text-sm focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
             />
             <button
               type="submit"
               disabled={!newTerm.trim()}
-              className="inline-flex items-center gap-1 px-3 py-2 bg-accent text-white text-sm font-mono font-semibold disabled:opacity-30 hover:bg-brand-700"
+              className="inline-flex items-center gap-1 px-3 py-2 bg-brand-600 dark:bg-brand-500 text-white text-sm font-mono font-semibold rounded-lg disabled:opacity-30 hover:bg-brand-700 dark:hover:bg-brand-400"
             >
               <Plus size={14} /> Track
             </button>
           </form>
           {watchlist.length === 0 ? (
-            <p className="text-xs font-mono text-ink-2">
+            <p className="text-xs font-mono text-slate-500">
               Empty. Add a keyword above to highlight matching posts in the feed below.
             </p>
           ) : (
@@ -395,15 +417,15 @@ export default function DarkWeb(): JSX.Element {
               {watchlist.map((term) => (
                 <li
                   key={term}
-                  className="inline-flex items-center gap-2 text-xs font-mono px-2 py-1 rounded border border-rule bg-accent-soft text-accent"
+                  className="inline-flex items-center gap-2 text-xs font-mono px-2 py-1 rounded-full border border-brand-500/40 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300"
                 >
                   <span>{term}</span>
-                  <span className="text-ink-2">{perTermCount[term] ?? 0}</span>
+                  <span className="text-slate-500">{perTermCount[term] ?? 0}</span>
                   <button
                     type="button"
                     onClick={() => removeTerm(term)}
                     aria-label={`stop tracking ${term}`}
-                    className="text-ink-2 hover:text-rose-600 dark:hover:text-rose-400"
+                    className="text-slate-500 hover:text-rose-600 dark:hover:text-rose-400"
                   >
                     <X size={12} />
                   </button>
@@ -415,8 +437,8 @@ export default function DarkWeb(): JSX.Element {
 
         {/* Stats */}
         <header className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
-          <h2 className="font-serif font-bold text-xl">Recent activity</h2>
-          <div className="flex items-center gap-3 text-xs font-mono text-ink-2">
+          <h2 className="font-display font-bold text-xl">Recent activity</h2>
+          <div className="flex items-center gap-3 text-xs font-mono text-slate-600 dark:text-slate-400">
             <span>
               {sourceCount} of {DARKWEB_FEEDS.length} sources
             </span>
@@ -427,7 +449,7 @@ export default function DarkWeb(): JSX.Element {
             {watchlist.length > 0 && (
               <>
                 <span aria-hidden="true">·</span>
-                <span className="text-accent">
+                <span className="text-brand-600 dark:text-brand-400">
                   {matchCount} watchlist match{matchCount === 1 ? '' : 'es'}
                 </span>
               </>
@@ -438,17 +460,19 @@ export default function DarkWeb(): JSX.Element {
               onClick={() => void fetchFeeds()}
               disabled={loading}
               aria-label="refresh dark web feeds"
-              className="inline-flex items-center gap-1 hover:text-accent disabled:opacity-50"
+              className="inline-flex items-center gap-1 hover:text-brand-600 dark:hover:text-brand-400 disabled:opacity-50"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> refresh
             </button>
           </div>
         </header>
 
-        {loading && items.length === 0 && <p className="font-mono text-sm text-ink-2">Fetching…</p>}
+        {loading && items.length === 0 && (
+          <p className="font-mono text-sm text-slate-600 dark:text-slate-400">Fetching…</p>
+        )}
 
         {!loading && matched.length === 0 && items.length > 0 && (
-          <p className="font-mono text-sm text-ink-2">
+          <p className="font-mono text-sm text-slate-500">
             No items match the current filters.{' '}
             <button
               type="button"
@@ -457,35 +481,45 @@ export default function DarkWeb(): JSX.Element {
                 setActiveSources(new Set(ALL_FEED_IDS));
                 setDateWindow('30d');
               }}
-              className="text-accent hover:underline"
+              className="text-brand-600 dark:text-brand-400 hover:underline"
             >
               reset filters
             </button>
           </p>
         )}
 
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {search ? `${matched.length} matching items` : ''}
+        </div>
+
         {matched.length > 0 && (
-          <ul className="space-y-3">
+          <ul className="space-y-3" aria-label="Feed items">
             {matched.map(({ item: it, watchMatches }) => {
               const hit = watchMatches.length > 0;
               return (
                 <li
                   key={it.guid ?? it.link}
-                  className={`border p-4 transition-colors ${
+                  className={`rounded-lg border p-4 transition-colors ${
                     hit
                       ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-900/15 dark:border-amber-700'
-                      : 'border-rule bg-surface-page'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
                   }`}
                 >
-                  <a href={it.link} target="_blank" rel="noopener noreferrer" className="group block">
+                  <a
+                    href={it.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${it.title} (opens in new tab)`}
+                    className="group block"
+                  >
                     <div className="flex items-baseline justify-between gap-3">
-                      <h3 className="font-semibold text-ink-1 group-hover:text-accent transition-colors">
+                      <h3 className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                         {highlightInText(it.title, search, watchlist)}
                       </h3>
-                      <ExternalLink size={12} className="text-ink-2 shrink-0 mt-1" />
+                      <ExternalLink size={12} className="text-slate-500 shrink-0 mt-1" />
                     </div>
-                    <div className="mt-1 flex items-center gap-3 text-xs font-mono text-ink-2">
-                      {it.source && <span className="text-accent">{it.source}</span>}
+                    <div className="mt-1 flex items-center gap-3 text-xs font-mono text-slate-500">
+                      {it.source && <span className="text-brand-600 dark:text-brand-400">{it.source}</span>}
                       {it.pubDate && <span>{formatRelativeTime(it.pubDate)}</span>}
                     </div>
                   </a>
@@ -508,7 +542,7 @@ export default function DarkWeb(): JSX.Element {
           </ul>
         )}
 
-        <footer className="mt-12 text-xs font-mono text-ink-2 leading-relaxed">
+        <footer className="mt-12 text-xs font-mono text-slate-500 leading-relaxed">
           Sources: Dark Web Informer · Ransomware.live · DataBreaches.net · The DFIR Report · The Record · Curated
           Intelligence · Reddit (r/Malware, r/blueteamsec, r/threatintel, r/netsec) · BleepingComputer · Krebs · Malware
           Traffic Analysis · DoublePulsar · Sophos X-Ops. Closed-darknet content (private Telegram, paid leak sites,
@@ -517,7 +551,7 @@ export default function DarkWeb(): JSX.Element {
             href="https://github.com/fastfire/deepdarkCTI"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent hover:underline"
+            className="text-brand-600 dark:text-brand-400 hover:underline"
           >
             deepdarkCTI
           </a>{' '}
@@ -549,7 +583,7 @@ interface BreachDisclosure {
 
 interface BreachDisclosuresResponse {
   generated_at: string;
-  sources: string[];
+  source: string;
   count: number;
   breaches: BreachDisclosure[];
 }
@@ -590,40 +624,45 @@ export function BreachDisclosuresPanel(): JSX.Element {
   const visible = data?.breaches.slice(0, expanded ? data.breaches.length : 8) ?? [];
 
   return (
-    <section className="mb-6 border border-rule bg-surface-page p-5">
+    <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-3 mb-3">
-        <h2 className="font-serif font-semibold text-lg inline-flex items-center gap-2">
+        <h2 className="font-display font-semibold text-lg inline-flex items-center gap-2">
           Recent breach disclosures
           <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300">
-            {data?.sources?.length ?? 0} sources
+            HIBP corpus
           </span>
         </h2>
-        <span className="text-[11px] font-mono text-ink-2">
+        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-500">
           {loading ? 'loading…' : data ? `${data.count} disclosures` : ''}
         </span>
       </div>
 
       {error && (
-        <p className="text-sm font-mono text-rose-600 dark:text-rose-400">Could not load breach disclosures: {error}</p>
+        <p role="alert" className="text-sm font-mono text-rose-600 dark:text-rose-400">
+          Could not load breach disclosures: {error}
+        </p>
       )}
 
       {data && data.breaches.length === 0 && !error && (
-        <p className="text-sm font-mono text-ink-2">
-          No disclosures returned. Upstream breach APIs may be unavailable; the in-feed sources below still cover
+        <p className="text-sm font-mono text-slate-500 dark:text-slate-500">
+          No disclosures returned. The upstream HIBP API may be unavailable; the in-feed sources below still cover
           breach reporting.
         </p>
       )}
 
       {visible.length > 0 && (
         <ul className="grid gap-2 sm:grid-cols-2">
-          {visible.map((b) => (
-            <li key={b.name} className="rounded border border-rule bg-surface-raised p-2.5">
+          {visible.map((b, i) => (
+            <li
+              key={`${b.name}-${b.added_date ?? i}`}
+              className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2.5"
+            >
               <div className="flex flex-wrap items-baseline gap-2 mb-1">
                 <a
                   href={b.domain ? `https://haveibeenpwned.com/PwnedWebsites#${b.name}` : '#'}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-serif font-semibold text-sm text-ink-1 hover:text-accent"
+                  className="font-display font-semibold text-sm text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400"
                 >
                   {b.title}
                 </a>
@@ -638,28 +677,37 @@ export function BreachDisclosuresPanel(): JSX.Element {
                   </span>
                 )}
               </div>
-              <div className="flex flex-wrap items-baseline gap-3 text-[11px] font-mono text-ink-2 mb-1">
+              <div className="flex flex-wrap items-baseline gap-3 text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-1">
                 {b.domain && <span>{b.domain}</span>}
                 {b.breach_date && <span>breached {b.breach_date}</span>}
                 {b.added_date && <span>disclosed {b.added_date.slice(0, 10)}</span>}
                 {typeof b.pwn_count === 'number' && b.pwn_count > 0 && (
-                  <span className="text-ink-1 font-bold">{formatPwnCount(b.pwn_count)} accounts</span>
+                  <span className="text-slate-700 dark:text-slate-300 font-bold">
+                    {formatPwnCount(b.pwn_count)} accounts
+                  </span>
                 )}
               </div>
               {b.data_classes && b.data_classes.length > 0 && (
                 <div className="flex flex-wrap gap-1 mb-1">
                   {b.data_classes.slice(0, 5).map((c) => (
-                    <span key={c} className="text-[9px] font-mono px-1 py-0.5 rounded border border-rule text-ink-2">
+                    <span
+                      key={c}
+                      className="text-[9px] font-mono px-1 py-0.5 rounded border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400"
+                    >
                       {c}
                     </span>
                   ))}
                   {b.data_classes.length > 5 && (
-                    <span className="text-[9px] font-mono text-ink-2">+{b.data_classes.length - 5}</span>
+                    <span className="text-[9px] font-mono text-slate-500 dark:text-slate-500">
+                      +{b.data_classes.length - 5}
+                    </span>
                   )}
                 </div>
               )}
               {b.description && (
-                <p className="text-[11px] font-mono text-ink-2 leading-relaxed line-clamp-3">{b.description}</p>
+                <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3">
+                  {b.description}
+                </p>
               )}
             </li>
           ))}
@@ -667,15 +715,16 @@ export function BreachDisclosuresPanel(): JSX.Element {
       )}
 
       {data && data.breaches.length > 8 && (
-        <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-ink-2">
-          <button onClick={() => setExpanded((v) => !v)} className="text-accent hover:underline">
+        <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-500">
+          <button onClick={() => setExpanded((v) => !v)} className="text-brand-600 dark:text-brand-400 hover:underline">
             {expanded ? 'Show fewer' : `Show all ${data.breaches.length}`}
           </button>
           <a
-            href="https://haveibeenpwned.com/PwnedWebsites"
+            href="https://haveibeenpwned.com/SpamEmail"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-accent inline-flex items-center gap-1"
+            aria-label="full HIBP list (opens in new tab)"
+            className="hover:text-brand-600 dark:hover:text-brand-400 inline-flex items-center gap-1"
           >
             full HIBP list <ExternalLink size={10} />
           </a>
@@ -745,6 +794,8 @@ export function RansomwareActivityPanel(): JSX.Element {
   const [lightbox, setLightbox] = useState<{ url: string; victim: string; group: string } | null>(null);
   const [newOnly, setNewOnly] = useState(false);
   const { previous: lastVisit, markVisited } = useLastVisit('ransomware-activity');
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const lightboxRef = useFocusTrap({ isActive: lightbox !== null, onEscape: () => setLightbox(null) });
 
   // Esc closes the lightbox.
   useEffect(() => {
@@ -798,38 +849,31 @@ export function RansomwareActivityPanel(): JSX.Element {
   const visible = filteredVictims.slice(0, expanded ? filteredVictims.length : 12);
 
   return (
-    <section className="mb-6 border border-rule bg-surface-page p-5">
+    <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-3 mb-3">
-        <h2 className="font-serif font-semibold text-lg inline-flex items-center gap-2">
+        <h2 className="font-display font-semibold text-lg inline-flex items-center gap-2">
           Recent ransomware activity
-          <span
-            className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300"
-            title={data?.source ?? 'Multi-source ransomware tracker merge'}
-          >
-            4 trackers
-          </span>
         </h2>
-        <span className="text-[11px] font-mono text-ink-2" title={data?.source ?? ''}>
-          {loading
-            ? 'loading…'
-            : data
-              ? `${data.count} leak-site posts · ransomlook + mythreatintel + ransomfeed.it + ransomwatch`
-              : ''}
+        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-500" title={data?.source ?? ''}>
+          {loading ? 'loading…' : data ? `${data.count} leak-site posts · multi-source merge` : ''}
         </span>
       </div>
 
       {error && (
-        <p className="text-sm font-mono text-rose-600 dark:text-rose-400">Could not load ransomware feed: {error}</p>
+        <p role="alert" className="text-sm font-mono text-rose-600 dark:text-rose-400">
+          Could not load ransomware feed: {error}
+        </p>
       )}
 
       {data && data.groups.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           <button
             onClick={() => setGroupFilter('all')}
+            aria-pressed={groupFilter === 'all'}
             className={`text-[11px] font-mono px-2 py-1 rounded border transition-colors ${
               groupFilter === 'all'
-                ? 'border-rule bg-accent-soft text-accent'
-                : 'border-rule text-ink-2 hover:border-rule'
+                ? 'border-brand-500/60 bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-500/40'
             }`}
           >
             All <span className="opacity-60">· {data.count}</span>
@@ -837,12 +881,13 @@ export function RansomwareActivityPanel(): JSX.Element {
           {newCount > 0 && (
             <button
               onClick={() => setNewOnly((v) => !v)}
+              aria-pressed={newOnly}
               className={`text-[11px] font-mono px-2 py-1 rounded border transition-colors inline-flex items-center gap-1 ${
                 newOnly
                   ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                   : 'border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300 hover:border-emerald-500/60'
               }`}
-              title={`${newCount} claims since your last visit${lastVisit ? ` (${new Date(lastVisit).toLocaleString()})` : ''}`}
+              aria-label={`${newCount} new claims since your last visit`}
             >
               <Sparkles size={10} /> {newCount} new
             </button>
@@ -851,10 +896,11 @@ export function RansomwareActivityPanel(): JSX.Element {
             <button
               key={g.group}
               onClick={() => setGroupFilter(g.group)}
+              aria-pressed={groupFilter === g.group}
               className={`text-[11px] font-mono px-2 py-1 rounded border transition-colors ${
                 groupFilter === g.group
                   ? 'border-rose-500/60 bg-rose-500/15 text-rose-700 dark:text-rose-300'
-                  : 'border-rule text-ink-2 hover:border-rose-500/40'
+                  : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-rose-500/40'
               }`}
             >
               {g.group} <span className="opacity-60">· {g.count}</span>
@@ -866,13 +912,19 @@ export function RansomwareActivityPanel(): JSX.Element {
       {visible.length > 0 && (
         <ul className="grid gap-2 sm:grid-cols-2">
           {visible.map((v, i) => (
-            <li key={`${v.group}-${v.victim}-${i}`} className="rounded border border-rule bg-surface-raised p-2.5">
+            <li
+              key={`${v.group}-${v.victim}-${i}`}
+              className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2.5"
+            >
               <div className="flex gap-2.5">
                 {v.screen_url && (
                   <button
                     type="button"
-                    onClick={() => setLightbox({ url: v.screen_url!, victim: v.victim, group: v.group })}
-                    className="shrink-0 group relative w-14 h-10 sm:w-20 sm:h-14 rounded overflow-hidden border border-rule bg-surface-raised hover:border-rule"
+                    onClick={() => {
+                      triggerRef.current = document.activeElement as HTMLButtonElement;
+                      setLightbox({ url: v.screen_url!, victim: v.victim, group: v.group });
+                    }}
+                    className="shrink-0 group relative w-14 h-10 sm:w-20 sm:h-14 rounded overflow-hidden border border-slate-300 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 hover:border-brand-500/60"
                     title="Click to view full leak-site screenshot"
                     aria-label={`View leak-site screenshot for ${v.victim}`}
                   >
@@ -898,7 +950,8 @@ export function RansomwareActivityPanel(): JSX.Element {
                       href={v.source_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-serif font-semibold text-sm text-ink-1 hover:text-accent break-words"
+                      aria-label={`${v.victim} (opens in new tab)`}
+                      className="font-display font-semibold text-sm text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 break-words"
                     >
                       {v.victim}
                     </a>
@@ -915,18 +968,20 @@ export function RansomwareActivityPanel(): JSX.Element {
                     )}
                     {v.country && (
                       <span
-                        className="text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded border border-rule text-ink-2"
+                        className="text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded border border-slate-300 dark:border-slate-700 text-slate-500"
                         title={`Country attributed by upstream: ${v.country}`}
                       >
                         {v.country}
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] font-mono text-ink-2 mb-1">
+                  <div className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-1">
                     claimed {formatRelativeTime(v.discovered)}
                   </div>
                   {v.description && (
-                    <p className="text-[11px] font-mono text-ink-2 leading-relaxed line-clamp-2">{v.description}</p>
+                    <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2">
+                      {v.description}
+                    </p>
                   )}
                 </div>
               </div>
@@ -936,15 +991,16 @@ export function RansomwareActivityPanel(): JSX.Element {
       )}
 
       {filteredVictims.length > 12 && (
-        <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-ink-2">
-          <button onClick={() => setExpanded((v) => !v)} className="text-accent hover:underline">
+        <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-500">
+          <button onClick={() => setExpanded((v) => !v)} className="text-brand-600 dark:text-brand-400 hover:underline">
             {expanded ? 'Show fewer' : `Show all ${filteredVictims.length}`}
           </button>
           <a
             href="https://www.ransomlook.io/recent"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-accent inline-flex items-center gap-1"
+            aria-label="full Ransomlook feed (opens in new tab)"
+            className="hover:text-brand-600 dark:hover:text-brand-400 inline-flex items-center gap-1"
           >
             full Ransomlook feed <ExternalLink size={10} />
           </a>
@@ -952,7 +1008,7 @@ export function RansomwareActivityPanel(): JSX.Element {
       )}
 
       {data && data.victims.some((v) => v.screen_url) && (
-        <p className="mt-3 text-[10px] font-mono text-ink-2 leading-relaxed">
+        <p className="mt-3 text-[10px] font-mono text-slate-500 dark:text-slate-500 leading-relaxed">
           Thumbnails are PNG screenshots of the .onion leak post, captured by Ransomlook&apos;s Tor-equipped backend and
           rehosted on clearnet. Click to zoom — we never fetch the .onion site from your browser. Treat the content as
           untrusted (leak-site screenshots can include malicious links + actor branding).
@@ -961,20 +1017,24 @@ export function RansomwareActivityPanel(): JSX.Element {
 
       {lightbox && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label={`Leak-site screenshot for ${lightbox.victim}`}
+          ref={lightboxRef as React.RefObject<HTMLDivElement>}
         >
           <button
             type="button"
-            onClick={() => setLightbox(null)}
+            onClick={() => {
+              setLightbox(null);
+              setTimeout(() => triggerRef.current?.focus(), 0);
+            }}
             className="absolute inset-0 cursor-zoom-out"
             aria-label="Close screenshot"
           />
           <div className="relative max-w-5xl max-h-[90vh] w-full flex flex-col gap-2">
             <div className="flex items-baseline justify-between gap-2 text-slate-100">
-              <div className="font-serif font-semibold inline-flex items-center gap-2">
+              <div className="font-display font-semibold inline-flex items-center gap-2">
                 {lightbox.victim}
                 <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-rose-400/40 bg-rose-500/10 text-rose-300">
                   {lightbox.group}
@@ -982,7 +1042,11 @@ export function RansomwareActivityPanel(): JSX.Element {
               </div>
               <button
                 type="button"
-                onClick={() => setLightbox(null)}
+                onClick={() => {
+                  setLightbox(null);
+                  setTimeout(() => triggerRef.current?.focus(), 0);
+                }}
+                id="lightbox-close"
                 className="text-slate-300 hover:text-slate-100 inline-flex items-center gap-1 text-sm font-mono"
                 aria-label="Close"
               >
@@ -992,10 +1056,10 @@ export function RansomwareActivityPanel(): JSX.Element {
             <img
               src={lightbox.url}
               alt={`Leak-site screenshot of ${lightbox.victim}`}
-              className="w-full max-h-[80vh] object-contain rounded border border-rule bg-surface-raised"
+              className="w-full max-h-[80vh] object-contain rounded border border-slate-700 bg-slate-800"
               referrerPolicy="no-referrer"
             />
-            <p className="text-[10px] font-mono text-ink-3 text-center">
+            <p className="text-[10px] font-mono text-slate-400 text-center">
               Source: ransomlook.io · clearnet-rehosted PNG of the .onion leak page
             </p>
           </div>
@@ -1048,7 +1112,7 @@ interface TelegramFeedResponse {
 }
 
 function qualityPill(score?: number): { label: string; cls: string } {
-  if (score === undefined) return { label: '—', cls: 'border-rule text-ink-3' };
+  if (score === undefined) return { label: '—', cls: 'border-slate-300 dark:border-slate-700 text-slate-400' };
   if (score >= 75)
     return { label: `${score}`, cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' };
   if (score >= 50) return { label: `${score}`, cls: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300' };
@@ -1167,15 +1231,15 @@ export function TelegramFeedPanel(): JSX.Element {
   const watchHits = matchedItems.filter((m) => m.matches.length > 0).length;
 
   return (
-    <section className="mb-6 border border-rule bg-surface-page p-5">
+    <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-3 mb-1">
-        <h2 className="font-serif font-semibold text-lg inline-flex items-center gap-2">
+        <h2 className="font-display font-semibold text-lg inline-flex items-center gap-2">
           Cybersec Telegram firehose
           <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300">
             t.me/s preview
           </span>
         </h2>
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] font-mono text-ink-2">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] font-mono text-slate-500 dark:text-slate-500">
           {loading ? (
             <span>loading…</span>
           ) : data ? (
@@ -1200,16 +1264,18 @@ export function TelegramFeedPanel(): JSX.Element {
         </div>
       </div>
 
-      <p className="text-[12px] font-mono text-ink-2 mb-3 leading-relaxed">
+      <p className="text-[12px] font-mono text-slate-500 dark:text-slate-500 mb-3 leading-relaxed">
         Latest messages from a curated set of public threat-intel and cybercrime-tracking Telegram channels —{' '}
-        <Link to="/threatintel/telegram-watch" className="text-accent hover:underline">
+        <Link to="/threatintel/telegram-watch" className="text-brand-600 dark:text-brand-400 hover:underline">
           full catalogue
         </Link>
         . Server-side scrape of <code>t.me/s/&lt;handle&gt;</code>; no Telegram account required.
       </p>
 
       {error && (
-        <p className="text-sm font-mono text-rose-600 dark:text-rose-400">Could not load Telegram feed: {error}</p>
+        <p role="alert" className="text-sm font-mono text-rose-600 dark:text-rose-400">
+          Could not load Telegram feed: {error}
+        </p>
       )}
 
       {data && data.channels.length > 0 && (
@@ -1218,8 +1284,8 @@ export function TelegramFeedPanel(): JSX.Element {
             onClick={() => setActiveChannel('all')}
             className={`text-[11px] font-mono px-2 py-1 rounded border transition-colors ${
               activeChannel === 'all'
-                ? 'border-rule bg-accent-soft text-accent'
-                : 'border-rule text-ink-2 hover:border-rule'
+                ? 'border-brand-500/60 bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-500/40'
             }`}
           >
             All <span className="opacity-60">· {data.items.length}</span>
@@ -1259,8 +1325,8 @@ export function TelegramFeedPanel(): JSX.Element {
                     activeChannel === ch.handle
                       ? 'border-sky-500/60 bg-sky-500/15 text-sky-700 dark:text-sky-300'
                       : ch.ok
-                        ? 'border-rule text-ink-2 hover:border-sky-500/40'
-                        : 'border-rule text-ink-3 cursor-not-allowed opacity-50'
+                        ? 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-sky-500/40'
+                        : 'border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-50'
                   }`}
                   title={tip}
                 >
@@ -1282,7 +1348,9 @@ export function TelegramFeedPanel(): JSX.Element {
               <li
                 key={it.permalink}
                 className={`rounded border p-2.5 ${
-                  hasMatch ? 'border-amber-500/40 bg-amber-500/5' : 'border-rule bg-surface-raised'
+                  hasMatch
+                    ? 'border-amber-500/40 bg-amber-500/5'
+                    : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950'
                 }`}
               >
                 <div className="flex flex-wrap items-baseline gap-2 mb-1">
@@ -1290,7 +1358,7 @@ export function TelegramFeedPanel(): JSX.Element {
                     href={it.permalink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-serif font-semibold text-sm text-ink-1 hover:text-accent inline-flex items-center gap-1"
+                    className="font-display font-semibold text-sm text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 inline-flex items-center gap-1"
                     title={it.channel_blurb}
                   >
                     {it.channel_name}
@@ -1301,15 +1369,19 @@ export function TelegramFeedPanel(): JSX.Element {
                   >
                     {it.channel_topic}
                   </span>
-                  <span className="text-[10px] font-mono text-ink-2">{formatRelativeTime(it.datetime)}</span>
-                  {it.views && <span className="text-[10px] font-mono text-ink-2">{it.views} views</span>}
+                  <span className="text-[10px] font-mono text-slate-500 dark:text-slate-500">
+                    {formatRelativeTime(it.datetime)}
+                  </span>
+                  {it.views && (
+                    <span className="text-[10px] font-mono text-slate-500 dark:text-slate-500">{it.views} views</span>
+                  )}
                   {hasMatch && (
                     <span className="text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/40 sm:ml-auto">
                       watch: {matches.join(', ')}
                     </span>
                   )}
                 </div>
-                <p className="text-[12px] font-mono text-ink-1 leading-relaxed whitespace-pre-wrap break-words">
+                <p className="text-[12px] font-mono text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words">
                   {highlightTelegramText(it.text, watchlist)}
                 </p>
               </li>
@@ -1319,15 +1391,18 @@ export function TelegramFeedPanel(): JSX.Element {
       )}
 
       {data && filteredItems.length === 0 && !loading && !error && (
-        <p className="text-sm font-mono text-ink-2">No messages from the selected channel.</p>
+        <p className="text-sm font-mono text-slate-500 dark:text-slate-500">No messages from the selected channel.</p>
       )}
 
       {matchedItems.length > 10 && (
-        <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-ink-2">
-          <button onClick={() => setExpanded((v) => !v)} className="text-accent hover:underline">
+        <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-500">
+          <button onClick={() => setExpanded((v) => !v)} className="text-brand-600 dark:text-brand-400 hover:underline">
             {expanded ? 'Show fewer' : `Show all ${matchedItems.length}`}
           </button>
-          <Link to="/threatintel/telegram-watch" className="hover:text-accent inline-flex items-center gap-1">
+          <Link
+            to="/threatintel/telegram-watch"
+            className="hover:text-brand-600 dark:hover:text-brand-400 inline-flex items-center gap-1"
+          >
             full Telegram catalogue <ExternalLink size={10} />
           </Link>
         </div>

@@ -70,47 +70,56 @@ export default function WikiArticle(): JSX.Element {
 
   if (!articleMeta) {
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-8 py-20 text-ink-1">
+      <div className="max-w-3xl mx-auto px-4 sm:px-8 py-20 text-slate-900 dark:text-slate-100">
         <Link
           to="/threatintel/wiki"
-          className="inline-flex items-center gap-2 text-sm text-ink-2 hover:text-accent mb-8 font-mono"
+          className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:text-brand-400 mb-8 font-mono"
         >
-          <ArrowLeft size={14} /> /threatintel/wiki
+          <ArrowLeft size={14} /> back
         </Link>
-        <h1 className="font-serif font-bold text-3xl">Article not found</h1>
+        <h1 className="font-display font-bold text-3xl">Article not found</h1>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-8 py-12 text-ink-1">
+    <div className="max-w-3xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
       <Link
         to="/threatintel/wiki"
-        className="inline-flex items-center gap-2 text-sm text-ink-2 hover:text-accent mb-8 font-mono"
+        className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:text-brand-400 mb-8 font-mono"
       >
-        <ArrowLeft size={14} /> /threatintel/wiki
+        <ArrowLeft size={14} /> back
       </Link>
-      <span className="block text-xs font-mono uppercase tracking-wider text-accent mb-2">{articleMeta.category}</span>
-      <h1 className="text-4xl font-serif font-bold mb-4">{articleMeta.title}</h1>
-      <p className="text-lg text-ink-2 mb-8">{articleMeta.description}</p>
+      <span className="block text-xs font-mono uppercase tracking-wider text-brand-600 dark:text-brand-400 mb-2">
+        {articleMeta.category}
+      </span>
+      <h1 className="text-3xl sm:text-4xl font-display font-bold mb-4">{articleMeta.title}</h1>
+      <p className="text-lg text-slate-600 dark:text-slate-400 mb-8">{articleMeta.description}</p>
 
       <article
         ref={articleRef}
-        className="prose prose-invert max-w-none [&_h2]:font-serif [&_h2]:text-2xl [&_h2]:mt-8 [&_h3]:font-serif [&_h3]:text-xl [&_h3]:mt-6 [&_p]:text-ink-2 [&_strong]:text-ink-1 [&_a]:text-accent [&_code]:text-accent [&_code]:font-mono [&_pre]:bg-surface-raised [&_pre]:border [&_pre]:border-rule [&_pre]:p-4 [&_pre]:rounded [&_li]:text-ink-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6"
+        className="prose prose-invert max-w-none [&_h2]:font-display [&_h2]:text-2xl [&_h2]:mt-8 [&_h3]:font-display [&_h3]:text-xl [&_h3]:mt-6 [&_p]:text-slate-600 [&_strong]:text-slate-900 [&_a]:text-brand-600 [&_code]:text-brand-600 [&_code]:font-mono [&_pre]:bg-white [&_pre]:border [&_pre]:border-slate-200 [&_pre]:p-4 [&_pre]:rounded-lg [&_li]:text-slate-600 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 dark:[&_p]:text-slate-400 dark:[&_strong]:text-slate-100 dark:[&_a]:text-brand-400 dark:[&_code]:text-brand-400 dark:[&_pre]:bg-slate-900 dark:[&_pre]:border-slate-800 dark:[&_li]:text-slate-400"
         dangerouslySetInnerHTML={{ __html: html }}
       />
 
       {relatedTools.length > 0 && (
-        <section className="mt-12 border border-rule bg-surface-raised p-5">
-          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-accent font-mono mb-3 inline-flex items-center gap-2">
+        <section className="mt-12 rounded-lg border border-brand-500/30 bg-brand-500/5 p-5">
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 font-mono mb-3 inline-flex items-center gap-2">
             <Wrench size={12} /> Related tools in this portfolio
           </h2>
           <ul className="grid sm:grid-cols-2 gap-2">
             {relatedTools.map((t) => (
               <li key={t.href}>
-                <Link to={t.href} className="block border border-rule bg-surface-page px-3 py-2 hover:border-rule">
-                  <span className="font-serif font-semibold text-sm text-ink-1">{t.term}</span>
-                  <span className="block text-[11px] font-mono text-ink-3 mt-0.5">{t.blurb}</span>
+                <Link
+                  to={t.href}
+                  className="block rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 hover:border-brand-500/40"
+                >
+                  <span className="font-display font-semibold text-sm text-slate-900 dark:text-slate-100">
+                    {t.term}
+                  </span>
+                  <span className="block text-[11px] font-mono text-slate-500 dark:text-slate-500 mt-0.5">
+                    {t.blurb}
+                  </span>
                 </Link>
               </li>
             ))}

@@ -1,0 +1,146 @@
+export type { ThreatActor, ActorStatus, Sophistication } from '../../data/dfir/threat-actors';
+
+export interface StixParseResponse {
+  actors: Array<{ id: string; name: string; aliases: string[]; motivation?: string }>;
+  campaigns: Array<{ id: string; name: string; description?: string; first_seen?: string; actor_id?: string }>;
+  attack_patterns: Array<{ id: string; name: string; mitre_id?: string }>;
+  indicators: Array<{ id: string; pattern: string; type: string; value: string; labels: string[] }>;
+}
+
+export type Verdict = 'clean' | 'suspicious' | 'malicious' | 'unknown';
+
+export interface ExposureScanResponse {
+  domain: string;
+  subdomains: Array<{
+    name: string;
+    ips: string[];
+    shodan?: {
+      source: string;
+      status: string;
+      score: number;
+      verdict: string;
+      raw_summary: { ports?: number[]; country?: string; org?: string; vulns?: string[] };
+      tags: string[];
+      error?: string;
+    };
+  }>;
+  total_subdomains_seen: number;
+  score: number;
+  verdict: 'low' | 'medium' | 'high';
+  shodan_enabled: boolean;
+}
+
+export interface PhishingAnalysisResponse {
+  headers: Record<string, string | number | undefined>;
+  auth: {
+    spf: string;
+    dkim: string;
+    dmarc: string;
+    raw?: string;
+  };
+  urls: string[];
+  score: number;
+  verdict: 'clean' | 'suspicious' | 'malicious';
+  flags: string[];
+}
+
+export type ProviderId =
+  | 'virustotal'
+  | 'abuseipdb'
+  | 'shodan'
+  | 'censys'
+  | 'netlas'
+  | 'otx'
+  | 'urlscan'
+  | 'hybridanalysis'
+  | 'spamhaus'
+  | 'tor'
+  | 'doh'
+  | 'openphish'
+  | 'threatfox'
+  | 'urlhaus'
+  | 'malwarebazaar'
+  | 'hashlookup'
+  | 'cinsarmy'
+  | 'bitwire'
+  | 'blocklistde'
+  | 'binarydefense'
+  | 'ipsum'
+  | 'phishingArmy'
+  | 'tweetfeed'
+  | 'greynoise'
+  | 'c2tracker'
+  | 'sslbl'
+  | 'yaraify'
+  | 'phishtank'
+  | 'malwareworld';
+
+export interface ProviderResultWire {
+  source: ProviderId;
+  status: 'ok' | 'error' | 'unsupported';
+  score: number;
+  verdict: Verdict;
+  raw_summary: Record<string, unknown>;
+  tags: string[];
+  error?: string;
+  fetched_at: string;
+  cached: boolean;
+}
+
+export interface MetaEvent {
+  type: 'ipv4' | 'ipv6' | 'domain' | 'url' | 'hash' | 'email' | 'unknown';
+  value: string;
+  providers: ProviderId[];
+}
+
+export interface DoneEvent {
+  score: number;
+  verdict: Verdict;
+  confidence: 'low' | 'medium' | 'high';
+  contributing: number;
+}
+
+export interface FileAnalysisResponse {
+  hash: string;
+  hash_type: 'md5' | 'sha1' | 'sha256';
+  providers: ProviderResultWire[];
+  score: number;
+  verdict: 'clean' | 'suspicious' | 'malicious' | 'unknown';
+  confidence: 'low' | 'medium' | 'high';
+}
+
+export interface DomainLookupResponse {
+  domain: string;
+  score: number;
+  verdict: 'strong' | 'partial' | 'weak';
+  dns: Record<'A' | 'AAAA' | 'NS' | 'CNAME' | 'SOA' | 'MX' | 'TXT' | 'CAA', { records: string[]; error?: string }>;
+  rdap: {
+    registrar?: string;
+    created?: string;
+    expires?: string;
+    updated?: string;
+    nameservers: string[];
+    status: string[];
+    error?: string;
+  };
+  email_auth: {
+    spf: { present: boolean; policy?: string; record?: string };
+    dmarc: { present: boolean; policy?: string; pct?: number; record?: string };
+    dkim: { selectors_found: string[] };
+    bimi: { present: boolean; logo?: string };
+    mta_sts: { present: boolean; mode?: string; maxAge?: number };
+    tls_rpt: { present: boolean; rua?: string };
+    evaluation: {
+      score: number;
+      verdict: 'strong' | 'partial' | 'weak';
+      weaknesses: string[];
+    };
+  };
+  certificates: Array<{
+    id: number;
+    issuer: string;
+    not_before: string;
+    not_after: string;
+    subjects: string[];
+  }>;
+}

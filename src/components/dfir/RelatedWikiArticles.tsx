@@ -28,8 +28,8 @@ export function RelatedWikiArticles({ path, limit = 5, className = '' }: Props):
   const visible = articles.slice(0, limit);
 
   return (
-    <section className={`mt-8 border border-accent/30 bg-accent-soft/40 p-4 ${className}`}>
-      <h2 className="text-xs font-medium uppercase tracking-[0.2em] text-accent font-mono mb-3 inline-flex items-center gap-2">
+    <section className={`mt-8 rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-4 ${className}`}>
+      <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-300 font-mono mb-3 inline-flex items-center gap-2">
         <BookOpen size={12} /> Related background reading
       </h2>
       <ul className="grid sm:grid-cols-2 gap-2">
@@ -37,10 +37,12 @@ export function RelatedWikiArticles({ path, limit = 5, className = '' }: Props):
           <li key={a.slug}>
             <Link
               to={`/threatintel/wiki/${a.slug}`}
-              className="block border border-rule bg-surface-page px-3 py-2 hover:border-accent"
+              className="block rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 hover:border-cyan-500/40"
             >
-              <div className="font-mono font-medium text-sm text-ink-1 mb-0.5">{a.title}</div>
-              <div className="text-[10px] font-mono text-ink-3">
+              <div className="font-display font-semibold text-sm text-slate-900 dark:text-slate-100 mb-0.5">
+                {a.title}
+              </div>
+              <div className="text-[10px] font-mono text-slate-500 dark:text-slate-500">
                 mentions: {a.matchedTerms.slice(0, 3).join(', ')}
                 {a.matchedTerms.length > 3 && ` +${a.matchedTerms.length - 3}`}
               </div>
@@ -49,9 +51,9 @@ export function RelatedWikiArticles({ path, limit = 5, className = '' }: Props):
         ))}
       </ul>
       {articles.length > limit && (
-        <p className="text-[10px] font-mono text-ink-3 mt-2">
+        <p className="text-[10px] font-mono text-slate-500 dark:text-slate-500 mt-2">
           {articles.length - limit} more articles also backlink to this tool —{' '}
-          <Link to="/threatintel/wiki" className="text-accent hover:underline">
+          <Link to="/threatintel/wiki" className="text-cyan-700 dark:text-cyan-300 hover:underline">
             browse the full wiki
           </Link>
           .

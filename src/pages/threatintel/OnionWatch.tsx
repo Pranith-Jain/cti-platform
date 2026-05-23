@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { BackLink } from '../../components/BackLink';
 import { AlertTriangle, ArrowLeft, ExternalLink, RefreshCw, Search, Bell, Copy, Check } from 'lucide-react';
 import { formatRelativeTime } from '../../services/rssService';
 
@@ -136,26 +137,26 @@ export default function OnionWatch(): JSX.Element {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12 text-ink-1">
-      <Link
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
+      <BackLink
         to="/threatintel"
-        className="inline-flex items-center gap-2 text-sm text-ink-2 hover:text-accent mb-8 font-mono"
+        className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 mb-8 font-mono"
       >
-        <ArrowLeft size={14} /> /threatintel
-      </Link>
+        <ArrowLeft size={14} /> back
+      </BackLink>
 
-      <div>
-        <h1 className="text-4xl font-serif font-bold mb-2 inline-flex items-center gap-3">
-          <Bell size={28} className="text-accent" /> Onion Watch
+      <div className="animate-fade-in-up">
+        <h1 className="text-3xl sm:text-4xl font-display font-bold mb-2 inline-flex items-center gap-3">
+          <Bell size={28} className="text-brand-600 dark:text-brand-400" /> Onion Watch
         </h1>
-        <p className="text-ink-2 font-mono mb-2 max-w-3xl">
+        <p className="text-slate-600 dark:text-slate-400 mb-2 max-w-3xl leading-relaxed">
           Live inventory of <code>.onion</code> leak-site mirrors for the most-active ransomware groups, with
           reachability flags from Ransomlook.io&apos;s last scrape. Pivots open in your own Tor Browser. We do not fetch
           any .onion content from this site.
         </p>
-        <p className="text-xs text-ink-2 font-mono mb-8">
+        <p className="text-xs text-slate-500 dark:text-slate-500 font-mono mb-8">
           Companion ransomware victim feed:{' '}
-          <Link to="/threatintel/darkweb" className="text-accent hover:underline">
+          <Link to="/threatintel/darkweb" className="text-brand-600 dark:text-brand-400 hover:underline">
             Dark Web Watch
           </Link>
           . Reachability is upstream-observed and your own Tor client may see different status. Treat any leak-site
@@ -164,7 +165,7 @@ export default function OnionWatch(): JSX.Element {
       </div>
 
       {/* Headline stats */}
-      <section className="border border-rule bg-surface-page p-4 mb-6">
+      <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 mb-6">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
           <Stat label="reachable groups" value={data?.reachable_count} loading={loading} />
           <Stat label="tracked groups" value={data?.groups.length} loading={loading} />
@@ -185,7 +186,7 @@ export default function OnionWatch(): JSX.Element {
           misleading. Surface the upstream state honestly: many mirrors
           and zero reachable is the prober-degraded signal. */}
       {data && data.total_count >= 20 && data.reachable_count === 0 && (
-        <section className="border border-amber-500/40 bg-amber-500/5 p-4 mb-6 flex items-start gap-2 font-mono text-sm">
+        <section className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 mb-6 flex items-start gap-2 font-mono text-sm">
           <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="text-amber-800 dark:text-amber-300">
             <strong>Upstream prober looks degraded.</strong> Ransomlook is reporting 0 reachable mirrors across{' '}
@@ -205,15 +206,15 @@ export default function OnionWatch(): JSX.Element {
       )}
 
       {/* Filters */}
-      <section className="border border-rule bg-surface-page p-4 mb-6">
+      <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 mb-6">
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search group name, .onion fqdn, or page title…"
-            className="w-full pl-9 pr-4 py-2.5 bg-surface-raised border border-rule rounded font-mono text-sm focus:outline-none"
+            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded font-mono text-sm focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
             aria-label="Search onion mirrors"
           />
         </div>
@@ -221,19 +222,21 @@ export default function OnionWatch(): JSX.Element {
         <div className="flex flex-wrap items-center gap-3 mt-3 text-[11px] font-mono">
           <label className="inline-flex items-center gap-1.5 cursor-pointer">
             <input type="checkbox" checked={showOffline} onChange={(e) => setShowOffline(e.target.checked)} />
-            <span className="text-ink-2">show offline groups</span>
+            <span className="text-slate-600 dark:text-slate-400">show offline groups</span>
           </label>
 
-          <span className="text-ink-3">|</span>
+          <span className="text-slate-300 dark:text-slate-700">|</span>
 
-          <span className="text-ink-2">sort:</span>
+          <span className="text-slate-500">sort:</span>
           {(['last-active', 'name', 'mirror-count'] as SortMode[]).map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => setSortMode(m)}
               className={`px-2 py-1 rounded border ${
-                sortMode === m ? 'border-rule bg-accent-soft text-accent' : 'border-rule text-ink-2'
+                sortMode === m
+                  ? 'border-brand-500/60 bg-brand-500/10 text-brand-700 dark:text-brand-300'
+                  : 'border-slate-300 dark:border-slate-700 text-slate-500'
               }`}
             >
               {m}
@@ -245,7 +248,7 @@ export default function OnionWatch(): JSX.Element {
               type="button"
               onClick={copyAllReachable}
               disabled={visibleGroups.length === 0}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-rule hover:border-rule disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-slate-700 hover:border-brand-500/60 disabled:opacity-40 disabled:cursor-not-allowed"
               title="Copy every visible mirror URL, one per line"
             >
               {copiedKey === '__all__' ? <Check size={11} /> : <Copy size={11} />}
@@ -255,7 +258,7 @@ export default function OnionWatch(): JSX.Element {
               type="button"
               onClick={() => void load(true)}
               disabled={refreshing}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-rule hover:border-rule disabled:opacity-40"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 dark:border-slate-700 hover:border-brand-500/60 disabled:opacity-40"
               title="Force-refresh from origin (skips edge cache)"
             >
               <RefreshCw size={11} className={refreshing ? 'animate-spin' : ''} /> refresh
@@ -270,36 +273,40 @@ export default function OnionWatch(): JSX.Element {
         </p>
       )}
 
-      {loading && !data && <p className="text-sm font-mono text-ink-2">Loading from Ransomlook…</p>}
+      {loading && !data && (
+        <p className="text-sm font-mono text-slate-500 dark:text-slate-500">Loading from Ransomlook…</p>
+      )}
 
       {data && (
         <>
-          <p className="text-[11px] font-mono text-ink-2 mb-4">
+          <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-4">
             Showing {visibleGroups.length} of {data.groups.length} groups · {visibleMirrorCount} mirror
             {visibleMirrorCount === 1 ? '' : 's'} matched
           </p>
 
           {visibleGroups.length === 0 ? (
-            <p className="text-sm font-mono text-ink-2">Nothing matches the current filters.</p>
+            <p className="text-sm font-mono text-slate-500 dark:text-slate-500">Nothing matches the current filters.</p>
           ) : (
             <ul className="space-y-3">
               {visibleGroups.map((g) => (
                 <li
                   key={g.group}
-                  className={`border p-3 ${
+                  className={`rounded-lg border p-3 ${
                     g.any_reachable
                       ? 'border-emerald-500/30 bg-emerald-500/5'
-                      : 'border-rule bg-surface-raised opacity-80'
+                      : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 opacity-80'
                   }`}
                 >
                   <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-                    <h2 className="font-serif font-semibold text-base text-ink-1">{g.group}</h2>
+                    <h2 className="font-display font-semibold text-base text-slate-900 dark:text-slate-100">
+                      {g.group}
+                    </h2>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono text-ink-2">
+                      <span className="text-[10px] font-mono text-slate-500 dark:text-slate-500">
                         {g.mirrors.length} mirror{g.mirrors.length === 1 ? '' : 's'}
                       </span>
                       {g.last_active && (
-                        <span className="text-[10px] font-mono text-ink-2">
+                        <span className="text-[10px] font-mono text-slate-500 dark:text-slate-500">
                           last claim {formatRelativeTime(g.last_active)}
                         </span>
                       )}
@@ -307,7 +314,7 @@ export default function OnionWatch(): JSX.Element {
                         className={`text-[9px] font-mono uppercase tracking-wider px-1 py-0.5 rounded border ${
                           g.any_reachable
                             ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                            : 'border-rule text-ink-2'
+                            : 'border-slate-300 dark:border-slate-700 text-slate-500'
                         }`}
                       >
                         {g.any_reachable ? 'reachable' : 'all offline'}
@@ -319,7 +326,7 @@ export default function OnionWatch(): JSX.Element {
                     {g.mirrors.map((m) => (
                       <li
                         key={m.slug}
-                        className="flex flex-wrap items-baseline gap-2 text-[11px] font-mono px-2 py-1 rounded bg-surface-page"
+                        className="flex flex-wrap items-baseline gap-2 text-[11px] font-mono px-2 py-1 rounded bg-white/60 dark:bg-slate-900/60"
                       >
                         <span
                           className={`shrink-0 inline-block w-1.5 h-1.5 rounded-full ${
@@ -327,11 +334,11 @@ export default function OnionWatch(): JSX.Element {
                           }`}
                           aria-label={m.available ? 'reachable' : 'offline'}
                         />
-                        <code className="text-ink-1 break-all flex-1 min-w-0">{m.fqdn}</code>
+                        <code className="text-slate-700 dark:text-slate-300 break-all flex-1 min-w-0">{m.fqdn}</code>
                         <button
                           type="button"
                           onClick={() => void copy(m.slug, m.slug)}
-                          className="inline-flex items-center gap-1 text-[10px] text-accent hover:underline shrink-0"
+                          className="inline-flex items-center gap-1 text-[10px] text-brand-600 dark:text-brand-400 hover:underline shrink-0"
                           title="Copy full Tor URL"
                         >
                           {copiedKey === m.slug ? <Check size={10} /> : <Copy size={10} />}
@@ -355,7 +362,7 @@ export default function OnionWatch(): JSX.Element {
                         )}
                         {typeof m.version === 'number' && (
                           <span
-                            className="text-[9px] uppercase tracking-wider px-1 py-0.5 rounded border border-rule text-ink-2"
+                            className="text-[9px] uppercase tracking-wider px-1 py-0.5 rounded border border-slate-300 dark:border-slate-700 text-slate-500"
                             title="Tor onion-service address version"
                           >
                             v{m.version}
@@ -363,7 +370,7 @@ export default function OnionWatch(): JSX.Element {
                         )}
                         {m.title && (
                           <span
-                            className="text-[10px] text-ink-2 sm:ml-auto truncate max-w-[40vw] sm:max-w-xs hidden sm:inline"
+                            className="text-[10px] text-slate-500 dark:text-slate-500 italic sm:ml-auto truncate max-w-[40vw] sm:max-w-xs hidden sm:inline"
                             title={m.title}
                           >
                             “{m.title.slice(0, 60)}
@@ -375,7 +382,7 @@ export default function OnionWatch(): JSX.Element {
                   </ul>
 
                   {g.mirrors.length > 1 && (
-                    <div className="mt-2 text-[10px] font-mono text-ink-2">
+                    <div className="mt-2 text-[10px] font-mono text-slate-500 dark:text-slate-500">
                       Multiple mirrors are normal — leak sites mirror across .onion v3 addresses to survive takedowns
                       and DDoS. Try the next mirror if one fails.
                     </div>
@@ -386,8 +393,8 @@ export default function OnionWatch(): JSX.Element {
           )}
 
           {data.warnings.length > 0 && (
-            <details className="mt-6 text-[11px] font-mono text-ink-2">
-              <summary className="cursor-pointer hover:text-ink-1">
+            <details className="mt-6 text-[11px] font-mono text-slate-500 dark:text-slate-500">
+              <summary className="cursor-pointer hover:text-slate-700 dark:hover:text-slate-300">
                 {data.warnings.length} warning{data.warnings.length === 1 ? '' : 's'} from upstream
               </summary>
               <ul className="mt-2 ml-4 list-disc space-y-1">
@@ -398,7 +405,7 @@ export default function OnionWatch(): JSX.Element {
             </details>
           )}
 
-          <p className="mt-6 text-[10px] font-mono text-ink-2">
+          <p className="mt-6 text-[10px] font-mono text-slate-500 dark:text-slate-500">
             Source:{' '}
             <a
               href={data.source_url}
@@ -428,11 +435,11 @@ function Stat({
   loading: boolean;
 }): JSX.Element {
   return (
-    <div className="rounded border border-rule bg-surface-raised px-2 py-2">
-      <div className="text-2xl font-serif font-bold text-ink-1 tabular-nums">
+    <div className="rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-2 py-2">
+      <div className="text-2xl font-display font-bold text-slate-900 dark:text-slate-100 tabular-nums">
         {loading ? '…' : (valueText ?? value ?? 0)}
       </div>
-      <div className="text-[10px] font-mono uppercase tracking-wider text-ink-2">{label}</div>
+      <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-500">{label}</div>
     </div>
   );
 }

@@ -70,8 +70,8 @@ function NewBadge({ count }: { count: number }): JSX.Element | null {
   if (count <= 0) return null;
   return (
     <span
-      className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 border border-warn/50 bg-warn/15 text-warn shrink-0"
-      title={`${count} new since your last visit`}
+      className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300 shrink-0"
+      aria-label={`${count} new since your last visit`}
     >
       {count} new
     </span>
@@ -86,8 +86,8 @@ function WatchPill({ count, terms }: { count: number; terms?: string[] }): JSX.E
       : `${count} watchlist match${count === 1 ? '' : 'es'}`;
   return (
     <span
-      className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 border border-violet-500/50 bg-violet-500/15 text-violet-700 dark:text-violet-300 shrink-0"
-      title={tooltip}
+      className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-violet-500/50 bg-violet-500/15 text-violet-700 dark:text-violet-300 shrink-0"
+      aria-label={tooltip}
     >
       {count} watch
     </span>
@@ -100,12 +100,12 @@ function WatchPill({ count, terms }: { count: number; terms?: string[] }): JSX.E
  */
 function Skeleton(): JSX.Element {
   return (
-    <div className="mt-1 space-y-2 animate-pulse-soft">
-      <div className="h-3 bg-surface-raised rounded w-3/4" />
-      <div className="h-2.5 bg-surface-raised rounded w-full mt-3" />
-      <div className="h-2.5 bg-surface-raised rounded w-5/6" />
-      <div className="h-2.5 bg-surface-raised rounded w-11/12" />
-      <div className="h-2.5 bg-surface-raised rounded w-4/5" />
+    <div className="mt-1 space-y-2 animate-pulse" aria-hidden="true" role="presentation">
+      <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-3/4" />
+      <div className="h-2.5 bg-slate-200 dark:bg-slate-800 rounded w-full mt-3" />
+      <div className="h-2.5 bg-slate-200 dark:bg-slate-800 rounded w-5/6" />
+      <div className="h-2.5 bg-slate-200 dark:bg-slate-800 rounded w-11/12" />
+      <div className="h-2.5 bg-slate-200 dark:bg-slate-800 rounded w-4/5" />
     </div>
   );
 }
@@ -126,9 +126,11 @@ export function SnapshotCard({
 }: Props): JSX.Element {
   const padding = compact ? 'p-3' : 'p-4';
   return (
-    <div className={`border ${ACCENT_BORDER[accent]} bg-surface-page ${padding} flex flex-col min-h-[200px]`}>
+    <div
+      className={`rounded-2xl border ${ACCENT_BORDER[accent]} bg-white dark:bg-slate-900 ${padding} flex flex-col min-h-[200px]`}
+    >
       <div className="flex items-baseline justify-between gap-2 mb-1 flex-wrap">
-        <h3 className="font-mono font-medium text-sm inline-flex items-center gap-1.5 flex-wrap">
+        <h3 className="font-display font-semibold text-sm inline-flex items-center gap-1.5 flex-wrap">
           <Icon size={14} className={ACCENT_TEXT[accent]} /> {title}
           {showNewBadge && <NewBadge count={newCount} />}
           <WatchPill count={watchCount} terms={watchTerms} />
@@ -136,7 +138,7 @@ export function SnapshotCard({
         {rightAction && <div className="text-[10px] font-mono">{rightAction}</div>}
       </div>
 
-      {error && <p className="text-[11px] font-mono text-threat">load error: {error}</p>}
+      {error && <p className="text-[11px] font-mono text-rose-500">load error: {error}</p>}
 
       {loading && !error && <Skeleton />}
 

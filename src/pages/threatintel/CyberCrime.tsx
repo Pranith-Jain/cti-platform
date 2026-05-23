@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertOctagon, ArrowLeft, ExternalLink, Loader2, RefreshCw, Search } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { BackLink } from '../../components/BackLink';
+import { AlertOctagon, ArrowLeft, ExternalLink, RefreshCw, Search } from 'lucide-react';
+import { DataState } from '../../components/DataState';
 
 /**
  * /threatintel/cyber-crime — live aggregation of cyber fraud + cyber crime
@@ -14,7 +16,7 @@ import { AlertOctagon, ArrowLeft, ExternalLink, Loader2, RefreshCw, Search } fro
  * surface is about INCIDENTS: indictments, takedowns, schemes, sanctions.
  */
 
-type Category = 'law-enforcement' | 'crypto-crime' | 'news' | 'breaches' | 'fraud-research';
+type Category = 'law-enforcement' | 'crypto-crime' | 'news' | 'breaches' | 'fraud-research' | 'underground-forums';
 
 interface CybercrimeItem {
   title: string;
@@ -46,6 +48,7 @@ const CATEGORY_PILL: Record<Category, string> = {
   news: 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400',
   breaches: 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300',
   'fraud-research': 'border-violet-500/40 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+  'underground-forums': 'border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300',
 };
 
 const CATEGORY_LABEL: Record<Category, string> = {
@@ -54,6 +57,7 @@ const CATEGORY_LABEL: Record<Category, string> = {
   news: 'News',
   breaches: 'Breaches',
   'fraud-research': 'Fraud research',
+  'underground-forums': 'Underground forums',
 };
 
 function shortRel(iso?: string): string {
@@ -74,19 +78,42 @@ function formatDate(iso?: string): string {
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+const ALL_CATEGORIES_FOR_URL = ['all'] as const;
+
 export default function CyberCrime(): JSX.Element {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<CybercrimeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(searchParams.get('q') ?? '');
   const [refreshKey, setRefreshKey] = useState(0);
-  const [activeCategory, setActiveCategory] = useState<Category | 'all'>('all');
+  const [activeCategory, setActiveCategory] = useState<Category | 'all'>(() => {
+    const cat = searchParams.get('cat');
+    if (cat && cat in CATEGORY_LABEL) return cat as Category;
+    return ALL_CATEGORIES_FOR_URL[0];
+  });
+
+  // Keep filter state in the URL so a curated view is shareable.
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const out = new URLSearchParams(prev);
+        if (query.trim()) out.set('q', query.trim());
+        else out.delete('q');
+        if (activeCategory !== 'all') out.set('cat', activeCategory);
+        else out.delete('cat');
+        return out;
+      },
+      { replace: true }
+    );
+  }, [query, activeCategory, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
+    const ctrl = new AbortController();
     setLoading(true);
     setError(null);
-    fetch('/api/v1/cyber-crime')
+    fetch('/api/v1/cyber-crime', { signal: ctrl.signal })
       .then((r) => {
         if (!r.ok) throw new Error(`upstream ${r.status}`);
         return r.json() as Promise<CybercrimeResponse>;
@@ -95,13 +122,15 @@ export default function CyberCrime(): JSX.Element {
         if (!cancelled) setData(d);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (cancelled || (e instanceof Error && e.name === 'AbortError')) return;
+        setError(e instanceof Error ? e.message : String(e));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
+      ctrl.abort();
     };
   }, [refreshKey]);
 
@@ -128,6 +157,7 @@ export default function CyberCrime(): JSX.Element {
       news: 0,
       breaches: 0,
       'fraud-research': 0,
+      'underground-forums': 0,
     };
     if (data) for (const it of data.items) counts[it.category]++;
     return counts;
@@ -135,15 +165,15 @@ export default function CyberCrime(): JSX.Element {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
-      <Link
+      <BackLink
         to="/threatintel"
         className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 mb-8 font-mono"
       >
-        <ArrowLeft size={14} /> /threatintel
-      </Link>
+        <ArrowLeft size={14} /> back
+      </BackLink>
 
       <div className="animate-fade-in-up">
-        <h1 className="text-4xl font-display font-bold mb-2 inline-flex items-center gap-3">
+        <h1 className="text-3xl sm:text-4xl font-display font-bold mb-2 inline-flex items-center gap-3">
           <AlertOctagon size={28} className="text-rose-600 dark:text-rose-400" /> Cyber crime &amp; fraud feeds
         </h1>
         <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-3xl">
@@ -153,8 +183,6 @@ export default function CyberCrime(): JSX.Element {
           source dominates the visible top.
         </p>
       </div>
-
-      {error && <p className="font-mono text-sm text-rose-600 dark:text-rose-400 mb-4">error: {error}</p>}
 
       {/* Category filter pills */}
       {data && (
@@ -208,13 +236,14 @@ export default function CyberCrime(): JSX.Element {
         />
       </div>
 
-      {loading && !data && (
-        <p className="font-mono text-sm text-slate-500 inline-flex items-center gap-2">
-          <Loader2 size={14} className="animate-spin" /> loading feeds…
-        </p>
-      )}
-
-      {data && (
+      <DataState
+        loading={loading && !data}
+        error={error}
+        empty={!!data && !loading && filtered.length === 0}
+        emptyLabel="No items match the current filter."
+        onRetry={() => setRefreshKey((k) => k + 1)}
+        rows={8}
+      >
         <ul className="space-y-3">
           {filtered.map((it, i) => (
             <li
@@ -249,13 +278,7 @@ export default function CyberCrime(): JSX.Element {
             </li>
           ))}
         </ul>
-      )}
-
-      {!loading && !error && filtered.length === 0 && data && (
-        <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center text-sm font-mono text-slate-500">
-          No items match the current filter.
-        </div>
-      )}
+      </DataState>
 
       {/* Source status footer */}
       {data && (

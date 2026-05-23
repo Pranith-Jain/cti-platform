@@ -8,10 +8,14 @@ import {
   parseThreatfox,
   parsePlainTextIps,
   parseAlienVaultReputation,
+  parseSslblC2,
+  parseBotvrijDomains,
 } from '../lib/ioc-feed-parsers';
 import { fetchMalwareSamplesCached } from './malware-samples';
 import { fetchPhishingUrlsCached } from './phishing-urls';
 import { trackEvent, visitorCountry } from '../lib/analytics';
+import { fetchAFDefacements } from '../lib/andreafortuna-feeds';
+import { fetchMtiSource, type MtiIoc } from '../lib/mythreatintel-api';
 
 /**
  * Live IOC stream — unified, time-ordered, per-entry-attributed.
@@ -36,20 +40,29 @@ import { trackEvent, visitorCountry } from '../lib/analytics';
  * Cached 30 min — these feeds churn faster than the correlation endpoint.
  */
 
-export const LIVE_IOCS_CACHE_KEY = 'https://live-iocs-cache.internal/v10-adaptive-ttl';
+export const LIVE_IOCS_CACHE_KEY = 'https://live-iocs-cache.internal/v11-freshness-filter';
 const CACHE_KEY = LIVE_IOCS_CACHE_KEY;
 const CACHE_TTL_SECONDS = 30 * 60;
 const FETCH_TIMEOUT_MS = 12_000;
 const PER_FEED_CAP = 300;
+const AF_DEFACEMENTS_LASTGOOD_KEY = 'live-iocs/af-defacements-lastgood/v1';
+const LASTGOOD_TTL_SECONDS = 24 * 60 * 60;
 // Ceiling = PER_FEED_CAP × source-count. Previously 400 — small enough that
 // the sort (timestamped-first, no-timestamp tail) silently dropped every
 // untimestamped source (c2-intel, emerging-threats, otx-reputation, openphish)
 // because the 4 timestamped sources alone produced >400 items.
 const MAX_ITEMS = 3000;
+// Freshness window for items WITH per-entry timestamps. Items observed
+// before this cutoff are dropped — the page is called "live IOCs"; an
+// indicator first seen weeks ago is rarely actionable. Bulk-snapshot
+// sources (c2-intel, emerging-threats, otx-reputation) have no per-entry
+// timestamps and are not affected by this filter — they reflect the
+// upstream feed's current state by definition.
+const STALENESS_HOURS = 24 * 7;
 
 type IocKind = 'ip' | 'url' | 'domain' | 'hash';
 
-interface LiveIoc {
+export interface LiveIoc {
   value: string;
   kind: IocKind;
   source: string;
@@ -74,6 +87,8 @@ interface LiveSource {
    * OTX reputation). UI can color-code freshness off this.
    */
   newest_observation?: string;
+  /** True when the current data comes from the KV last-good fallback. */
+  stale?: boolean;
 }
 
 export interface LiveIocsResponse {
@@ -126,7 +141,8 @@ function iocKind(t: string): IocKind | null {
 
 export async function fetchLiveIocs(
   executionCtx?: { waitUntil: (p: Promise<unknown>) => void },
-  kv?: KVNamespace
+  kv?: KVNamespace,
+  env?: Env
 ): Promise<LiveIocsResponse> {
   const [
     tweetfeedText,
@@ -136,8 +152,12 @@ export async function fetchLiveIocs(
     threatfoxText,
     etCompromisedText,
     otxReputationText,
+    sslblText,
+    botvrijText,
     malwareBazaarResult,
     phishingResult,
+    afDefacementsRaw,
+    mtiIocResult,
   ] = await Promise.all([
     fetchText('https://raw.githubusercontent.com/0xDanielLopez/TweetFeed/master/today.csv'),
     fetchText('https://isc.sans.edu/api/sources/attacks/200/?json'),
@@ -146,8 +166,12 @@ export async function fetchLiveIocs(
     fetchText('https://threatfox.abuse.ch/export/csv/recent/'),
     fetchText('https://rules.emergingthreats.net/blockrules/compromised-ips.txt'),
     fetchText('https://reputation.alienvault.com/reputation.generic'),
+    fetchText('https://sslbl.abuse.ch/blacklist/sslipblacklist.csv'),
+    fetchText('https://www.botvrij.eu/data/ioclist.domain'),
     fetchMalwareSamplesCached(executionCtx).catch(() => null),
     fetchPhishingUrlsCached(executionCtx, kv).catch(() => null),
+    fetchAFDefacements().catch(() => [] as LiveIoc[]),
+    env ? fetchMtiSource(env, 'iocs', { limit: PER_FEED_CAP }).catch(() => null) : Promise.resolve(null),
   ]);
 
   const items: LiveIoc[] = [];
@@ -284,6 +308,41 @@ export async function fetchLiveIocs(
     sources.push({ id: 'otx-reputation', ok: false, count: 0 });
   }
 
+  // ─── SSLBL (abuse.ch) — SSL/TLS-fingerprinted botnet C2 IPs ─────────────
+  if (sslblText) {
+    const parsed = parseSslblC2(sslblText, PER_FEED_CAP);
+    for (const e of parsed) {
+      items.push({
+        value: e.value,
+        kind: 'ip',
+        source: 'sslbl-c2',
+        reporter: 'abuse.ch SSLBL',
+        context: e.context,
+        observed_at: isoFromLoose(e.timestamp),
+      });
+    }
+    sources.push({ id: 'sslbl-c2', ok: true, count: parsed.length });
+  } else {
+    sources.push({ id: 'sslbl-c2', ok: false, count: 0 });
+  }
+
+  // ─── Botvrij.eu — curated malicious domains ─────────────────────────────
+  if (botvrijText) {
+    const parsed = parseBotvrijDomains(botvrijText, PER_FEED_CAP);
+    for (const e of parsed) {
+      items.push({
+        value: e.value,
+        kind: 'domain',
+        source: 'botvrij',
+        reporter: 'Botvrij.eu',
+        context: e.context,
+      });
+    }
+    sources.push({ id: 'botvrij', ok: true, count: parsed.length });
+  } else {
+    sources.push({ id: 'botvrij', ok: false, count: 0 });
+  }
+
   // ─── ThreatFox (mixed: url/domain/ip/hash) ──────────────────────────────
   if (threatfoxText) {
     const parsed = parseThreatfox(threatfoxText, PER_FEED_CAP);
@@ -353,13 +412,113 @@ export async function fetchLiveIocs(
     sources.push({ id: 'openphish', ok: false, count: 0 });
   }
 
+  // ─── Andrea Fortuna Defacements (defaced site URLs) ────────────────────
+  let afDefacements = afDefacementsRaw ?? [];
+  let afDefacementsOk = afDefacements.length > 0;
+  let afDefacementsStale = false;
+
+  if (afDefacementsOk && kv) {
+    executionCtx?.waitUntil(
+      kv.put(
+        AF_DEFACEMENTS_LASTGOOD_KEY,
+        JSON.stringify({ items: afDefacements, refreshed_at: new Date().toISOString() }),
+        { expirationTtl: LASTGOOD_TTL_SECONDS }
+      )
+    );
+  } else if (!afDefacementsOk && kv) {
+    try {
+      const raw = await kv.get(AF_DEFACEMENTS_LASTGOOD_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { items: typeof afDefacements };
+        if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+          afDefacements = parsed.items;
+          afDefacementsOk = true;
+          afDefacementsStale = true;
+        }
+      }
+    } catch {
+      /* leave ok = false */
+    }
+  }
+
+  for (const e of afDefacements) {
+    items.push(e);
+  }
+
+  const newestAf = afDefacements
+    .map((i) => i.observed_at)
+    .filter((t): t is string => Boolean(t))
+    .sort()
+    .pop();
+
+  sources.push({
+    id: 'andreafortuna-defacements',
+    ok: afDefacementsOk,
+    count: afDefacements.length,
+    ...(newestAf ? { newest_observation: newestAf } : {}),
+    ...(afDefacementsStale ? { stale: true } : {}),
+  });
+
+  // ─── MyThreatIntel REST API (sha256 IOCs + family/tags) ─────────────────
+  // Token-gated: when MYTHREATINTEL_API_TOKEN is unset (dev/preview) or the
+  // upstream is unhealthy, mtiIocResult is null / not-ok and this source is
+  // simply absent — the existing single-source-down tolerance covers it.
+  if (mtiIocResult && mtiIocResult.ok && mtiIocResult.items.length > 0) {
+    let count = 0;
+    for (const raw of mtiIocResult.items.slice(0, PER_FEED_CAP)) {
+      const r = raw as MtiIoc;
+      if (!r.sha256) continue;
+      const context =
+        [r.signature, r.file_name, r.tags, r.type]
+          .map((x) => x?.trim())
+          .filter((x): x is string => Boolean(x) && x !== 'N/D')
+          .join(' | ') || undefined;
+      items.push({
+        value: r.sha256,
+        kind: 'hash',
+        source: 'mythreatintel',
+        reporter: 'MyThreatIntel',
+        context,
+        observed_at: isoFromLoose(r.date),
+      });
+      count++;
+    }
+    sources.push({ id: 'mythreatintel', ok: count > 0, count });
+  } else {
+    sources.push({ id: 'mythreatintel', ok: false, count: 0 });
+  }
+
+  // Drop stale items — observed before the freshness cutoff. Items without
+  // observed_at survive (they're bulk-snapshot feeds whose freshness is
+  // governed by the upstream publish cadence, not per-entry).
+  const staleCutoffMs = Date.now() - STALENESS_HOURS * 3600 * 1000;
+  const staleCutoffIso = new Date(staleCutoffMs).toISOString();
+  const freshItems = items.filter((it) => !it.observed_at || it.observed_at >= staleCutoffIso);
+
   // Sort newest-first; entries without observed_at land at the tail.
-  items.sort((a, b) => {
+  freshItems.sort((a, b) => {
     if (a.observed_at && b.observed_at) return b.observed_at.localeCompare(a.observed_at);
     if (a.observed_at && !b.observed_at) return -1;
     if (!a.observed_at && b.observed_at) return 1;
     return 0;
   });
+
+  // Recompute per-source counts after the freshness filter — the response
+  // should not advertise contribution counts that include dropped stale items.
+  const freshCountBySource = new Map<string, number>();
+  for (const it of freshItems) {
+    freshCountBySource.set(it.source, (freshCountBySource.get(it.source) ?? 0) + 1);
+  }
+  for (const s of sources) {
+    s.count = freshCountBySource.get(s.id) ?? 0;
+    if (s.count === 0) s.ok = false;
+  }
+
+  // Drop silent-failure sources from the response — sources that returned
+  // zero usable items are noise in the UI and look like permanent breakage
+  // when they're often a one-off upstream hiccup. They'll be re-tried on the
+  // next cache miss.
+  const activeSources = sources.filter((s) => s.count > 0);
 
   // Per-source freshness: newest per-entry observation timestamp.
   // Sources without per-entry timestamps (C2IntelFeeds, ET compromised-ips,
@@ -367,21 +526,21 @@ export async function fetchLiveIocs(
   // "no per-entry timestamp" so analysts know the data is bulk-snapshot,
   // not per-entry-dated.
   const newestBySource = new Map<string, string>();
-  for (const it of items) {
+  for (const it of freshItems) {
     if (!it.observed_at) continue;
     const cur = newestBySource.get(it.source);
     if (!cur || it.observed_at > cur) newestBySource.set(it.source, it.observed_at);
   }
-  for (const s of sources) {
+  for (const s of activeSources) {
     const newest = newestBySource.get(s.id);
     if (newest) s.newest_observation = newest;
   }
 
   return {
     generated_at: new Date().toISOString(),
-    sources,
-    total: items.length,
-    items: items.slice(0, MAX_ITEMS),
+    sources: activeSources,
+    total: freshItems.length,
+    items: freshItems.slice(0, MAX_ITEMS),
   };
 }
 
@@ -404,7 +563,7 @@ export async function liveIocsHandler(c: Context<{ Bindings: Env }>): Promise<Re
     });
   }
 
-  const body = await fetchLiveIocs(c.executionCtx, c.env.KV_CACHE);
+  const body = await fetchLiveIocs(c.executionCtx, c.env.KV_CACHE, c.env);
   // Adaptive TTL: if any source returned 0 items (upstream flake + KV-restore
   // miss), cache only briefly so the next request retries instead of locking
   // the bad snapshot in for 30 min.

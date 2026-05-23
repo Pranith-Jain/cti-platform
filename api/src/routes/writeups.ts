@@ -3,6 +3,22 @@ import type { Env } from '../env';
 import { WRITEUP_SOURCES, type WriteupSourceSpec } from '../lib/writeup-sources';
 
 /**
+ * Source labels marked as `tier: 'signal'`. Computed once at module load
+ * so the per-request filter is a Set lookup rather than a scan. The
+ * `signal` tier is a tight curated subset of elite vendor / independent
+ * research labs — the sources an analyst reads every time they ship.
+ */
+const SIGNAL_LABELS: Set<string> = new Set(
+  WRITEUP_SOURCES.filter((s) => s.tier === 'signal').map((s) => {
+    if (s.kind === 'manual') return s.source;
+    if (s.kind === 'medium') return s.label ?? 'Medium';
+    if (s.kind === 'devto') return s.label ?? 'dev.to';
+    if (s.kind === 'hashnode') return s.label ?? 'Hashnode';
+    return s.label;
+  })
+);
+
+/**
  * Unified writeups aggregator.
  *
  * Pulls every source listed in WRITEUP_SOURCES (Medium, dev.to, Hashnode,
@@ -13,14 +29,27 @@ import { WRITEUP_SOURCES, type WriteupSourceSpec } from '../lib/writeup-sources'
  * Cache 1h server-side. Adding a new platform = one line in WRITEUP_SOURCES.
  */
 
-export const WRITEUPS_CACHE_KEY = 'https://writeups-cache.internal/v9-cvefeed-newsroom';
+// v10 — 2026-05-21: tier split (signal sources separated from firehose),
+// added Red Canary / Rapid7 / Securelist / Datadog Security Labs / ThreatSignal.
+// Bumping the version busts the cache once on deploy so new sources show
+// up immediately rather than waiting for the 1h TTL.
+// Bumped v10 → v11 alongside MAX_ITEMS 150→500, MAX_PER_SOURCE 15→30, and
+// the 7d cutoff filter applied to the post-dedup merged list.
+export const WRITEUPS_CACHE_KEY = 'https://writeups-cache.internal/v11-7d-window';
 const CACHE_KEY = WRITEUPS_CACHE_KEY;
 const CACHE_TTL_SECONDS = 3600;
 const FETCH_TIMEOUT_MS = 12_000;
-/** Hard cap on total items in the response (post-merge, post-sort). */
-const MAX_ITEMS = 150;
-/** Per-source cap so a single chatty feed (e.g. Huntress at ~600 items) can't drown the rest. */
-const MAX_PER_SOURCE = 15;
+/** Hard cap on total items in the response (post-merge, post-sort).
+ *  Bumped from 150 → 500 so the firehose surfaces a meaningful 7-day
+ *  sample across ~30 sources without saturating a single chatty feed. */
+const MAX_ITEMS = 500;
+/** Per-source cap so a single chatty feed (e.g. Huntress at ~600 items)
+ *  can't drown the rest. Raised in step with MAX_ITEMS. */
+const MAX_PER_SOURCE = 30;
+/** Drop items older than this many days from the published-aware sort.
+ *  Older items are still kept in the per-source fetch (so we don't
+ *  re-pull them on the next miss) but won't be merged into the response. */
+const MAX_ITEM_AGE_DAYS = 7;
 
 export interface Writeup {
   title: string;
@@ -262,7 +291,14 @@ export async function fetchWriteups(): Promise<WriteupsResponse> {
       if (!rssUrl) return { spec, label, kind, ok: false, items: [] as Writeup[], error: 'no rss url' };
       const body = await fetchText(rssUrl);
       if (!body) return { spec, label, kind, ok: false, items: [] as Writeup[], error: 'fetch failed' };
-      const parsed = parseFeedItems(body, kind, label);
+      let parsed: Writeup[];
+      try {
+        // Untrusted upstream XML — a parser throw must degrade this one
+        // source, not reject Promise.all and 502 every writeup feed.
+        parsed = parseFeedItems(body, kind, label);
+      } catch {
+        return { spec, label, kind, ok: false, items: [] as Writeup[], error: 'parse failed' };
+      }
       // Trim per-source. Items inside a single feed are typically already
       // newest-first; sort defensively before truncating in case a feed
       // returns oldest-first (rare but seen in the wild).
@@ -299,11 +335,20 @@ export async function fetchWriteups(): Promise<WriteupsResponse> {
     deduped.push(it);
   }
 
+  // Filter to the 7d window. Undated items are kept so the firehose
+  // doesn't go empty when an upstream feed strips dates.
+  const cutoff = Date.now() - MAX_ITEM_AGE_DAYS * 86_400_000;
+  const recent = deduped.filter((it) => {
+    if (!it.published) return true;
+    const t = Date.parse(it.published);
+    return !Number.isFinite(t) || t >= cutoff;
+  });
+
   return {
     generated_at: new Date().toISOString(),
     sources: sourceMeta,
-    total: deduped.length,
-    items: roundRobinBySource(deduped, MAX_ITEMS),
+    total: recent.length,
+    items: roundRobinBySource(recent, MAX_ITEMS),
   };
 }
 
@@ -362,20 +407,52 @@ export function roundRobinBySource<T extends { source: string; published?: strin
   return visible;
 }
 
+type TierFilter = 'signal' | 'firehose' | 'all';
+
+/**
+ * Filter a writeups response by tier. `signal` and `firehose` are
+ * mutually exclusive cuts — a source appears in exactly one of the two
+ * surfaces — so an analyst doesn't see the same Unit 42 piece on both
+ * `/threatintel/signal` and `/threatintel/writeups`. `all` is the
+ * escape hatch (kept off the public routes; used internally if needed).
+ */
+function filterByTier(body: WriteupsResponse, tier: TierFilter): WriteupsResponse {
+  if (tier === 'all') return body;
+  const inSignal = (label: string) => SIGNAL_LABELS.has(label);
+  const want = tier === 'signal' ? inSignal : (label: string) => !inSignal(label);
+  const items = body.items.filter((it) => want(it.source));
+  const sources = body.sources.filter((s) => want(s.label));
+  return { ...body, sources, total: items.length, items };
+}
+
 export async function writeupsHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
+  // Default tier is FIREHOSE — the broad ecosystem cut minus the signal
+  // tier. Signal-tier sources are surfaced on /threatintel/signal only,
+  // so there's no overlap between the two pages.
+  const q = c.req.query('tier');
+  const tier: TierFilter = q === 'signal' ? 'signal' : q === 'all' ? 'all' : 'firehose';
   const cache = (caches as unknown as { default: Cache }).default;
   const cacheReq = new Request(CACHE_KEY);
+  const makeResp = (body: WriteupsResponse) =>
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: {
+        'content-type': 'application/json',
+        'cache-control': `public, max-age=${CACHE_TTL_SECONDS}`,
+      },
+    });
+
+  // Inflate from the all-sources cache when present; filter post-cache so
+  // a tier flip doesn't require a re-fetch upstream.
   const cached = await cache.match(cacheReq);
-  if (cached) return cached;
+  if (cached) {
+    const body = (await cached.json()) as WriteupsResponse;
+    return makeResp(filterByTier(body, tier));
+  }
 
   const body = await fetchWriteups();
-  const response = new Response(JSON.stringify(body), {
-    status: 200,
-    headers: {
-      'content-type': 'application/json',
-      'cache-control': `public, max-age=${CACHE_TTL_SECONDS}`,
-    },
-  });
-  c.executionCtx.waitUntil(cache.put(cacheReq, response.clone()));
-  return response;
+  const fullResponse = makeResp(body);
+  c.executionCtx.waitUntil(cache.put(cacheReq, fullResponse.clone()));
+  if (tier === 'all') return fullResponse;
+  return makeResp(filterByTier(body, tier));
 }

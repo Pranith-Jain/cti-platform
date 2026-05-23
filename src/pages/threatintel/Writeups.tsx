@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, BookText, ExternalLink, Loader2, RefreshCw, Search } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { BackLink } from '../../components/BackLink';
+import { ArrowLeft, BookText, ExternalLink, RefreshCw, Search } from 'lucide-react';
+import { DataState } from '../../components/DataState';
+import { FeedAggregateCard } from '../../components/intel/FeedAggregateCard';
 
 /**
  * /threatintel/writeups — live aggregation of long-form CTI writeups from
@@ -67,19 +70,42 @@ function shortRel(iso?: string): string {
 }
 
 export default function Writeups(): JSX.Element {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<WriteupsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [kindFilter, setKindFilter] = useState<Set<WriteupKind>>(new Set());
-  const [sourceFilter, setSourceFilter] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState(searchParams.get('q') ?? '');
+  const [kindFilter, setKindFilter] = useState<Set<WriteupKind>>(
+    () => new Set((searchParams.get('kind')?.split(',').filter(Boolean) ?? []) as WriteupKind[])
+  );
+  const [sourceFilter, setSourceFilter] = useState<Set<string>>(
+    () => new Set(searchParams.get('src')?.split(',').filter(Boolean) ?? [])
+  );
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Keep filter state in the URL so a curated view is shareable.
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const out = new URLSearchParams(prev);
+        if (query.trim()) out.set('q', query.trim());
+        else out.delete('q');
+        if (kindFilter.size > 0) out.set('kind', [...kindFilter].join(','));
+        else out.delete('kind');
+        if (sourceFilter.size > 0) out.set('src', [...sourceFilter].join(','));
+        else out.delete('src');
+        return out;
+      },
+      { replace: true }
+    );
+  }, [query, kindFilter, sourceFilter, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
+    const ctrl = new AbortController();
     setLoading(true);
     setError(null);
-    fetch('/api/v1/writeups')
+    fetch('/api/v1/writeups', { signal: ctrl.signal })
       .then((r) => {
         if (!r.ok) throw new Error(`upstream ${r.status}`);
         return r.json() as Promise<WriteupsResponse>;
@@ -87,14 +113,16 @@ export default function Writeups(): JSX.Element {
       .then((d) => {
         if (!cancelled) setData(d);
       })
-      .catch((e: Error) => {
-        if (!cancelled) setError(e.message);
+      .catch((e: { name?: string; message?: string }) => {
+        if (cancelled || e.name === 'AbortError') return;
+        setError(e.message ?? 'failed');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
+      ctrl.abort();
     };
   }, [refreshKey]);
 
@@ -147,17 +175,24 @@ export default function Writeups(): JSX.Element {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 text-slate-900 dark:text-slate-100">
-      <Link
+      <BackLink
         to="/threatintel"
         className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 mb-6 font-mono"
       >
-        <ArrowLeft size={14} /> /threatintel
-      </Link>
+        <ArrowLeft size={14} /> back
+      </BackLink>
 
-      <div className="mb-6 inline-flex items-center gap-3">
-        <BookText size={24} className="text-brand-600 dark:text-brand-400" />
-        <h1 className="text-3xl font-display font-bold">Writeups feed</h1>
-      </div>
+      <h1 className="text-3xl sm:text-4xl font-display font-bold mb-2 flex items-center gap-3">
+        <BookText size={28} className="text-brand-600 dark:text-brand-400" /> Writeups feed
+      </h1>
+      <p className="text-[12px] font-mono text-slate-500 dark:text-slate-500 mb-4 max-w-3xl">
+        The broad ecosystem cut: vendor blogs, news outlets, Medium tag feeds, the long tail. For the curated
+        analyst-must-read set, see{' '}
+        <Link to="/threatintel/signal" className="text-brand-600 dark:text-brand-400 hover:underline">
+          /threatintel/signal
+        </Link>{' '}
+        (no overlap between the two pages).
+      </p>
 
       <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 mb-4">
         <div className="flex items-center gap-3">
@@ -250,67 +285,75 @@ export default function Writeups(): JSX.Element {
         )}
       </section>
 
-      {loading && (
-        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 flex items-center gap-3 font-mono text-sm text-slate-500">
-          <Loader2 size={16} className="animate-spin" /> aggregating writeup feeds…
-        </div>
+      {/* Aggregate STIX 2.1 view of the firehose. Pools the top 40 visible
+          titles + descriptions into one bundle so the page surfaces today's
+          actors / malware / CVEs across the long tail without a per-item fan-out. */}
+      {filtered.length > 0 && (
+        <FeedAggregateCard
+          sourceId="rss:writeups"
+          sourceName="Writeups firehose"
+          title="Writeups firehose · today"
+          items={filtered.map((it) => ({
+            title: it.title,
+            body: `${it.source} · ${it.description ?? ''}`,
+          }))}
+        />
       )}
 
-      {error && (
-        <div className="rounded-lg border border-rose-500/40 bg-rose-500/5 p-4 font-mono text-sm text-rose-600 dark:text-rose-300">
-          Failed to load: {error}
-        </div>
-      )}
-
-      <ul className="space-y-3">
-        {filtered.map((it, i) => (
-          <li
-            key={`${it.url}-${i}`}
-            className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 hover:border-brand-500/40 transition-colors"
-          >
-            <a href={it.url} target="_blank" rel="noopener noreferrer" className="group block">
-              <div className="flex items-start justify-between gap-3 mb-1.5 flex-wrap">
-                <h3 className="font-display font-semibold text-base text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 flex-1 min-w-0">
-                  {it.title}
-                </h3>
-                <ExternalLink size={12} className="text-slate-400 shrink-0 mt-1" />
-              </div>
-              {it.description && (
-                <p className="text-[13px] text-slate-600 dark:text-slate-400 leading-relaxed mb-2 line-clamp-3">
-                  {it.description}
-                </p>
-              )}
-              <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 flex-wrap">
-                <span className={`px-1.5 py-0.5 rounded border ${KIND_PILL[it.kind]}`}>{it.source}</span>
-                {it.published && (
-                  <span title={formatDate(it.published)}>{shortRel(it.published) || formatDate(it.published)}</span>
-                )}
-                {it.author && <span>by {it.author}</span>}
-                {it.tags && it.tags.length > 0 && (
-                  <span className="flex flex-wrap gap-1 ml-1">
-                    {it.tags.slice(0, 4).map((t) => (
-                      <span
-                        key={t}
-                        className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </span>
-                )}
-              </div>
-            </a>
-          </li>
-        ))}
-      </ul>
-
-      {!loading && !error && filtered.length === 0 && (
-        <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center text-sm font-mono text-slate-500">
-          {query || kindFilter.size > 0 || sourceFilter.size > 0
+      <DataState
+        loading={loading}
+        error={error}
+        empty={filtered.length === 0}
+        emptyLabel={
+          query || kindFilter.size > 0 || sourceFilter.size > 0
             ? 'No writeups match the current filter.'
-            : 'No writeups in the current snapshot.'}
-        </div>
-      )}
+            : 'No writeups in the current snapshot.'
+        }
+        onRetry={() => setRefreshKey((k) => k + 1)}
+        rows={8}
+      >
+        <ul className="space-y-3">
+          {filtered.map((it, i) => (
+            <li
+              key={`${it.url}-${i}`}
+              className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 hover:border-brand-500/40 transition-colors"
+            >
+              <a href={it.url} target="_blank" rel="noopener noreferrer" className="group block">
+                <div className="flex items-start justify-between gap-3 mb-1.5 flex-wrap">
+                  <h3 className="font-display font-semibold text-base text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 flex-1 min-w-0">
+                    {it.title}
+                  </h3>
+                  <ExternalLink size={12} className="text-slate-400 shrink-0 mt-1" />
+                </div>
+                {it.description && (
+                  <p className="text-[13px] text-slate-600 dark:text-slate-400 leading-relaxed mb-2 line-clamp-3">
+                    {it.description}
+                  </p>
+                )}
+                <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 flex-wrap">
+                  <span className={`px-1.5 py-0.5 rounded border ${KIND_PILL[it.kind]}`}>{it.source}</span>
+                  {it.published && (
+                    <span title={formatDate(it.published)}>{shortRel(it.published) || formatDate(it.published)}</span>
+                  )}
+                  {it.author && <span>by {it.author}</span>}
+                  {it.tags && it.tags.length > 0 && (
+                    <span className="flex flex-wrap gap-1 ml-1">
+                      {it.tags.slice(0, 4).map((t) => (
+                        <span
+                          key={t}
+                          className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </DataState>
     </div>
   );
 }

@@ -2,6 +2,8 @@ import type { Context } from 'hono';
 import type { Env } from '../env';
 import { classifySector, type Sector } from '../lib/sector-classifier';
 import { fetchMythreatintelRansomwareVictims } from '../lib/mythreatintel-parser';
+import { fetchAFRansomwareVictims } from '../lib/andreafortuna-feeds';
+import { fetchMtiSource, type MtiRansomwareClaim } from '../lib/mythreatintel-api';
 
 /**
  * Recent ransomware leak-site posts via Ransomlook.io's free `/api/recent`
@@ -19,16 +21,41 @@ import { fetchMythreatintelRansomwareVictims } from '../lib/mythreatintel-parser
  */
 
 /** Exported so /api/v1/snapshot can read the same cached payload directly. */
-export const RANSOMWARE_RECENT_CACHE_KEY = 'https://ransomware-recent-cache.internal/v7-origin-tags';
+export const RANSOMWARE_RECENT_CACHE_KEY = 'https://ransomware-recent-cache.internal/v8-af-source';
 const CACHE_KEY = RANSOMWARE_RECENT_CACHE_KEY;
-const CACHE_TTL_SECONDS = 3600;
+/**
+ * Edge-cache TTL on the merged ransomware feed. Was 1 hour, which made
+ * the hero sparkline on / feel stale to repeat visitors — the same
+ * "231 claims · last 7d" number on multiple loads inside the same hour.
+ * Cut to 15 minutes so a manual refresh (or the client's own polling
+ * loop in HeroLiveSparkline) reflects new upstream data within a quarter
+ * hour while still keeping the upstream merge cheap (one origin
+ * recomputation per ~15 min per edge region).
+ */
+const CACHE_TTL_SECONDS = 900;
 const FETCH_TIMEOUT_MS = 15_000;
 const UPSTREAM = 'https://www.ransomlook.io/api/recent';
 /** Secondary tracker. RSS of victim claims. Independently aggregated. */
 const RANSOMFEED_RSS = 'https://www.ransomfeed.it/rss.php';
 /** Tertiary tracker. JSON dump on GitHub, ~16k historical + current entries. */
 const RANSOMWATCH_JSON = 'https://raw.githubusercontent.com/joshhighet/ransomwatch/main/posts.json';
-const MAX_ITEMS = 60;
+/**
+ * ransomware.live public data dump (free, no key). Newest-first, ~28k
+ * entries, richer than ransomwatch: carries country + activity (sector) +
+ * description. The /v2 REST API 301s to HTML and the PRO API needs a paid
+ * X-API-KEY, so the static dump is the usable free surface.
+ */
+const RANSOMWARELIVE_JSON = 'https://data.ransomware.live/posts.json';
+/**
+ * Cap on the merged victim list returned to clients. Was 60 (~2 days of
+ * leak-site activity at typical pace) which made the Metrics page's
+ * 7/30/90-day window selectors mostly cosmetic past day-1. 500 covers
+ * roughly 14-16 days at typical volume and matches the MTI proxy's
+ * canonical limit, so the per-source fetches reuse the same edge-cache
+ * entry as the rest of the platform. ~250KB on the wire, served from
+ * cache.
+ */
+const MAX_ITEMS = 500;
 
 interface RansomlookEntry {
   post_title: string;
@@ -45,7 +72,7 @@ interface RansomlookEntry {
  * fetcher; preserved by mergeVictims() so the frontend can render an
  * origin-pill per row.
  */
-export type RansomwareOrigin = 'ransomlook' | 'mti' | 'ransomfeed' | 'ransomwatch';
+export type RansomwareOrigin = 'ransomlook' | 'mti' | 'ransomfeed' | 'ransomwatch' | 'ransomwarelive' | 'andreafortuna';
 
 export interface RansomwareVictim {
   victim: string;
@@ -203,6 +230,98 @@ async function fetchRansomwatchVictims(): Promise<RansomwareVictim[]> {
   }
 }
 
+/**
+ * ransomware.live public dump. Newest-first array; walk forward and stop
+ * once entries fall outside the 7-day window. Carries country + activity
+ * (sector label) + description, so it produces high-quality rows.
+ */
+async function fetchRansomwareLiveVictims(): Promise<RansomwareVictim[]> {
+  try {
+    const res = await fetch(RANSOMWARELIVE_JSON, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'pranithjain.qzz.io DFIR toolkit (free, read-only)',
+      },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      cf: { cacheTtlByStatus: { '200-299': 3600, '400-599': 0 }, cacheEverything: true },
+    } as RequestInit);
+    if (!res.ok) return [];
+    const raw = (await res.json()) as Array<{
+      post_title?: string;
+      group_name?: string;
+      discovered?: string;
+      description?: string;
+      country?: string;
+      activity?: string;
+    }>;
+    if (!Array.isArray(raw)) return [];
+    const cutoffMs = Date.now() - 7 * 24 * 3600 * 1000;
+    const out: RansomwareVictim[] = [];
+    // Newest-first: walk forward, stop when older than the window.
+    for (let i = 0; i < raw.length && out.length < MAX_ITEMS; i++) {
+      const e = raw[i];
+      if (!e || !e.post_title || !e.group_name || !e.discovered) continue;
+      const discovered = toIsoDate(e.discovered);
+      const ts = Date.parse(discovered);
+      if (!Number.isFinite(ts)) continue;
+      if (ts < cutoffMs) break; // ordered — nothing newer beyond here
+      const victim = e.post_title.trim();
+      const description = e.description?.trim() || undefined;
+      out.push({
+        victim,
+        group: e.group_name.trim().toLowerCase(),
+        discovered,
+        description,
+        source_url: 'https://www.ransomware.live/',
+        sector: classifySector(victim, description ?? e.activity),
+        origin: 'ransomwarelive' as const,
+        country: e.country?.trim() || undefined,
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * MyThreatIntel REST API `ransomware` source — ransomware victim claims
+ * (`{ victim, gang, date, country, website, description }`). NOTE: the
+ * upstream `events` source is empty; victim/CTI-event data is served by
+ * `ransomware`. Higher-fidelity than the t.me/s/mythreatintel scraper
+ * (same `origin: 'mti'`); when the token is unset or the upstream is
+ * unhealthy this returns [] and the scraper list remains the 'mti'
+ * fallback. The merge dedupes by (group|victim|day) so they never
+ * double-count.
+ */
+async function fetchMtiApiVictims(env: Env): Promise<RansomwareVictim[]> {
+  const res = await fetchMtiSource(env, 'ransomware', { limit: MAX_ITEMS }).catch(() => null);
+  if (!res || !res.ok) return [];
+  const out: RansomwareVictim[] = [];
+  for (const raw of res.items) {
+    const e = raw as MtiRansomwareClaim;
+    const victim = e.victim?.trim();
+    const gang = e.gang?.trim();
+    if (!victim || !gang || !e.date) continue;
+    const discovered = toIsoDate(e.date);
+    if (Number.isNaN(Date.parse(discovered))) continue;
+    const description = e.description?.trim() || undefined;
+    const country = e.country?.trim();
+    out.push({
+      victim,
+      group: gang.toLowerCase(),
+      discovered,
+      description: description && description.length > 320 ? description.slice(0, 317) + '…' : description,
+      source_url: 'https://mythreatintel.com/',
+      sector: classifySector(victim, description),
+      origin: 'mti' as const,
+      ...(country && country !== 'N/D' ? { country } : {}),
+    });
+    if (out.length >= MAX_ITEMS) break;
+  }
+  return out;
+}
+
 /** Merge N victim lists, dedupe by (group + victim + day), keep newest. */
 function mergeVictims(...lists: RansomwareVictim[][]): RansomwareVictim[] {
   const byKey = new Map<string, RansomwareVictim>();
@@ -226,7 +345,7 @@ function mergeVictims(...lists: RansomwareVictim[][]): RansomwareVictim[] {
  * Cloudflare). Returns `{ body, upstreamOk, rateLimited }` so the calling
  * handler can decide on cache + status semantics.
  */
-export async function fetchRansomwareRecent(): Promise<{
+export async function fetchRansomwareRecent(env?: Env): Promise<{
   body: ResponseBody;
   upstreamOk: boolean;
   rateLimited?: { retryAfter: string };
@@ -241,31 +360,37 @@ export async function fetchRansomwareRecent(): Promise<{
   //   2. mythreatintel     — Spanish CTI channel, real-time, has descriptions
   //   3. ransomfeed.it     — RSS of victim claims, has descriptions
   //   4. ransomwatch       — id-only, fills coverage gaps from leak-site scrapes
-  const [primarySettled, mtiVictims, secondaryVictims, tertiaryVictims] = await Promise.all([
-    (async () => {
-      try {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
-        const res = await fetch(UPSTREAM, {
-          headers: {
-            Accept: 'application/json',
-            'User-Agent': 'pranithjain.qzz.io DFIR toolkit (free, read-only)',
-          },
-          signal: ctrl.signal,
-        });
-        clearTimeout(timer);
-        return res;
-      } catch {
-        return null;
-      }
-    })(),
-    // mythreatintel parser returns a structurally-compatible shape; the only
-    // extra field is `country`, which RansomwareVictim doesn't yet carry —
-    // safe to upcast.
-    fetchMythreatintelRansomwareVictims().catch(() => []),
-    fetchRansomfeedVictims(),
-    fetchRansomwatchVictims(),
-  ]);
+  const [primarySettled, mtiApiVictims, mtiVictims, secondaryVictims, tertiaryVictims, rlVictims, afVictims] =
+    await Promise.all([
+      (async () => {
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+          const res = await fetch(UPSTREAM, {
+            headers: {
+              Accept: 'application/json',
+              'User-Agent': 'pranithjain.qzz.io DFIR toolkit (free, read-only)',
+            },
+            signal: ctrl.signal,
+          });
+          clearTimeout(timer);
+          return res;
+        } catch {
+          return null;
+        }
+      })(),
+      // MyThreatIntel REST API `events` — higher-fidelity 'mti' victims.
+      // Skipped (→ []) when no env/token; the scraper below stays the fallback.
+      env ? fetchMtiApiVictims(env).catch(() => []) : Promise.resolve([] as RansomwareVictim[]),
+      // mythreatintel parser returns a structurally-compatible shape; the only
+      // extra field is `country`, which RansomwareVictim doesn't yet carry —
+      // safe to upcast.
+      fetchMythreatintelRansomwareVictims().catch(() => []),
+      fetchRansomfeedVictims(),
+      fetchRansomwatchVictims(),
+      fetchRansomwareLiveVictims(),
+      fetchAFRansomwareVictims().catch(() => []),
+    ]);
 
   try {
     const res = primarySettled;
@@ -301,14 +426,29 @@ export async function fetchRansomwareRecent(): Promise<{
   // Single-source-down tolerance: cacheable as long as ANY non-primary
   // tracker returned data. The page shouldn't blank when 3/4 trackers are
   // healthy.
-  if (!upstreamOk && (mtiVictims.length > 0 || secondaryVictims.length > 0 || tertiaryVictims.length > 0)) {
+  if (
+    !upstreamOk &&
+    (mtiApiVictims.length > 0 ||
+      mtiVictims.length > 0 ||
+      secondaryVictims.length > 0 ||
+      tertiaryVictims.length > 0 ||
+      rlVictims.length > 0 ||
+      afVictims.length > 0)
+  ) {
     upstreamOk = true;
   }
 
-  const victims = mergeVictims(primary, mtiVictims as RansomwareVictim[], secondaryVictims, tertiaryVictims).slice(
-    0,
-    MAX_ITEMS
-  );
+  // AF passed last → lowest dedupe priority. It re-aggregates Ransomlook, so
+  // originals win ties; AF only fills gaps the four primary trackers missed.
+  const victims = mergeVictims(
+    primary,
+    mtiApiVictims,
+    mtiVictims as RansomwareVictim[],
+    secondaryVictims,
+    tertiaryVictims,
+    rlVictims,
+    afVictims
+  ).slice(0, MAX_ITEMS);
 
   const groupCounts = new Map<string, number>();
   for (const v of victims) groupCounts.set(v.group, (groupCounts.get(v.group) ?? 0) + 1);
@@ -354,7 +494,7 @@ export async function ransomwareRecentHandler(c: Context<{ Bindings: Env }>): Pr
   const cached = await cache.match(cacheKey);
   if (cached) return cached;
 
-  const { body, upstreamOk, rateLimited } = await fetchRansomwareRecent();
+  const { body, upstreamOk, rateLimited } = await fetchRansomwareRecent(c.env);
 
   if (rateLimited) {
     return c.json({ error: 'upstream_rate_limited', upstream: 'www.ransomlook.io', upstream_status: 429 }, 429, {

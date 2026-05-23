@@ -99,7 +99,7 @@ function typeBadge(t: IocEntry['type']): string {
     case 'cve':
       return 'border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300';
     default:
-      return 'border-rule text-ink-3';
+      return 'border-slate-300 dark:border-slate-700 text-slate-500';
   }
 }
 
@@ -146,18 +146,18 @@ export function IocSnapshotPanel(): JSX.Element {
   return (
     <section className="mt-12 mb-6">
       <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
-        <h2 className="font-mono font-medium text-xl inline-flex items-center gap-2 flex-wrap">
+        <h2 className="font-display font-bold text-xl inline-flex items-center gap-2 flex-wrap">
           Live IOC feeds
           {watchlist.length > 0 && totalWatched > 0 && (
             <span
-              className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 border border-violet-500/50 bg-violet-500/15 text-violet-700 dark:text-violet-300"
+              className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border border-violet-500/50 bg-violet-500/15 text-violet-700 dark:text-violet-300"
               title={`${totalWatched} IOCs match your watchlist (${watchlist.join(', ')})`}
             >
               {totalWatched} watchlist hits
             </span>
           )}
         </h2>
-        <span className="text-[11px] font-mono text-ink-3">
+        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-500">
           {data
             ? `${totalEntries} fresh indicators across 4 abuse.ch + OpenPhish feeds`
             : err
@@ -185,7 +185,7 @@ export function IocSnapshotPanel(): JSX.Element {
                   href={`https://abuse.ch/${c.key === 'openphish' ? '' : c.key + '/'}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-accent hover:underline inline-flex items-center gap-0.5"
+                  className="text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-0.5"
                 >
                   source <ExternalLink size={9} />
                 </a>
@@ -195,12 +195,12 @@ export function IocSnapshotPanel(): JSX.Element {
             >
               {summary && (
                 <>
-                  <p className="text-[11px] font-mono text-ink-3 mb-2">
-                    <span className="text-ink-1 font-medium text-base">{summary.count}</span> fresh ·{' '}
-                    {summary.source_name}
+                  <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2">
+                    <span className="text-slate-900 dark:text-slate-100 font-bold text-base">{summary.count}</span>{' '}
+                    fresh · {summary.source_name}
                   </p>
                   {entries.length === 0 ? (
-                    <p className="text-[11px] font-mono text-ink-3">No fresh entries.</p>
+                    <p className="text-[11px] font-mono text-slate-500">No fresh entries.</p>
                   ) : (
                     <ul className="space-y-1.5 mt-1">
                       {entries.map((e, i) => {
@@ -218,24 +218,27 @@ export function IocSnapshotPanel(): JSX.Element {
                               title={matched.length > 0 ? `watchlist match: ${matched.join(', ')}` : undefined}
                             />
                             <span
-                              className={`text-[9px] uppercase tracking-wider px-1 border shrink-0 ${typeBadge(e.type)}`}
+                              className={`text-[9px] uppercase tracking-wider px-1 rounded border shrink-0 ${typeBadge(e.type)}`}
                             >
                               {e.type}
                             </span>
                             {c.pivot ? (
                               <Link
                                 to={c.pivot(e)}
-                                className="truncate text-ink-1 hover:text-accent flex-1 min-w-0"
+                                className="truncate text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 flex-1 min-w-0"
                                 title={e.value}
                               >
                                 {e.value}
                               </Link>
                             ) : (
-                              <code className="truncate text-ink-1 flex-1 min-w-0" title={e.value}>
+                              <code
+                                className="truncate text-slate-700 dark:text-slate-300 flex-1 min-w-0"
+                                title={e.value}
+                              >
                                 {e.value}
                               </code>
                             )}
-                            <span className="text-ink-3 shrink-0">{shortRel(e.timestamp)}</span>
+                            <span className="text-slate-500 shrink-0">{shortRel(e.timestamp)}</span>
                           </li>
                         );
                       })}

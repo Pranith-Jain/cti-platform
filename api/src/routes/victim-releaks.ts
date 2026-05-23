@@ -1,6 +1,9 @@
 import type { Context } from 'hono';
 import type { Env } from '../env';
 import { normalizeVictim } from '../lib/victim-normalize';
+import { classifySector } from '../lib/sector-classifier';
+import { optypeForGroup, type OpType } from '../lib/ransomware-optype';
+import { fetchMtiSource, type MtiRansomwareClaim } from '../lib/mythreatintel-api';
 
 /**
  * Victim re-leak detection.
@@ -51,12 +54,40 @@ interface ReleakRow {
   latest: string;
 }
 
+interface SectorCount {
+  sector: string;
+  count: number;
+}
+interface OptypeCount {
+  optype: OpType;
+  count: number;
+}
+interface GroupPair {
+  /** Alphabetically-ordered group slugs. */
+  a: string;
+  b: string;
+  count: number;
+}
+interface TimelineBucket {
+  /** Month bucket, YYYY-MM. */
+  period: string;
+  count: number;
+}
+
 export interface VictimReleaksResponse {
   generated_at: string;
   window_days: number;
   groups_scanned: number;
   victims_scanned: number;
   releaks: ReleakRow[];
+  /** Re-leak victims by heuristic sector (classifier is best-effort). */
+  by_sector: SectorCount[];
+  /** Re-leak participation by group operation-type (curated lookup). */
+  by_optype: OptypeCount[];
+  /** Top group↔group re-claim pairs. */
+  group_pairs: GroupPair[];
+  /** Re-leak claim volume bucketed by month over the window. */
+  timeline: TimelineBucket[];
   /** Groups in the "active" list whose per-group fetch failed. */
   warnings: Array<{ slug: string; reason: string }>;
 }
@@ -82,7 +113,7 @@ function toIsoDate(s: string | undefined): string | undefined {
   return Number.isFinite(d.getTime()) ? d.toISOString() : undefined;
 }
 
-export async function fetchVictimReleaks(): Promise<VictimReleaksResponse> {
+export async function fetchVictimReleaks(env?: Env): Promise<VictimReleaksResponse> {
   const recent = await fetchJson<Array<{ group_name?: string }>>('https://www.ransomlook.io/api/recent');
   if (!recent) {
     return {
@@ -91,6 +122,10 @@ export async function fetchVictimReleaks(): Promise<VictimReleaksResponse> {
       groups_scanned: 0,
       victims_scanned: 0,
       releaks: [],
+      by_sector: [],
+      by_optype: [],
+      group_pairs: [],
+      timeline: [],
       warnings: [{ slug: '*', reason: 'ransomlook /api/recent unreachable' }],
     };
   }
@@ -109,14 +144,24 @@ export async function fetchVictimReleaks(): Promise<VictimReleaksResponse> {
   // ISO cutoff: only consider claims within WINDOW_DAYS
   const cutoffIso = new Date(Date.now() - WINDOW_DAYS * 86400_000).toISOString();
 
-  const fetches = await Promise.all(
-    topGroups.map(async (slug) => {
-      const data = await fetchJson<[unknown, RansomlookGroupPost[]]>(
-        `https://www.ransomlook.io/api/group/${encodeURIComponent(slug)}`
-      );
-      return { slug, data };
-    })
-  );
+  const [fetches, mtiClaims] = await Promise.all([
+    Promise.all(
+      topGroups.map(async (slug) => {
+        const data = await fetchJson<[unknown, RansomlookGroupPost[]]>(
+          `https://www.ransomlook.io/api/group/${encodeURIComponent(slug)}`
+        );
+        return { slug, data };
+      })
+    ),
+    // MyThreatIntel ransomware victim claims — an independent source, so a
+    // victim that MTI attributes to a different gang than Ransomlook does
+    // surfaces as a cross-source re-leak. Skipped (→ []) when no env/token.
+    env
+      ? fetchMtiSource(env, 'ransomware', { limit: 500 })
+          .then((r) => (r.ok ? (r.items as MtiRansomwareClaim[]) : []))
+          .catch(() => [] as MtiRansomwareClaim[])
+      : Promise.resolve([] as MtiRansomwareClaim[]),
+  ]);
 
   const warnings: VictimReleaksResponse['warnings'] = [];
   const byKey = new Map<string, { rawNames: Set<string>; claims: VictimClaim[]; groups: Set<string> }>();
@@ -163,6 +208,34 @@ export async function fetchVictimReleaks(): Promise<VictimReleaksResponse> {
     }
   }
 
+  // ── MyThreatIntel victims into the same byKey map ──────────────────────
+  // Feeding MTI claims here lets a victim seen on a Ransomlook group AND
+  // attributed to a different gang by MTI cross-match into a re-leak.
+  for (const e of mtiClaims) {
+    const raw = e.victim?.trim();
+    const gang = e.gang?.trim().toLowerCase();
+    if (!raw || !gang || !e.date) continue;
+    const iso = toIsoDate(e.date);
+    if (!iso || iso < cutoffIso) continue;
+    const key = normalizeVictim(raw);
+    if (key.length < 3) continue;
+    victimsScanned += 1;
+    const claim: VictimClaim = {
+      group: gang,
+      raw_victim: raw,
+      discovered: iso,
+      source_url: 'https://mythreatintel.com/',
+    };
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.rawNames.add(raw);
+      existing.claims.push(claim);
+      existing.groups.add(gang);
+    } else {
+      byKey.set(key, { rawNames: new Set([raw]), claims: [claim], groups: new Set([gang]) });
+    }
+  }
+
   const releaks: ReleakRow[] = [];
   for (const [key, agg] of byKey) {
     if (agg.groups.size < 2) continue;
@@ -180,12 +253,66 @@ export async function fetchVictimReleaks(): Promise<VictimReleaksResponse> {
     return b.latest.localeCompare(a.latest);
   });
 
+  // ── Trend aggregates (the page leads with these, not raw victim rows) ──
+  const sectorTally = new Map<string, number>();
+  const optypeTally = new Map<OpType, number>();
+  const pairTally = new Map<string, number>();
+  const monthTally = new Map<string, number>();
+
+  for (const r of releaks) {
+    // Sector: classify on the most-complete raw name (heuristic, name-only).
+    const sector = classifySector(r.raw_names[0] ?? r.key);
+    sectorTally.set(sector, (sectorTally.get(sector) ?? 0) + 1);
+
+    // Op-type: count each distinct participating group once per victim.
+    const distinctGroups = [...new Set(r.claims.map((c) => c.group))].sort();
+    for (const g of distinctGroups) {
+      const ot = optypeForGroup(g);
+      optypeTally.set(ot, (optypeTally.get(ot) ?? 0) + 1);
+    }
+
+    // Group pairs: all unordered distinct-group pairs for this victim.
+    for (let i = 0; i < distinctGroups.length; i++) {
+      for (let j = i + 1; j < distinctGroups.length; j++) {
+        const key = `${distinctGroups[i]} ${distinctGroups[j]}`;
+        pairTally.set(key, (pairTally.get(key) ?? 0) + 1);
+      }
+    }
+
+    // Timeline: every re-leak claim, bucketed by month.
+    for (const c of r.claims) {
+      const period = c.discovered.slice(0, 7); // YYYY-MM
+      if (period.length === 7) monthTally.set(period, (monthTally.get(period) ?? 0) + 1);
+    }
+  }
+
+  const by_sector: SectorCount[] = [...sectorTally.entries()]
+    .map(([sector, count]) => ({ sector, count }))
+    .sort((a, b) => b.count - a.count);
+  const by_optype: OptypeCount[] = [...optypeTally.entries()]
+    .map(([optype, count]) => ({ optype, count }))
+    .sort((a, b) => b.count - a.count);
+  const group_pairs: GroupPair[] = [...pairTally.entries()]
+    .map(([k, count]) => {
+      const [a, b] = k.split(' ');
+      return { a: a ?? '', b: b ?? '', count };
+    })
+    .sort((x, y) => y.count - x.count)
+    .slice(0, 15);
+  const timeline: TimelineBucket[] = [...monthTally.entries()]
+    .map(([period, count]) => ({ period, count }))
+    .sort((a, b) => a.period.localeCompare(b.period));
+
   return {
     generated_at: new Date().toISOString(),
     window_days: WINDOW_DAYS,
     groups_scanned: groupsScanned,
     victims_scanned: victimsScanned,
     releaks,
+    by_sector,
+    by_optype,
+    group_pairs,
+    timeline,
     warnings,
   };
 }
@@ -196,7 +323,7 @@ export async function victimReleaksHandler(c: Context<{ Bindings: Env }>): Promi
   const cached = await cache.match(cacheReq);
   if (cached) return cached;
 
-  const body = await fetchVictimReleaks();
+  const body = await fetchVictimReleaks(c.env);
   const cacheable = body.releaks.length > 0 || body.warnings.length > 0;
   const response = new Response(JSON.stringify(body), {
     status: 200,

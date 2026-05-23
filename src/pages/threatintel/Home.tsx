@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   Activity,
   AlertOctagon,
@@ -14,16 +14,18 @@ import {
   Compass,
   ExternalLink,
   FileCode,
+  FileText,
   GitBranchPlus,
-  Github,
   Globe,
   Globe2,
   Grid3x3,
+  Handshake,
+  KeyRound,
   Layers,
   MessageSquare,
-  Microscope,
   Newspaper,
   Radio,
+  Radar,
   Search,
   Send,
   ShieldAlert,
@@ -32,6 +34,15 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
+import { LiveSnapshotPanel } from '../../components/dfir/LiveSnapshotPanel';
+import { WhatsNewBanner } from '../../components/threatintel/WhatsNewBanner';
+import { PlatformPulse } from '../../components/threatintel/PlatformPulse';
+import { LatestBriefingCard } from '../../components/threatintel/LatestBriefingCard';
+import { TodaysRead } from '../../components/threatintel/TodaysRead';
+import { FeedSnapshot } from '../../components/threatintel/FeedSnapshot';
+import { personalInfo } from '../../data/content';
+import { AppHero } from '../../components/AppHero';
+import { AppFooter } from '../../components/AppFooter';
 
 /**
  * Threat-Intel landing page — the SOLE entry point for sources, feeds, RSS,
@@ -67,9 +78,56 @@ interface Section {
 
 const SECTIONS: Section[] = [
   {
-    id: 'live-feeds',
-    label: 'Live Feeds',
-    blurb: 'Streaming intel surfaces. Fresh data each visit.',
+    id: 'ransomware',
+    label: 'Ransomware & Negotiations',
+    blurb: 'Leak-site claims, negotiation economics, re-victimisation, onion reachability.',
+    tools: [
+      {
+        to: '/threatintel/ransomware-activity',
+        label: 'Live ransomware activity',
+        desc: 'Recent ransomware leak-site claims aggregated from Ransomlook · per-victim screenshots when available',
+        icon: AlertTriangle,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/ransomware-live',
+        label: 'ransomware.live PRO',
+        desc: 'Authenticated, edge-cached view of the ransomware.live PRO API: stats, recent cyberattacks (HudsonRock infostealer-enriched), leaked negotiation logs, and per-group YARA rules.',
+        icon: ShieldAlert,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/negotiations',
+        label: 'Ransomware negotiations',
+        desc: 'Negotiation chats across every ransomware.live PRO group. Initial demand vs. negotiated figure, discount, settlement flag, with full transcript drill-down (Casualtek/Ransomchats). Sortable, filterable.',
+        icon: Handshake,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/re-leaks',
+        label: 'Victim re-leak detection',
+        desc: 'Victims claimed by 2+ ransomware groups in the last 12 months. Usually a failed double-extortion, or an affiliate switching programs. Cross-actor match on normalised victim names.',
+        icon: Users,
+      },
+      {
+        to: '/threatintel/onion-watch',
+        label: 'Onion Watch',
+        desc: 'Live inventory of .onion mirrors for the top ransomware leak sites. Per-group reachability from Ransomlook, with search and copy-all.',
+        icon: Globe,
+      },
+      {
+        to: '/threatintel/mti',
+        label: 'MyThreatIntel',
+        desc: 'Authenticated, edge-cached view of the MyThreatIntel CTI platform REST API: IOCs, malware, CVEs, ransomware victims, leaks, threat groups, darknet markets, and onion services.',
+        icon: Radar,
+        badge: 'live',
+      },
+    ],
+  },
+  {
+    id: 'darkweb-breach',
+    label: 'Dark Web, Breach & Leak',
+    blurb: 'Leak sites, breach disclosures, infostealer logs, criminal forums.',
     tools: [
       {
         to: '/threatintel/darkweb',
@@ -79,12 +137,45 @@ const SECTIONS: Section[] = [
         badge: 'live',
       },
       {
-        to: '/threatintel/ransomware-activity',
-        label: 'Live ransomware activity',
-        desc: 'Recent ransomware leak-site claims aggregated from Ransomlook · per-victim screenshots when available',
-        icon: AlertTriangle,
+        to: '/threatintel/breach-forums',
+        label: 'Breach / leak-forum tracker',
+        desc: 'Directory of criminal forums + dark markets (deepdarkCTI) plus a curated set of notable breach/leak forums. Intelligence about venues: names, status, OSINT-coverage links only; no forum contents.',
+        icon: ShieldAlert,
         badge: 'live',
       },
+      {
+        to: '/threatintel/breach',
+        label: 'Live breach disclosures',
+        desc: 'Public breach disclosures from Have I Been Pwned, with verification flags, sensitivity markers, and the data classes that leaked.',
+        icon: ShieldAlert,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/infostealer',
+        label: 'Infostealer live tracker',
+        desc: 'Three live infostealer surfaces in one: HudsonRock victim exposure (ransomware.live PRO), demonforums ULP / cloud-log market threads, and the active stealer-log Telegram channel directory.',
+        icon: KeyRound,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/deepdarkcti',
+        label: 'deepdarkCTI Index',
+        desc: 'Parsed mirror of fastfire/deepdarkCTI: ransomware leak sites, dark markets, criminal forums, infostealer & threat-actor Telegram/Twitter channels, dark-web search engines. 18 source lists, filterable, onion-aware.',
+        icon: Globe,
+      },
+      {
+        to: '/threatintel/scam-watch',
+        label: 'Scam Watch',
+        desc: 'Live FTC and FBI IC3 alerts, deepfake-scam news, and Reddit victim reports. Search and filter built in.',
+        icon: AlertTriangle,
+      },
+    ],
+  },
+  {
+    id: 'feeds-news',
+    label: 'Live Feeds & News',
+    blurb: 'Streaming social, press, and aggregate feeds. Fresh data each visit.',
+    tools: [
       {
         to: '/threatintel/cybersec',
         label: 'Cybersec Telegram firehose',
@@ -107,29 +198,16 @@ const SECTIONS: Section[] = [
         badge: 'live',
       },
       {
-        to: '/threatintel/breach',
-        label: 'Live breach disclosures',
-        desc: 'Public breach disclosures from Have I Been Pwned, with verification flags, sensitivity markers, and the data classes that leaked.',
-        icon: ShieldAlert,
-        badge: 'live',
-      },
-      {
-        to: '/threatintel/onion-watch',
-        label: 'Onion Watch',
-        desc: 'Live inventory of .onion mirrors for the top ransomware leak sites. Per-group reachability from Ransomlook, with search and copy-all.',
-        icon: Globe,
-      },
-      {
         to: '/threatintel/threat-feeds',
         label: 'Threat Feeds',
         desc: '40-source aggregation: CISA advisories, vendor labs, IR write-ups, Reddit infosec, CVE/Exploit-DB, and security press.',
         icon: Radio,
       },
       {
-        to: '/threatintel/scam-watch',
-        label: 'Scam Watch',
-        desc: 'Live FTC and FBI IC3 alerts, deepfake-scam news, and Reddit victim reports. Search and filter built in.',
-        icon: AlertTriangle,
+        to: '/threatintel/tech-ai-news',
+        label: 'Tech & AI News',
+        desc: '16-source feed for AI labs, cyber-vendor funding and M&A, general tech, and HN/YC. Threat-intel kept on its own surface.',
+        icon: Newspaper,
       },
       {
         to: '/threatintel/cyber-crime',
@@ -139,43 +217,102 @@ const SECTIONS: Section[] = [
         badge: 'live',
       },
       {
-        to: '/threatintel/tech-ai-news',
-        label: 'Tech & AI News',
-        desc: '16-source feed for AI labs, cyber-vendor funding and M&A, general tech, and HN/YC. Threat-intel kept on its own surface.',
-        icon: Newspaper,
+        to: '/threatintel/pulse',
+        label: 'Threat Pulse',
+        desc: 'Real-time aggregator of fresh threat entities (actors, malware families, CVEs, IOCs) ranked by cross-source activity over the last 24h',
+        icon: Activity,
+        badge: 'live',
       },
+    ],
+  },
+  {
+    id: 'cti-platforms',
+    label: 'CTI Platforms & Aggregators',
+    blurb: 'Cross-source synthesis, exports, maps, and pipeline health.',
+    tools: [
       {
         to: '/threatintel/threat-map',
         label: 'Cyber Threat Map',
         desc: 'Live geolocation of malicious infrastructure. Choropleth map plus country leaderboard, with IP, URL, domain, and hash buckets.',
         icon: Globe2,
       },
-    ],
-  },
-  {
-    id: 'briefings',
-    label: 'Briefings & Reports',
-    blurb: 'Synthesised intel. Daily, weekly, and per-group write-ups.',
-    tools: [
+      {
+        to: '/threatintel/metrics',
+        label: 'Threat Intel Metrics',
+        desc: 'Ten panels covering the questions CTI teams actually ask. Most-active ransomware groups, CVE severity, KEV cadence, top-impersonated brands, IOC volume by source, sector targeting, malware families, re-leak hotspots.',
+        icon: BarChart3,
+      },
+      {
+        to: '/threatintel/status',
+        label: 'Feed status',
+        desc: 'Health of every upstream-backed feed on /threatintel. When a page looks empty, check here first to see whether the gap is upstream or our worker.',
+        icon: Activity,
+      },
       {
         to: '/threatintel/briefings',
         label: 'Intel Briefings',
         desc: 'Daily and weekly digest, auto-generated from the upstream feeds. Ransomware claims, breach disclosures, and the IOCs of the day, with auto-tagged actors and CVEs per item.',
         icon: Briefcase,
       },
+    ],
+  },
+  {
+    id: 'ioc-detection',
+    label: 'IOC & Detection',
+    blurb: 'Fresh indicators, cross-source correlation, C2 infra, detection rules.',
+    tools: [
       {
-        to: '/threatintel/writeups',
-        label: 'Writeups Feed',
-        desc: '18+ analyst blogs and vendor research labs aggregated live: The DFIR Report, BushidoToken, DoublePulsar, Krebs, SentinelLabs, Unit 42, Check Point Research, Google TI, Huntress, and more.',
-        icon: BookText,
+        to: '/threatintel/live-iocs',
+        label: 'Live IOC stream',
+        desc: 'Chronological firehose with per-IOC reporter handles + timestamps. Sources: TweetFeed, SANS ISC, C2IntelFeeds, URLhaus, ThreatFox, MalwareBazaar, PhishTank, OpenPhish, MyThreatIntel.',
+        icon: Radio,
         badge: 'live',
+      },
+      {
+        to: '/threatintel/correlation',
+        label: 'Cross-source IOC correlation',
+        desc: 'Indicators that appear in 2+ independent feeds, ranked by source consensus. A single-feed flag can be a false positive. Cross-source overlap is the signal CTI analysts actually trust.',
+        icon: GitBranchPlus,
+      },
+      {
+        to: '/threatintel/c2-tracker',
+        label: 'C2 Infrastructure Tracker',
+        desc: 'Live C2 server IPs from drb-ra/C2IntelFeeds (GitHub) and abuse.ch ThreatFox. Filter by framework: Cobalt Strike, Sliver, Metasploit, Havoc, Brute Ratel, and more.',
+        icon: Radar,
+        badge: 'new',
+      },
+      {
+        to: '/threatintel/rules',
+        label: 'Detection Rules',
+        desc: 'Sigma, YARA, Elastic, Splunk, KQL, and Suricata. Live commit feeds from the upstream repos, so the new rules show up the day they land.',
+        icon: FileCode,
+      },
+      {
+        to: '/threatintel/detections',
+        label: 'Detections',
+        desc: 'A curated detection-rule pack evaluated hourly against the unified live-IOC stream. Cross-feed consensus, Cobalt Strike / C2, ransomware & infostealer tagging, phishing-campaign clustering. Each firing rule with the indicators that triggered it. Write your own in the in-browser Detection Lab.',
+        icon: AlertOctagon,
+        badge: 'new',
+      },
+      {
+        to: '/threatintel/cve-list',
+        label: 'Live CVE updates',
+        desc: 'NVD published-CVE feed (last 14 days) merged with the CISA KEV catalogue (last 30 days). Severity, KEV flag, ransomware-use flag, and a curated actor pill where attribution exists.',
+        icon: ShieldAlert,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/domain-monitor',
+        label: 'Domain Monitor',
+        desc: 'Typosquatting and domain impersonation scanner. Generates lookalike variants (character swaps, TLD swaps, homoglyphs, prefix/suffix abuse). Inspired by haveibeensquatted.com.',
+        icon: Search,
       },
     ],
   },
   {
     id: 'adversary',
-    label: 'Adversary Catalogs',
-    blurb: 'Who is attacking, with what. Browseable indexes.',
+    label: 'Adversary & Frameworks',
+    blurb: 'Who is attacking, with what. Actors, intrusion sets, ATT&CK.',
     tools: [
       {
         to: '/threatintel/actors',
@@ -184,56 +321,68 @@ const SECTIONS: Section[] = [
         icon: Users,
       },
       {
+        to: '/threatintel/actor-kb',
+        label: 'Threat-Actor Knowledge Base',
+        desc: '174 MITRE ATT&CK intrusion-sets. Search by name / alias / Gxxxx / technique / malware → aliases, TTPs grouped by kill-chain tactic, and tooling. Committed dataset, 100% client-side.',
+        icon: BookText,
+      },
+      {
+        to: '/threatintel/actor-timeline',
+        label: 'Actor activity timeline',
+        desc: 'Per-actor leak-site cadence Gantt for the most-active ransomware groups · joins Ransomlook per-group history with curated MITRE Group lookup',
+        icon: ShieldAlert,
+      },
+      {
         to: '/threatintel/mitre',
         label: 'MITRE ATT&CK',
         desc: 'The matrix, plus per-technique deep-dives. Pivot both ways: actor to technique, technique to actor.',
         icon: Grid3x3,
       },
+      {
+        to: '/threatintel/atlas',
+        label: 'MITRE ATLAS (AI/ML)',
+        desc: 'Adversarial-ML taxonomy — tactics, techniques, and real-world case studies of attacks on AI and ML systems. The ATT&CK-adjacent matrix for GenAI risk.',
+        icon: Grid3x3,
+      },
     ],
   },
   {
-    id: 'rules-iocs',
-    label: 'Detection Rules & IOC Feeds',
-    blurb: 'Public rule and indicator catalogues. Pull and ingest.',
+    id: 'knowledge',
+    label: 'Knowledge & Reference',
+    blurb: 'Long-form research and curated reference indexes. Start here for the broad questions.',
     tools: [
       {
-        to: '/threatintel/rules',
-        label: 'Detection Rules',
-        desc: 'Sigma, YARA, Elastic, Splunk, KQL, and Suricata. Live commit feeds from the upstream repos, so the new rules show up the day they land.',
-        icon: FileCode,
+        to: '/threatintel/research',
+        label: 'Research (authored)',
+        desc: "Original adversary-tracking and methodology pieces written by Pranith Jain. Every quantitative claim sourced to this platform's own data or to named third-party reporting.",
+        icon: FileText,
+        badge: 'authored',
+      },
+      {
+        to: '/threatintel/signal',
+        label: 'Research Signal',
+        desc: 'Tight curated set of elite vendor labs + independent research only (ThreatSignal Research, DFIR Report, SentinelLabs, Unit 42, Check Point, Huntress, Eye Security, Exodus, OpenAnalysis, BushidoToken, DoublePulsar). Low-volume sources, high-depth pieces.',
+        icon: Radio,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/writeups',
+        label: 'Writeups Feed',
+        desc: 'The broad ecosystem cut. Krebs, The Hacker News, BleepingComputer, CrowdStrike, ESET, Recorded Future, Intezer, and the technical Medium tag feeds (#threat-intel, #malware-analysis, #dfir, …). Signal-tier sources live on /signal (no overlap).',
+        icon: BookText,
+        badge: 'live',
+      },
+      {
+        to: '/threatintel/wiki',
+        label: 'Knowledge Base',
+        desc: 'Long-form articles on Telegram OSINT tradecraft, dark-web monitoring, MITRE workflows, and briefing methodology.',
+        icon: BookOpen,
       },
       {
         to: '/threatintel/cve-resources',
         label: 'CVE Resources Catalog',
         desc: 'About 70 curated CVE sources. Databases, exploit and PoC repos, vendor PSIRTs, scoring services, research labs, and alert feeds.',
         icon: BookText,
-      },
-    ],
-  },
-  {
-    id: 'ioc-feeds',
-    label: 'Live IOC Feeds',
-    blurb: 'Curated streams of fresh indicators. Pull, ingest, or pivot to the IOC Checker.',
-    tools: [
-      {
-        to: '/threatintel/cve-list',
-        label: 'Live CVE updates',
-        desc: 'NVD published-CVE feed (last 14 days) merged with the CISA KEV catalogue (last 30 days). Severity, KEV flag, ransomware-use flag, and a curated actor pill where attribution exists.',
-        icon: ShieldAlert,
-        badge: 'live',
-      },
-    ],
-  },
-  {
-    id: 'catalogs',
-    label: 'Curated Catalogs',
-    blurb: 'Reference indexes. Start here when the question is broader than a single tool.',
-    tools: [
-      {
-        to: '/threatintel/telegram-watch',
-        label: 'Telegram Catalog',
-        desc: 'Curated index of public threat-intel, cybercrime, and OSINT Telegram channels. Category and language filters, for when you want to find new channels rather than read the firehose at /threatintel/cybersec.',
-        icon: Send,
       },
       {
         to: '/threatintel/secops-tools',
@@ -248,108 +397,22 @@ const SECTIONS: Section[] = [
         icon: Sparkles,
       },
       {
+        to: '/threatintel/external-resources',
+        label: 'External Resources',
+        desc: 'Off-site cross-references: dashboards, OSINT directories, training labs, malware samples, and research portfolios. Filter by kind. Featured quality-content markers and research-discovery mode.',
+        icon: ExternalLink,
+      },
+      {
+        to: '/threatintel/telegram-watch',
+        label: 'Telegram Catalog',
+        desc: 'Curated index of public threat-intel, cybercrime, and OSINT Telegram channels. Category and language filters, for when you want to find new channels rather than read the firehose at /threatintel/cybersec.',
+        icon: Send,
+      },
+      {
         to: '/threatintel/osint-framework',
         label: 'OSINT Framework',
         desc: '70+ curated OSINT tools across 15 categories. Filter by pricing tier and category.',
         icon: Compass,
-      },
-      {
-        to: '/threatintel/wiki',
-        label: 'Knowledge Base',
-        desc: 'Long-form articles on Telegram OSINT tradecraft, dark-web monitoring, MITRE workflows, and briefing methodology.',
-        icon: BookOpen,
-      },
-      {
-        to: '/threatintel/metrics',
-        label: 'Threat Intel Metrics',
-        desc: 'Ten panels covering the questions CTI teams actually ask. Most-active ransomware groups, CVE severity, KEV cadence, top-impersonated brands, IOC volume by source, sector targeting, malware families, re-leak hotspots.',
-        icon: BarChart3,
-      },
-      {
-        to: '/threatintel/correlation',
-        label: 'Cross-source IOC correlation',
-        desc: 'Indicators that appear in 2+ independent feeds, ranked by source consensus. A single-feed flag can be a false positive. Cross-source overlap is the signal CTI analysts actually trust.',
-        icon: GitBranchPlus,
-      },
-      {
-        to: '/threatintel/actor-timeline',
-        label: 'Actor activity timeline',
-        desc: 'Per-actor leak-site cadence Gantt for the most-active ransomware groups · joins Ransomlook per-group history with curated MITRE Group lookup',
-        icon: ShieldAlert,
-      },
-      {
-        to: '/threatintel/re-leaks',
-        label: 'Victim re-leak detection',
-        desc: 'Victims claimed by 2+ ransomware groups in the last 12 months. Usually a failed double-extortion, or an affiliate switching programs. Cross-actor match on normalised victim names.',
-        icon: Users,
-      },
-      {
-        to: '/threatintel/live-iocs',
-        label: 'Live IOC stream',
-        desc: 'Chronological firehose with per-IOC reporter handles + timestamps. Sources: TweetFeed, SANS ISC, C2IntelFeeds, URLhaus, ThreatFox, MalwareBazaar, PhishTank, OpenPhish.',
-        icon: Radio,
-      },
-      {
-        to: '/threatintel/status',
-        label: 'Feed status',
-        desc: 'Health of every upstream-backed feed on /threatintel. When a page looks empty, check here first to see whether the gap is upstream or our worker.',
-        icon: Activity,
-      },
-    ],
-  },
-  {
-    id: 'external',
-    label: 'External Sources',
-    blurb: 'Off-site catalogues and dashboards I cross-reference.',
-    tools: [
-      {
-        to: 'https://www.mythreatintel.com/?lang=en',
-        label: 'My Threat Intel',
-        desc: 'Live ransomware dashboard · country / sector / timeline charts · 180+ ransomware groups with ransom-note transcripts and leak-site screenshots',
-        icon: ExternalLink,
-        external: true,
-      },
-      {
-        to: 'https://github.com/fastfire/deepdarkCTI',
-        label: 'deepdarkCTI',
-        desc: 'Continuously updated repository of dark-web and CTI sources, by fastfire',
-        icon: Github,
-        external: true,
-      },
-      {
-        to: 'https://threatlandscape.io/free-tools',
-        label: 'Threat Landscape Free Tools',
-        desc: 'Curated free DFIR and threat-intel tools directory',
-        icon: Compass,
-        external: true,
-      },
-      {
-        to: 'https://analyzer.vecert.io/index',
-        label: 'Vecert Analyzer',
-        desc: 'Free file and indicator analyzer for incident response',
-        icon: Microscope,
-        external: true,
-      },
-      {
-        to: 'https://www.worldmonitor.app',
-        label: 'World Monitor',
-        desc: 'Real-time OSINT dashboard, news, markets, ADS-B and AIS tracking across 435+ sources',
-        icon: Compass,
-        external: true,
-      },
-      {
-        to: 'https://osinttools.io/tools',
-        label: 'OSINT Tools',
-        desc: 'Curated OSINT directory',
-        icon: Compass,
-        external: true,
-      },
-      {
-        to: 'https://osintrack.com/',
-        label: 'OSINTrack',
-        desc: 'OSINT investigation tracker',
-        icon: Compass,
-        external: true,
       },
     ],
   },
@@ -385,6 +448,8 @@ export default function ThreatIntelHome(): JSX.Element {
     [allTools, query]
   );
   const isSearching = query.trim().length > 0;
+  const { cat } = useParams<{ cat?: string }>();
+  const activeSection = cat ? SECTIONS.find((s) => s.id === cat) : undefined;
 
   // Keyboard: '/' or 'Cmd/Ctrl+K' focuses the search; 'Esc' clears.
   useEffect(() => {
@@ -406,61 +471,84 @@ export default function ThreatIntelHome(): JSX.Element {
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 text-slate-900 dark:text-slate-100">
-      {/* App-style stat bar — replaces the portfolio-style 6xl hero on app routes */}
-      <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <TiStat label="Intel surfaces" value={String(totalTiles)} />
-        <TiStat label="IOC feeds correlated" value="18" />
-        <TiStat label="Live IOC sources" value="10" />
-        <TiStat label="Refresh cadence" value="30m–1h" mono />
-      </section>
-
-      <p className="text-[12px] font-mono text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
-        Live ransomware leak claims, CVE merged with CISA KEV (active-exploitation flag inline), a malware-sample
-        stream, a phishing-URL feed with brand attribution, and firehoses from Bluesky, Mastodon, Reddit, and Telegram.
-        Daily briefings, ten-panel metrics, STIX 2.1 export. Need interactive tools instead?{' '}
-        <Link to="/dfir" className="text-brand-600 dark:text-brand-400 hover:underline">
-          /dfir
-        </Link>{' '}
-        (separate app).
-      </p>
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
+      <h1 className="sr-only">Threat Intel Platform</h1>
+      {/* "What's new since your last visit" banner — silent on first
+          visit / zero deltas. Reuses the localStorage marker key
+          'threatintel-home'. */}
+      <WhatsNewBanner />
+      {/* 7-day platform-pulse sparklines (IOCs + findings per day). Real
+          data from /api/v1/briefings/list — the daily-briefing cron has
+          ~30 days of history. Decorative only when fewer than 2 days
+          are available. */}
+      <PlatformPulse />
+      <LatestBriefingCard />
+      {/* Today's read — opinionated 3-card "if you have 60 seconds" promo.
+          Surfaces the latest authored research, the most-fired detection
+          rule right now, and a one-line weekly ransomware read so a
+          first-time visitor lands on editorial direction rather than
+          a 20-tile picker. The category sections below remain the
+          comprehensive index for analysts who know what they want. */}
+      <TodaysRead />
+      <AppHero
+        kicker="Privacy-first · Live edge feeds · No login · No tracking"
+        title="Threat-intel platform"
+        sub="CTI aggregator and DFIR analyst toolkit, both running on Cloudflare Workers. Pulls from ~30 public feeds — ransomware leak sites, CVE/KEV, malware samples, phishing URLs, social and Telegram, MyThreatIntel — plus multi-provider IOC enrichment and STIX 2.1 export. Coverage is a sample, not exhaustive."
+        meta={
+          <>
+            {totalTiles} intel surfaces · by{' '}
+            <Link to="/" className="text-brand-600 dark:text-brand-400 hover:underline">
+              {personalInfo.name}
+            </Link>{' '}
+            ·{' '}
+            <Link to="/threatintel/about" className="text-brand-600 dark:text-brand-400 hover:underline">
+              about
+            </Link>{' '}
+            · interactive tools:{' '}
+            <Link to="/dfir" className="text-brand-600 dark:text-brand-400 hover:underline">
+              /dfir
+            </Link>
+          </>
+        }
+      />
+      <FeedSnapshot />
 
       {/* Quick links to power-user surfaces */}
       <div className="flex flex-wrap items-center gap-2 mb-12 text-[11px] font-mono text-slate-500 dark:text-slate-500">
         <span>quick:</span>
         <Link
           to="/threatintel/metrics"
-          className="px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 hover:border-brand-500/40"
+          className="px-3 py-2 rounded border border-slate-200 dark:border-slate-800 hover:border-brand-500/40 min-h-[44px] sm:min-h-0 sm:py-1 flex items-center"
         >
           metrics
         </Link>
         <Link
           to="/threatintel/correlation"
-          className="px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 hover:border-brand-500/40"
+          className="px-3 py-2 rounded border border-slate-200 dark:border-slate-800 hover:border-brand-500/40 min-h-[44px] sm:min-h-0 sm:py-1 flex items-center"
         >
           correlation
         </Link>
         <Link
           to="/threatintel/actor-timeline"
-          className="px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 hover:border-brand-500/40"
+          className="px-3 py-2 rounded border border-slate-200 dark:border-slate-800 hover:border-brand-500/40 min-h-[44px] sm:min-h-0 sm:py-1 flex items-center"
         >
           actor timeline
         </Link>
         <Link
           to="/threatintel/re-leaks"
-          className="px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 hover:border-brand-500/40"
+          className="px-3 py-2 rounded border border-slate-200 dark:border-slate-800 hover:border-brand-500/40 min-h-[44px] sm:min-h-0 sm:py-1 flex items-center"
         >
           re-leaks
         </Link>
         <Link
           to="/threatintel/live-iocs"
-          className="px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 hover:border-brand-500/40"
+          className="px-3 py-2 rounded border border-slate-200 dark:border-slate-800 hover:border-brand-500/40 min-h-[44px] sm:min-h-0 sm:py-1 flex items-center"
         >
           live stream
         </Link>
         <Link
           to="/threatintel/status"
-          className="px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 hover:border-brand-500/40"
+          className="px-3 py-2 rounded border border-slate-200 dark:border-slate-800 hover:border-brand-500/40 min-h-[44px] sm:min-h-0 sm:py-1 flex items-center"
         >
           feed status
         </Link>
@@ -515,17 +603,22 @@ export default function ThreatIntelHome(): JSX.Element {
         )}
       </div>
 
-      {!isSearching && (
-        <section className="animate-fade-in-up">{/* LiveSnapshotPanel removed — platform-split artifact */}</section>
+      {!isSearching && !cat && (
+        <section className="animate-fade-in-up">
+          <LiveSnapshotPanel compact subtitle="live intel pulse across the platform" mbClass="mb-12" />
+        </section>
       )}
 
       {isSearching ? (
         <section className="animate-fade-in-up mb-12">
-          <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <ul className="stagger grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {searchResults.map(({ tool: t, section }) => {
               const Icon = t.icon;
               const cardClass =
-                'block h-full rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 hover:border-brand-500/40 dark:hover:border-brand-400/40 transition-colors group';
+                'group relative block h-full overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 ' +
+                'transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-brand-500/50 ' +
+                'hover:shadow-[0_10px_30px_-12px_rgba(44,62,229,0.35)] focus-visible:outline-none focus-visible:-translate-y-0.5 ' +
+                'focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40';
               const inner = (
                 <>
                   <div className="mb-2 flex items-start justify-between gap-2">
@@ -551,7 +644,7 @@ export default function ThreatIntelHome(): JSX.Element {
                       </span>
                     )}
                   </div>
-                  <p className="font-mono text-[12px] leading-relaxed text-slate-600 dark:text-slate-400">{t.desc}</p>
+                  <p className="text-[13px] leading-relaxed text-slate-600 dark:text-slate-400">{t.desc}</p>
                 </>
               );
               if (t.external) {
@@ -573,88 +666,132 @@ export default function ThreatIntelHome(): JSX.Element {
             })}
           </ul>
           {searchResults.length === 0 && (
-            <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center font-mono text-[12px] text-slate-500 dark:border-slate-700">
+            <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-[13px] text-slate-500 dark:border-slate-700">
               No matches. Searching across {allTools.length} intel surfaces, catalogs, and feeds.
             </div>
           )}
         </section>
+      ) : activeSection ? (
+        <section className="animate-fade-in-up mb-12">
+          <div className="flex flex-wrap items-center gap-2 mb-6 text-[11px] font-mono">
+            <span className="text-slate-500">categories:</span>
+            {SECTIONS.map((s) => (
+              <Link
+                key={s.id}
+                to={`/threatintel/c/${s.id}`}
+                className={`px-3 py-1.5 rounded border ${
+                  s.id === cat
+                    ? 'border-brand-500/50 bg-brand-500/10 text-brand-700 dark:text-brand-300'
+                    : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:border-brand-500/40'
+                }`}
+              >
+                {s.label}
+              </Link>
+            ))}
+          </div>
+          <div className="mb-4">
+            <h2 className="font-display font-bold text-2xl text-slate-900 dark:text-slate-100">
+              {activeSection.label}
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-500 font-mono mt-1">
+              {activeSection.blurb} · {activeSection.tools.length}{' '}
+              {activeSection.tools.length === 1 ? 'source' : 'sources'}
+            </p>
+            <p className="text-[11px] font-mono text-slate-400 mt-2">
+              Reference only. Feeds refreshed at the edge each visit; verify indicators in your own environment.
+            </p>
+          </div>
+          <ul className="stagger grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {activeSection.tools.map((t) => {
+              const Icon = t.icon;
+              const cardClass =
+                'group relative block h-full overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 ' +
+                'transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-brand-500/50 ' +
+                'hover:shadow-[0_10px_30px_-12px_rgba(44,62,229,0.35)] focus-visible:outline-none focus-visible:-translate-y-0.5 ' +
+                'focus-visible:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-500/40';
+              const inner = (
+                <>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <Icon size={18} className="text-brand-600 dark:text-brand-400 shrink-0 mt-0.5" />
+                    <ArrowRight
+                      size={14}
+                      className="text-slate-300 dark:text-slate-700 group-hover:text-brand-500 dark:group-hover:text-brand-400 transition-colors mt-0.5 shrink-0"
+                    />
+                  </div>
+                  <div className="flex items-baseline justify-between gap-2 mb-1">
+                    <h3 className="font-display font-semibold text-base text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors flex items-center gap-1">
+                      {t.label}
+                      {t.external && <ExternalLink size={11} className="opacity-60" aria-hidden="true" />}
+                    </h3>
+                    {t.badge && (
+                      <span
+                        className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${
+                          t.badge === 'live'
+                            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                            : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                        }`}
+                      >
+                        {t.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[12px] font-mono text-slate-600 dark:text-slate-400 leading-relaxed">{t.desc}</p>
+                </>
+              );
+              return t.external ? (
+                <li key={t.to}>
+                  <a href={t.to} target="_blank" rel="noopener noreferrer" className={cardClass}>
+                    {inner}
+                  </a>
+                </li>
+              ) : (
+                <li key={t.to}>
+                  <Link to={t.to} className={cardClass}>
+                    {inner}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       ) : (
-        SECTIONS.map((section) => (
-          <section key={section.id} className="animate-fade-in-up mb-12">
-            <div className="mb-4">
-              <h2 className="font-display font-bold text-2xl text-slate-900 dark:text-slate-100">{section.label}</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400 font-mono mt-1">
-                {section.blurb} · {section.tools.length} {section.tools.length === 1 ? 'source' : 'sources'}
-              </p>
-            </div>
-            <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {section.tools.map((t) => {
-                const Icon = t.icon;
-                const cardClass =
-                  'block h-full rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 hover:border-brand-500/40 dark:hover:border-brand-400/40 transition-colors group';
-                const inner = (
-                  <>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <Icon size={18} className="text-brand-600 dark:text-brand-400 shrink-0 mt-0.5" />
-                      <ArrowRight
-                        size={14}
-                        className="text-slate-300 dark:text-slate-700 group-hover:text-brand-500 dark:group-hover:text-brand-400 transition-colors mt-0.5 shrink-0"
-                      />
-                    </div>
-                    <div className="flex items-baseline justify-between gap-2 mb-1">
-                      <h3 className="font-display font-semibold text-base text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors flex items-center gap-1">
-                        {t.label}
-                        {t.external && <ExternalLink size={11} className="opacity-60" aria-hidden="true" />}
-                      </h3>
-                      {t.badge && (
-                        <span
-                          className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ${
-                            t.badge === 'live'
-                              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                              : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                          }`}
-                        >
-                          {t.badge}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[12px] font-mono text-slate-600 dark:text-slate-400 leading-relaxed">{t.desc}</p>
-                  </>
-                );
-                if (t.external) {
-                  return (
-                    <li key={t.to}>
-                      <a href={t.to} target="_blank" rel="noopener noreferrer" className={cardClass}>
-                        {inner}
-                      </a>
-                    </li>
-                  );
-                }
-                return (
-                  <li key={t.to}>
-                    <Link to={t.to} className={cardClass}>
-                      {inner}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))
+        <section className="animate-fade-in-up mb-12">
+          <h2 className="font-display font-bold text-2xl text-slate-900 dark:text-slate-100 mb-1">
+            Browse by category
+          </h2>
+          <p className="text-sm font-mono text-slate-500 mb-6">
+            Pick a surface to dive in, or use the search above to jump straight to a tool.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {SECTIONS.map((s) => (
+              <Link
+                key={s.id}
+                to={`/threatintel/c/${s.id}`}
+                className="group rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 hover:border-brand-500/40 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-display font-semibold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+                    {s.label}
+                  </span>
+                  <ArrowRight
+                    size={14}
+                    className="text-slate-300 dark:text-slate-700 group-hover:text-brand-500 transition-colors"
+                  />
+                </div>
+                <p className="text-[12px] font-mono text-slate-600 dark:text-slate-400 leading-relaxed">{s.blurb}</p>
+                <p className="mt-2 text-[11px] font-mono text-slate-400">
+                  {s.tools.length} {s.tools.length === 1 ? 'source' : 'sources'}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
-    </div>
-  );
-}
 
-function TiStat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-500">{label}</div>
-      <div
-        className={`font-display font-bold text-xl text-slate-900 dark:text-slate-100 ${mono ? 'font-mono text-sm' : ''}`}
-      >
-        {value}
-      </div>
+      <AppFooter
+        aboutTo="/threatintel/about"
+        blurb={`Privacy-first threat intelligence by ${personalInfo.name}. Live feeds aggregated at the edge. No tracking, no accounts. Reference only; verify indicators in your own environment.`}
+      />
     </div>
   );
 }

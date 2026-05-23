@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { BackLink } from '../../components/BackLink';
 import { ArrowLeft } from 'lucide-react';
 import { threatActors, type ActorStatus, type Sophistication } from '../../data/dfir/threat-actors';
 import { ActorCard } from '../../components/dfir/ActorCard';
@@ -24,16 +25,16 @@ export default function Actors(): JSX.Element {
   }, [search, status, sophistication]);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12 text-ink-1">
-      <Link
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
+      <BackLink
         to="/threatintel"
-        className="inline-flex items-center gap-2 text-sm text-ink-2 hover:text-accent mb-8 font-mono"
+        className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:text-brand-400 mb-8 font-mono"
       >
-        <ArrowLeft size={14} /> /threatintel
-      </Link>
-      <div>
-        <h1 className="text-4xl font-serif font-bold mb-2">Threat Actors</h1>
-        <p className="text-ink-2 mb-8 max-w-2xl">
+        <ArrowLeft size={14} /> back
+      </BackLink>
+      <div className="animate-fade-in-up">
+        <h1 className="text-3xl sm:text-4xl font-display font-bold mb-2">Threat Actors</h1>
+        <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-2xl">
           A catalog of known APT groups, ransomware operators, and threat actors. Click any card for details.
         </p>
       </div>
@@ -54,18 +55,22 @@ export default function Actors(): JSX.Element {
       </div>
 
       {filtered.length === 0 && (
-        <p className="font-mono text-sm text-ink-2 mt-8">No actors match the current filters.</p>
+        <p className="font-mono text-sm text-slate-600 dark:text-slate-400 mt-8">
+          No actors match the current filters.
+        </p>
       )}
 
-      <p className="mt-12 text-xs font-mono text-ink-2">
+      <p className="mt-12 text-xs font-mono text-slate-500">
         Showing {filtered.length} of {threatActors.length} actors.
       </p>
 
-      <section className="mt-6 border border-rule bg-surface-raised p-5">
-        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-accent mb-2">Have a STIX 2.1 bundle?</h2>
-        <p className="text-sm text-ink-1 leading-relaxed">
+      <section className="mt-6 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-5">
+        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400 mb-2">
+          Have a STIX 2.1 bundle?
+        </h2>
+        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
           Open the{' '}
-          <Link to="/dfir/stix" className="text-accent hover:underline font-semibold">
+          <Link to="/dfir/stix" className="text-brand-600 dark:text-brand-400 hover:underline font-semibold">
             STIX Viewer
           </Link>{' '}
           to paste a bundle and explore the relationship graph in your browser.

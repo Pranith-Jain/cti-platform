@@ -76,8 +76,7 @@ module.exports = {
       // dynamic-import targets, so static imports here are legitimate and
       // the rule must not fire.
       files: [
-        'src/pages/dfir/StixGraph.tsx',
-        'src/pages/dfir/ThreatMapChart.tsx',
+        'src/pages/threatintel/ThreatMapChart.tsx',
       ],
       rules: {
         '@typescript-eslint/no-restricted-imports': 'off',

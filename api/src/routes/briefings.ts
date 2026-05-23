@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+import type { D1Database } from '@cloudflare/workers-types';
 import type { Env } from '../env';
 import {
   BRIEFING_MAX_AGE_DAYS,
@@ -15,7 +16,7 @@ import { extractBriefingTags } from '../lib/briefing-tags';
 /**
  * Walk every finding in the briefing and attach auto-extracted tags
  * (CVE IDs, known ransomware actors, heuristic sector). Lazy — applied on
- * read so existing KV-stored briefings get tags without a backfill.
+ * read so existing DB-stored briefings get tags without a backfill.
  */
 function enrichBriefingWithTags(b: Briefing): Briefing {
   const sections = b.sections.map((s) => ({
@@ -28,45 +29,105 @@ function enrichBriefingWithTags(b: Briefing): Briefing {
   return { ...b, sections } as Briefing;
 }
 
-function kvOrError(c: Context<{ Bindings: Env }>): KVNamespace | null {
-  const kv = c.env.BRIEFINGS;
-  if (!kv) return null;
-  return kv;
+function dbOrError(c: Context<{ Bindings: Env }>): D1Database | null {
+  const db = c.env.BRIEFINGS_DB;
+  if (!db) return null;
+  return db;
 }
 
+/**
+ * Edge-cache key for briefing reads.
+ *
+ * `caches.default` stores the whole Response (headers included). Keying on the
+ * raw request URL means a Response cached by older code sticks around for its
+ * original max-age no matter what — that's why a 26-row D1 still showed 1
+ * briefing for hours after the restore. Keying on a *versioned* synthetic URL
+ * makes every cached entry disposable: bump BRIEFINGS_CACHE_VERSION and every
+ * stale briefing entry is abandoned on the next request (cache miss -> fresh
+ * D1 read). Also lets the cron bust the list after writing a briefing.
+ */
+const BRIEFINGS_CACHE_VERSION = 'v2';
+
+function briefingsCacheKey(c: Context<{ Bindings: Env }>): Request {
+  const u = new URL(c.req.url);
+  return new Request(`https://briefings-cache.internal/${BRIEFINGS_CACHE_VERSION}${u.pathname}${u.search}`, {
+    method: 'GET',
+  });
+}
+
+// Short TTL: a restore or the daily cron should surface within minutes, not
+// hours. SWR keeps it cheap (one revalidation per window, stale served free).
+const BRIEFINGS_CC = 'public, max-age=300, s-maxage=300, stale-while-revalidate=600';
+
 export async function listBriefingsHandler(c: Context<{ Bindings: Env }>) {
-  const kv = kvOrError(c);
-  if (!kv) return c.json({ error: 'briefings KV not bound' }, 503);
-  const typeRaw = c.req.query('type');
-  const type = typeRaw === 'daily' || typeRaw === 'weekly' ? (typeRaw as BriefingType) : undefined;
-  const limitRaw = c.req.query('limit');
-  const limit = limitRaw ? Math.min(Math.max(parseInt(limitRaw, 10) || 20, 1), 100) : 20;
-  const items = await listBriefings(kv, { type, limit });
-  return c.json({ items }, 200, { 'cache-control': 'public, max-age=300, s-maxage=600' });
+  const db = dbOrError(c);
+  if (!db) return c.json({ error: 'briefings database not bound' }, 503);
+  try {
+    const cache = caches.default;
+    const key = briefingsCacheKey(c);
+    const cached = await cache.match(key);
+    if (cached) return cached;
+
+    const typeRaw = c.req.query('type');
+    const type = typeRaw === 'daily' || typeRaw === 'weekly' ? (typeRaw as BriefingType) : undefined;
+    const limitRaw = c.req.query('limit');
+    const limit = limitRaw ? Math.min(Math.max(parseInt(limitRaw, 10) || 20, 1), 100) : 20;
+    const items = await listBriefings(db, { type, limit });
+    const res = c.json({ items }, 200, {
+      'cache-control': BRIEFINGS_CC,
+      'last-modified': new Date().toUTCString(),
+    });
+    c.executionCtx.waitUntil(cache.put(key, res.clone()));
+    return res;
+  } catch (err) {
+    // Log full detail to the worker's logs but never echo raw exception
+    // text to the client — D1/KV errors can hint at schema, column names,
+    // or internal storage shape. Generic message stays user-facing.
+    console.error('listBriefingsHandler error:', err);
+    return c.json({ error: 'briefings list failed' }, 500);
+  }
 }
 
 export async function getBriefingHandler(c: Context<{ Bindings: Env }>) {
-  const kv = kvOrError(c);
-  if (!kv) return c.json({ error: 'briefings KV not bound' }, 503);
+  const db = dbOrError(c);
+  if (!db) return c.json({ error: 'briefings database not bound' }, 503);
   const slug = c.req.param('slug');
   if (!slug || !/^[a-z0-9-]+$/i.test(slug)) {
     return c.json({ error: 'invalid slug' }, 400);
   }
-  const briefing = await readBriefing(kv, slug);
+  const cache = caches.default;
+  const key = briefingsCacheKey(c);
+  const cached = await cache.match(key);
+  if (cached) return cached;
+  const briefing = await readBriefing(db, slug);
   if (!briefing) return c.json({ error: 'not found' }, 404);
-  return c.json(enrichBriefingWithTags(briefing), 200, { 'cache-control': 'public, max-age=600, s-maxage=1800' });
+  const res = c.json(enrichBriefingWithTags(briefing), 200, {
+    'cache-control': BRIEFINGS_CC,
+    'last-modified': new Date().toUTCString(),
+  });
+  c.executionCtx.waitUntil(cache.put(key, res.clone()));
+  return res;
 }
 
 export async function todayBriefingHandler(c: Context<{ Bindings: Env }>) {
-  const kv = kvOrError(c);
-  if (!kv) return c.json({ error: 'briefings KV not bound' }, 503);
+  const db = dbOrError(c);
+  if (!db) return c.json({ error: 'briefings database not bound' }, 503);
+  const cache = caches.default;
+  const key = briefingsCacheKey(c);
+  const cached = await cache.match(key);
+  if (cached) return cached;
   // "today's" briefing covers the previous calendar day (latest fully-closed window)
   const now = new Date();
   const yesterday = new Date(now.getTime() - 86400_000);
   const slug = `daily-${yesterday.toISOString().slice(0, 10)}`;
-  const briefing = await readBriefing(kv, slug);
+  const briefing = await readBriefing(db, slug);
   if (!briefing) return c.json({ error: 'not yet generated', slug }, 404);
-  return c.json(enrichBriefingWithTags(briefing), 200, { 'cache-control': 'public, max-age=300' });
+  const res = c.json(enrichBriefingWithTags(briefing), 200, {
+    'cache-control': BRIEFINGS_CC,
+    'last-modified': new Date().toUTCString(),
+  });
+  c.executionCtx.waitUntil(cache.put(key, res.clone()));
+  return res;
 }
 
 /**
@@ -83,29 +144,22 @@ function safeEqual(a: string, b: string): boolean {
 
 type AdminCtx = Context<{ Bindings: Env & { BRIEFINGS_ADMIN_TOKEN?: string } }>;
 
-/**
- * Returns a Response on auth failure (caller `return`s it), or null on success.
- * Prefers `Authorization: Bearer <token>`. Falls back to legacy `?token=...`
- * for one transition window — when the legacy path is used, we set
- * `Deprecation: true` on the eventual success response and log a warning so
- * tooling can migrate. The legacy path will be removed in a future version.
- */
-function requireAdmin(c: AdminCtx): { error: Response } | { ok: true; deprecated: boolean } {
+function requireAdmin(c: AdminCtx): { error: Response } | { ok: true } {
   const required = c.env.BRIEFINGS_ADMIN_TOKEN;
   if (!required) {
     return { error: c.json({ error: 'admin endpoint disabled (BRIEFINGS_ADMIN_TOKEN not set)' }, 403) };
   }
 
+  // Extract the candidate token (empty string when the prefix is missing)
+  // and pass it unconditionally into safeEqual. The previous `headerToken &&
+  // safeEqual(...)` short-circuit returned 401 faster for malformed prefixes
+  // than for "right prefix, wrong token" — a hairline timing oracle. The
+  // length-mismatch fast-path inside safeEqual is acceptable since the token
+  // length isn't secret.
   const authz = c.req.header('authorization') ?? '';
-  const headerToken = /^Bearer\s+(.+)$/i.exec(authz)?.[1];
-  if (headerToken && safeEqual(headerToken, required)) {
-    return { ok: true, deprecated: false };
-  }
-
-  const queryToken = c.req.query('token');
-  if (queryToken && safeEqual(queryToken, required)) {
-    console.warn('briefing admin: legacy ?token= used — migrate to Authorization: Bearer header');
-    return { ok: true, deprecated: true };
+  const headerToken = /^Bearer\s+(.+)$/i.exec(authz)?.[1] ?? '';
+  if (safeEqual(headerToken, required)) {
+    return { ok: true };
   }
 
   return {
@@ -119,24 +173,13 @@ function requireAdmin(c: AdminCtx): { error: Response } | { ok: true; deprecated
   };
 }
 
-function withDeprecation<T>(c: AdminCtx, body: T, status: 200 | 207 | 500, deprecated: boolean): Response {
-  const headers: Record<string, string> = {};
-  if (deprecated) {
-    headers.Deprecation = 'true';
-    headers.Warning = '299 - "?token= is deprecated; use Authorization: Bearer header"';
-  }
-  return c.json(body as Record<string, unknown>, status, headers);
-}
-
 /**
- * Trigger an on-demand briefing build. Authenticated via Authorization: Bearer
- * header (legacy ?token= still accepted but deprecated).
- *
+ * Trigger an on-demand briefing build. Authenticated via Authorization: Bearer header.
  * Set BRIEFINGS_ADMIN_TOKEN as a Worker secret. If unset, this handler is disabled.
  */
 export async function buildBriefingHandler(c: AdminCtx) {
-  const kv = kvOrError(c);
-  if (!kv) return c.json({ error: 'briefings KV not bound' }, 503);
+  const db = c.env.BRIEFINGS_DB;
+  if (!db) return c.json({ error: 'briefings database not bound' }, 503);
   const auth = requireAdmin(c);
   if ('error' in auth) return auth.error;
 
@@ -146,15 +189,18 @@ export async function buildBriefingHandler(c: AdminCtx) {
   }
 
   try {
-    const briefing = await buildBriefing(typeRaw as BriefingType);
-    await writeBriefing(kv, briefing);
-    return withDeprecation(c, { ok: true, slug: briefing.slug, stats: briefing.stats }, 200, auth.deprecated);
+    const briefing = await buildBriefing(typeRaw as BriefingType, undefined, {
+      nvdApiKey: c.env.NVD_API_KEY,
+      env: c.env,
+    });
+    await writeBriefing(db, briefing);
+    return c.json({ ok: true, slug: briefing.slug, stats: briefing.stats }, 200);
   } catch (err) {
+    console.error('briefing build failed:', err);
     return c.json(
       {
         error: 'briefing build failed',
         type: typeRaw,
-        detail: err instanceof Error ? err.message : String(err),
       },
       500
     );
@@ -174,8 +220,8 @@ export async function buildBriefingHandler(c: AdminCtx) {
  *   500 if absolutely nothing succeeded.
  */
 export async function backfillBriefingsHandler(c: AdminCtx) {
-  const kv = kvOrError(c);
-  if (!kv) return c.json({ error: 'briefings KV not bound' }, 503);
+  const db = c.env.BRIEFINGS_DB;
+  if (!db) return c.json({ error: 'briefings database not bound' }, 503);
   const auth = requireAdmin(c);
   if ('error' in auth) return auth.error;
 
@@ -194,22 +240,24 @@ export async function backfillBriefingsHandler(c: AdminCtx) {
   for (let i = 0; i < days; i += 1) {
     const anchor = new Date(Date.now() - i * 86400_000);
     try {
-      const briefing = await buildBriefing('daily', anchor);
-      const result = await writeBriefing(kv, briefing, { skipIfExists: !force });
+      const briefing = await buildBriefing('daily', anchor, { nvdApiKey: c.env.NVD_API_KEY, env: c.env });
+      const result = await writeBriefing(db, briefing, { skipIfExists: !force });
       (result.written ? writtenDaily : skippedDaily).push(briefing.slug);
     } catch (err) {
-      failures.push({ kind: 'daily', offset: i, error: err instanceof Error ? err.message : String(err) });
+      console.error('backfill daily failed:', err);
+      failures.push({ kind: 'daily', offset: i, error: 'build failed' });
     }
   }
 
   for (let i = 0; i < weeks; i += 1) {
     const anchor = new Date(Date.now() - i * 7 * 86400_000);
     try {
-      const briefing = await buildBriefing('weekly', anchor);
-      const result = await writeBriefing(kv, briefing, { skipIfExists: !force });
+      const briefing = await buildBriefing('weekly', anchor, { nvdApiKey: c.env.NVD_API_KEY, env: c.env });
+      const result = await writeBriefing(db, briefing, { skipIfExists: !force });
       (result.written ? writtenWeekly : skippedWeekly).push(briefing.slug);
     } catch (err) {
-      failures.push({ kind: 'weekly', offset: i, error: err instanceof Error ? err.message : String(err) });
+      console.error('backfill weekly failed:', err);
+      failures.push({ kind: 'weekly', offset: i, error: 'build failed' });
     }
   }
 
@@ -217,8 +265,7 @@ export async function backfillBriefingsHandler(c: AdminCtx) {
   const totalSucceeded = writtenDaily.length + skippedDaily.length + writtenWeekly.length + skippedWeekly.length;
   const status: 200 | 207 | 500 = totalSucceeded === 0 && totalAttempted > 0 ? 500 : failures.length > 0 ? 207 : 200;
 
-  return withDeprecation(
-    c,
+  return c.json(
     {
       ok: failures.length === 0,
       force,
@@ -228,8 +275,7 @@ export async function backfillBriefingsHandler(c: AdminCtx) {
       weekly_skipped: skippedWeekly,
       failures,
     },
-    status,
-    auth.deprecated
+    status
   );
 }
 
@@ -240,8 +286,8 @@ export async function backfillBriefingsHandler(c: AdminCtx) {
  * to the ceiling so the sweep can never extend retention beyond policy.
  */
 export async function sweepBriefingsHandler(c: AdminCtx) {
-  const kv = kvOrError(c);
-  if (!kv) return c.json({ error: 'briefings KV not bound' }, 503);
+  const db = c.env.BRIEFINGS_DB;
+  if (!db) return c.json({ error: 'briefings database not bound' }, 503);
   const auth = requireAdmin(c);
   if ('error' in auth) return auth.error;
 
@@ -250,14 +296,14 @@ export async function sweepBriefingsHandler(c: AdminCtx) {
   const maxAge = Math.min(requested, BRIEFING_MAX_AGE_DAYS);
 
   try {
-    const result = await sweepOldBriefings(kv, maxAge);
-    return withDeprecation(c, { ok: true, max_age_days: maxAge, ...result }, 200, auth.deprecated);
+    const result = await sweepOldBriefings(db, maxAge);
+    return c.json({ ok: true, max_age_days: maxAge, ...result }, 200);
   } catch (err) {
+    console.error('sweep failed:', err);
     return c.json(
       {
         error: 'sweep failed',
         max_age_days: maxAge,
-        detail: err instanceof Error ? err.message : String(err),
       },
       500
     );

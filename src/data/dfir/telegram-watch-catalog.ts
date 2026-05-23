@@ -213,6 +213,18 @@ export const CATALOG: TelegramEntry[] = [
     description:
       'High-volume breach-repost channel — fresh database dumps, sample releases, and breach announcements aggregated from multiple sources.',
   },
+  {
+    id: 'leakradar-io',
+    name: 'LeakRadar',
+    handle: 'leakradar_io',
+    attribution: 'leakradar.io',
+    categories: ['breach-leaks', 'stealer-logs'],
+    language: 'en',
+    audience: 'public-channel',
+    description:
+      'Official LeakRadar channel — fresh stealer-log drops, breach-file indexing alerts, and combolist availability notices from the 290B+ credential corpus they index. Pairs with leakradar.io for searchable access.',
+    badge: 'research',
+  },
 
   // ─────────────────────────────────────────────────────────────────────
   // Security news mirrors
@@ -256,6 +268,18 @@ export const CATALOG: TelegramEntry[] = [
     language: 'en',
     audience: 'public-channel',
     description: 'Official CyberScoop mirror — strong on government / federal-cyber and policy coverage.',
+  },
+  {
+    id: 'darkfeednews',
+    name: 'DarkfeedNews',
+    handle: 'DarkfeedNews',
+    attribution: 't.me/DarkfeedNews',
+    categories: ['security-news', 'threat-intel'],
+    language: 'en',
+    audience: 'public-channel',
+    description:
+      'Real-time cyber threat intelligence feed — fresh IOCs, breach announcements, ransomware claims, and dark-web activity aggregated from multiple sources. High-volume; best paired with keyword filtering.',
+    badge: 'essential',
   },
 
   // ─────────────────────────────────────────────────────────────────────

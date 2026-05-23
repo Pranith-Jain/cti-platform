@@ -15,6 +15,13 @@ import { IOC_CORRELATION_CACHE_KEY } from './ioc-correlation';
 import { ACTOR_TIMELINE_CACHE_KEY } from './actor-timeline';
 import { VICTIM_RELEAKS_CACHE_KEY } from './victim-releaks';
 import { LIVE_IOCS_CACHE_KEY } from './live-iocs';
+import { CYBERCRIME_CACHE_KEY } from './cybercrime';
+import { DEEPDARKCTI_CACHE_KEY } from './deepdarkcti';
+import { rlProxyCacheKey } from './ransomwarelive';
+import { NEGOTIATIONS_CACHE_KEY } from './negotiations';
+import { STEALER_FORUM_INTEL_CACHE_KEY } from './stealer-forum-intel';
+import { BREACH_FORUMS_CACHE_KEY } from './breach-forums';
+import { INTEL_BUNDLE_CACHE_KEY } from './intel-bundle';
 
 /**
  * Feed-status dashboard. Reads every per-feed edge-cache entry directly
@@ -29,7 +36,7 @@ import { LIVE_IOCS_CACHE_KEY } from './live-iocs';
  */
 
 const CACHE_TTL = 5 * 60;
-const FEED_STATUS_CACHE_KEY = 'https://feed-status-cache.internal/v2-cachereads';
+const FEED_STATUS_CACHE_KEY = 'https://feed-status-cache.internal/v4-af-ddc';
 
 type Status = 'ok' | 'degraded' | 'down' | 'cold';
 
@@ -349,7 +356,14 @@ const PROBES: FeedProbeSpec[] = [
     api_path: '/api/v1/actor-timeline',
     cache_key: ACTOR_TIMELINE_CACHE_KEY,
     evaluate: (body) => {
-      const groups = (arrField(body, 'groups') ?? []).length;
+      const groupRows = arrField(body, 'groups') ?? [];
+      const groups = groupRows.length;
+      // Per-group fetch failures are now backfilled from /api/recent rather
+      // than warned about; `partial` rows are the new "ransomlook was flaky"
+      // signal. Surface that count so observability isn't lost.
+      const partial = groupRows.filter(
+        (g) => typeof g === 'object' && g !== null && (g as { partial?: unknown }).partial === true
+      ).length;
       const warnings = (arrField(body, 'warnings') ?? []).length;
       const ageS = ageSeconds(strField(body, 'generated_at'));
       const status: Status = groups >= 5 ? 'ok' : groups > 0 ? 'degraded' : 'down';
@@ -357,9 +371,9 @@ const PROBES: FeedProbeSpec[] = [
         status,
         reason:
           groups > 0
-            ? `${groups} active groups · ${warnings} per-group fetch warnings`
+            ? `${groups} active groups${partial > 0 ? ` · ${partial} recent-feed backfilled` : ''}`
             : 'Ransomlook per-group endpoints unreachable',
-        metrics: { groups, warnings },
+        metrics: { groups, partial, warnings },
         ageS,
       };
     },
@@ -403,6 +417,214 @@ const PROBES: FeedProbeSpec[] = [
         status,
         reason: `${okSrc} / ${sources.length} feeds · ${correlated} correlated of ${scanned.toLocaleString()} scanned`,
         metrics: { correlated, scanned, sources_ok: okSrc },
+        ageS,
+      };
+    },
+  },
+  {
+    id: 'af-datamarkets',
+    label: 'AF Datamarkets',
+    page_path: '/threatintel/cyber-crime',
+    api_path: '/api/v1/cyber-crime',
+    cache_key: CYBERCRIME_CACHE_KEY,
+    evaluate: (body) => {
+      const sources = (body as { sources?: Array<{ label?: string; ok?: boolean; count?: number; stale?: boolean }> })
+        ?.sources;
+      const row = Array.isArray(sources) ? sources.find((s) => s.label === 'AndreaFortuna Datamarkets') : undefined;
+      if (!row) return { status: 'cold' as const, reason: 'no AF row in cybercrime cache' };
+      if (row.ok && !row.stale)
+        return { status: 'ok' as const, reason: `${row.count ?? 0} items`, metrics: { items: row.count ?? 0 } };
+      if (row.ok && row.stale) return { status: 'degraded' as const, reason: 'serving stale (last-good fallback)' };
+      return { status: 'down' as const, reason: 'upstream failed; no fallback' };
+    },
+  },
+  {
+    id: 'af-defacements',
+    label: 'AF Defacements',
+    page_path: '/threatintel/live-iocs',
+    api_path: '/api/v1/live-iocs',
+    cache_key: LIVE_IOCS_CACHE_KEY,
+    evaluate: (body) => {
+      const sources = (
+        body as {
+          sources?: Array<{ id?: string; ok?: boolean; count?: number; stale?: boolean; newest_observation?: string }>;
+        }
+      )?.sources;
+      const row = Array.isArray(sources) ? sources.find((s) => s.id === 'andreafortuna-defacements') : undefined;
+      if (!row) return { status: 'cold' as const, reason: 'no AF row in live-iocs cache' };
+      if (row.ok && !row.stale) {
+        return {
+          status: 'ok' as const,
+          reason: `${row.count ?? 0} items`,
+          metrics: { items: row.count ?? 0 },
+          ageS: row.newest_observation
+            ? Math.max(0, Math.round((Date.now() - Date.parse(row.newest_observation)) / 1000))
+            : undefined,
+        };
+      }
+      if (row.ok && row.stale) return { status: 'degraded' as const, reason: 'serving stale (last-good fallback)' };
+      return { status: 'down' as const, reason: 'upstream failed; no fallback' };
+    },
+  },
+  {
+    id: 'deepdarkcti',
+    label: 'deepdarkCTI Index',
+    page_path: '/threatintel/deepdarkcti',
+    api_path: '/api/v1/deepdarkcti',
+    cache_key: DEEPDARKCTI_CACHE_KEY,
+    evaluate: (body) => {
+      const b = body as {
+        sources?: Array<{ ok?: boolean; stale?: boolean }>;
+        total?: number;
+      };
+      if (!b || !Array.isArray(b.sources)) {
+        return { status: 'cold' as const, reason: 'no cached payload (visit the page once to warm the cache)' };
+      }
+      const total = b.total ?? 0;
+      const files = b.sources.length;
+      if (total === 0) return { status: 'down' as const, reason: 'all sources empty' };
+      const anyStale = b.sources.some((s) => s.stale);
+      const anyHardFail = b.sources.some((s) => !s.ok && !s.stale);
+      if (anyHardFail || anyStale) {
+        return {
+          status: 'degraded' as const,
+          reason: anyStale ? 'serving stale slices (last-good)' : 'some sources failed',
+          metrics: { files, entries: total },
+        };
+      }
+      return { status: 'ok' as const, reason: `${total} entries`, metrics: { files, entries: total } };
+    },
+  },
+  {
+    id: 'negotiations',
+    label: 'Ransomware negotiations (RL PRO fan-out + Casualtek)',
+    page_path: '/threatintel/negotiations',
+    api_path: '/api/v1/negotiations',
+    cache_key: NEGOTIATIONS_CACHE_KEY,
+    evaluate: (body) => {
+      const ageS = ageSeconds(strField(body, 'generated_at'));
+      const count = (arrField(body, 'negotiations') ?? []).length;
+      const groups = (arrField(body, 'groups') ?? []).length;
+      const status: Status = count > 0 ? 'ok' : 'down';
+      return {
+        status,
+        reason: count > 0 ? `${count} negotiations · ${groups} groups` : 'no negotiation records',
+        metrics: { negotiations: count, groups },
+        ageS,
+      };
+    },
+  },
+  {
+    id: 'rl-cyberattacks',
+    label: 'Ransomware cyber-attacks (ransomware.live PRO)',
+    page_path: '/dfir/yara',
+    api_path: '/api/v1/rl/cyberattacks',
+    cache_key: rlProxyCacheKey('cyberattacks'),
+    evaluate: (body) => {
+      const ageS = ageSeconds(strField(body, 'fetched_at'));
+      const data = (body as { data?: unknown } | null)?.data;
+      let count = 0;
+      if (Array.isArray(data)) count = data.length;
+      else if (data && typeof data === 'object') {
+        for (const k of ['victims', 'attacks', 'results', 'data', 'items']) {
+          const v = (data as Record<string, unknown>)[k];
+          if (Array.isArray(v)) {
+            count = v.length;
+            break;
+          }
+        }
+      }
+      const status: Status = count > 0 ? 'ok' : 'down';
+      return {
+        status,
+        reason: count > 0 ? `${count} recent attacks` : 'no attack records in cached payload',
+        metrics: { attacks: count },
+        ageS,
+      };
+    },
+  },
+  {
+    id: 'stealer-forum-intel',
+    label: 'Combo & stealer-forum intel (deepdarkCTI + chatter)',
+    page_path: '/threatintel/infostealer',
+    api_path: '/api/v1/stealer-forum-intel',
+    cache_key: STEALER_FORUM_INTEL_CACHE_KEY,
+    evaluate: (body) => {
+      const ageS = ageSeconds(strField(body, 'generated_at'));
+      const forums = arrField(body, 'forums') ?? [];
+      const tracked = (body as { totals?: { tracked_sources?: number } } | null)?.totals?.tracked_sources ?? 0;
+      const status: Status = forums.length > 0 ? 'ok' : 'down';
+      return {
+        status,
+        reason: forums.length > 0 ? `${tracked} tracked sources · ${forums.length} categories` : 'no directory rows',
+        metrics: { tracked_sources: tracked, categories: forums.length },
+        ageS,
+      };
+    },
+  },
+  {
+    id: 'breach-forums',
+    label: 'Breach / leak-forum tracker (deepdarkCTI + curated)',
+    page_path: '/threatintel/breach-forums',
+    api_path: '/api/v1/breach-forums',
+    cache_key: BREACH_FORUMS_CACHE_KEY,
+    evaluate: (body) => {
+      const ageS = ageSeconds(strField(body, 'generated_at'));
+      const rows = (arrField(body, 'rows') ?? []).length;
+      // The curated list is always present; healthy = curated + directory.
+      const dir = (body as { totals?: { directory?: number } } | null)?.totals?.directory ?? 0;
+      const status: Status = rows > 0 ? (dir > 0 ? 'ok' : 'degraded') : 'down';
+      return {
+        status,
+        reason: rows > 0 ? `${rows} forums (${dir} from directory)` : 'no rows',
+        metrics: { rows, directory: dir },
+        ageS,
+      };
+    },
+  },
+  {
+    id: 'intel-bundle',
+    label: 'STIX 2.1 intel-bundle pipeline',
+    page_path: '/threatintel',
+    api_path: '/api/v1/intel-bundle',
+    cache_key: INTEL_BUNDLE_CACHE_KEY,
+    evaluate: (body) => {
+      const ageS = ageSeconds(strField(body, 'generated_at'));
+      const bundles = intField(body, 'bundles') ?? 0;
+      const iocs = intField(body, 'ioc_total') ?? 0;
+      const actors = intField(body, 'actor_total') ?? 0;
+      const malware = intField(body, 'malware_total') ?? 0;
+      // Bulk-enrich budget telemetry from the most recent build. Sustained
+      // high `last_dropped` is the signal that MAX_FRESH_SUBREQUESTS=35 is
+      // biting and the cap (or the provider list) needs retuning.
+      const lastFresh = intField(body, 'last_fresh_subrequests') ?? 0;
+      const lastDropped = intField(body, 'last_dropped_subrequests') ?? 0;
+      const lastOverflow = intField(body, 'last_overflow') ?? 0;
+      let status: Status = bundles > 0 ? 'ok' : 'cold';
+      // Heavy drop ratio on the latest build → degraded. Bundles still
+      // ship, but a meaningful share of provider depth was sheared off.
+      if (status === 'ok' && lastFresh + lastDropped > 0) {
+        const dropRatio = lastDropped / (lastFresh + lastDropped);
+        if (dropRatio >= 0.5) status = 'degraded';
+      }
+      const reason =
+        bundles > 0
+          ? `${bundles} bundles · ${iocs} IoCs · ${actors} actors · ${malware} malware` +
+            (lastDropped > 0 ? ` · ${lastDropped} provider lookups dropped on last build` : '') +
+            (lastOverflow > 0 ? ` · ${lastOverflow} IoCs overflowed` : '')
+          : 'no bundles yet (open any /threatintel page to warm)';
+      return {
+        status,
+        reason,
+        metrics: {
+          bundles,
+          ioc_total: iocs,
+          actor_total: actors,
+          malware_total: malware,
+          last_fresh_subrequests: lastFresh,
+          last_dropped_subrequests: lastDropped,
+          last_overflow: lastOverflow,
+        },
         ageS,
       };
     },

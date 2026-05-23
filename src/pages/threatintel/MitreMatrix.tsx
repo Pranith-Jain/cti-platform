@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { BackLink } from '../../components/BackLink';
 import { ArrowLeft, ExternalLink, Search, X } from 'lucide-react';
 import { mitreMatrix } from '../../data/dfir/mitre-matrix';
 import { threatActors } from '../../data/dfir/threat-actors';
@@ -239,33 +240,33 @@ export default function MitreMatrix(): JSX.Element {
   }, [coverage, totalTechniques]);
 
   return (
-    <div className="max-w-full px-8 py-12 text-ink-1">
+    <div className="max-w-full px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
       <div className="max-w-7xl mx-auto">
-        <Link
+        <BackLink
           to="/threatintel"
-          className="inline-flex items-center gap-2 text-sm text-ink-2 hover:text-accent mb-8 font-mono"
+          className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 mb-8 font-mono"
         >
-          <ArrowLeft size={14} /> /threatintel
-        </Link>
+          <ArrowLeft size={14} /> back
+        </BackLink>
 
-        <div>
-          <h1 className="text-4xl font-serif font-bold mb-2">MITRE ATT&amp;CK</h1>
-          <p className="text-ink-2 mb-2 max-w-3xl">
+        <div className="animate-fade-in-up">
+          <h1 className="text-3xl sm:text-4xl font-display font-bold mb-2">MITRE ATT&amp;CK</h1>
+          <p className="text-slate-600 dark:text-slate-400 mb-2 max-w-3xl">
             Enterprise tactics and techniques. Click any technique tile to open a side drawer with description, tactics,
             platforms, data sources, detection guidance, related techniques, and tracked actors that use it. Highlighted
             tiles indicate techniques observed in actor tradecraft.
           </p>
-          <div className="flex flex-wrap items-center gap-4 text-sm font-mono text-ink-2 mb-3">
+          <div className="flex flex-wrap items-center gap-4 text-sm font-mono text-slate-500 mb-3">
             <span>
-              <span className="text-ink-1">{totalTactics}</span> tactics
+              <span className="text-slate-900 dark:text-slate-100">{totalTactics}</span> tactics
             </span>
             <span aria-hidden="true">·</span>
             <span>
-              <span className="text-ink-1">{totalTechniques}</span> techniques
+              <span className="text-slate-900 dark:text-slate-100">{totalTechniques}</span> techniques
             </span>
             <span aria-hidden="true">·</span>
             <span>
-              <span className="text-ink-1">{usedByActors.size}</span> actor-tracked IDs
+              <span className="text-slate-900 dark:text-slate-100">{usedByActors.size}</span> actor-tracked IDs
             </span>
             {coverageStats.covered + coverageStats.partial + coverageStats.uncovered > 0 && (
               <>
@@ -283,7 +284,7 @@ export default function MitreMatrix(): JSX.Element {
                     <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                     {coverageStats.uncovered}
                   </span>
-                  <span className="text-ink-2">tagged</span>
+                  <span className="text-slate-500">tagged</span>
                 </span>
               </>
             )}
@@ -298,14 +299,14 @@ export default function MitreMatrix(): JSX.Element {
 
         {/* Search + coverage toolbar */}
         <div className="flex flex-wrap items-center gap-2 mb-8">
-          <div className="relative flex-1 min-w-0 w-full sm:min-w-[260px] sm:max-w-md">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+          <div className="relative flex-1 min-w-[260px] max-w-md">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search ID, name, or description — matches highlight, others dim…"
-              className="w-full pl-9 pr-4 py-2.5 bg-surface-page border border-rule font-mono text-sm text-ink-1 placeholder:text-ink-3 focus:outline-none"
+              className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-mono text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
               aria-label="Search MITRE ATT&CK techniques"
             />
           </div>
@@ -315,7 +316,7 @@ export default function MitreMatrix(): JSX.Element {
             className={`text-xs font-mono px-3 py-2 rounded border transition-colors ${
               coverageMode
                 ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                : 'border-rule text-ink-2 hover:border-emerald-500/40'
+                : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-emerald-500/40'
             }`}
             title="In coverage mode, clicking a tile cycles its detection-coverage tag instead of opening the drawer."
           >
@@ -327,7 +328,7 @@ export default function MitreMatrix(): JSX.Element {
             className={`text-xs font-mono px-3 py-2 rounded border transition-colors ${
               showGapsOnly
                 ? 'border-rose-500/60 bg-rose-500/15 text-rose-700 dark:text-rose-300'
-                : 'border-rule text-ink-2 hover:border-rose-500/40'
+                : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-rose-500/40'
             }`}
             title="Show only techniques tagged uncovered/partial or untagged — your detection gap."
           >
@@ -339,7 +340,7 @@ export default function MitreMatrix(): JSX.Element {
               onClick={() => {
                 if (window.confirm('Clear all coverage tags?')) setCoverage({});
               }}
-              className="text-xs font-mono px-3 py-2 rounded border border-rule text-ink-2 hover:border-rose-500/40 hover:text-rose-600 dark:hover:text-rose-400"
+              className="text-xs font-mono px-3 py-2 rounded border border-slate-300 dark:border-slate-700 text-slate-500 hover:border-rose-500/40 hover:text-rose-600 dark:hover:text-rose-400"
             >
               clear tags
             </button>
@@ -348,19 +349,22 @@ export default function MitreMatrix(): JSX.Element {
 
         {coverageMode && (
           <p className="text-[11px] font-mono text-emerald-700 dark:text-emerald-300 mb-4">
-            Click a tile to cycle: <span className="text-ink-2">none →</span>{' '}
+            Click a tile to cycle: <span className="text-slate-500">none →</span>{' '}
             <span className="text-emerald-600">covered →</span> <span className="text-amber-600">partial →</span>{' '}
-            <span className="text-rose-600">uncovered →</span> <span className="text-ink-2">none</span>. Saved to this
-            browser's localStorage.
+            <span className="text-rose-600">uncovered →</span> <span className="text-slate-500">none</span>. Saved to
+            this browser's localStorage.
           </p>
         )}
 
         {visibleMatrix.length === 0 && (
-          <p className="font-mono text-ink-2 text-sm">No techniques to show with current filters.</p>
+          <p className="font-mono text-slate-500 text-sm">No techniques to show with current filters.</p>
         )}
 
-        {/* Matrix — horizontally scrollable */}
-        <div className="overflow-x-auto pb-4">
+        {/* Matrix — horizontally scrollable; explicit hint so touch users know to swipe */}
+        <p className="sm:hidden text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-2 italic">
+          Swipe horizontally to scan tactics →
+        </p>
+        <div className="overflow-x-auto pb-4 -mx-4 sm:mx-0 px-4 sm:px-0">
           <div className="flex gap-3 min-w-max">
             {visibleMatrix.map((tactic) => (
               <div key={tactic.id} className="w-52 flex-shrink-0">
@@ -373,10 +377,10 @@ export default function MitreMatrix(): JSX.Element {
                     className="block"
                     title={tactic.description}
                   >
-                    <div className="text-[10px] font-mono text-accent font-bold uppercase tracking-wider">
+                    <div className="text-[10px] font-mono text-brand-600 dark:text-brand-400 font-bold uppercase tracking-wider">
                       {tactic.id}
                     </div>
-                    <div className="text-sm font-serif font-semibold text-ink-1 flex items-center gap-1 hover:text-accent transition-colors">
+                    <div className="text-sm font-display font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
                       {tactic.name}
                       <ExternalLink size={10} className="opacity-50 flex-shrink-0" />
                     </div>
@@ -400,13 +404,13 @@ export default function MitreMatrix(): JSX.Element {
                         type="button"
                         onClick={() => (coverageMode ? cycleCoverage(technique.id) : openTechnique(technique.id))}
                         className={[
-                          'group relative block w-full rounded-md border px-2.5 py-2 text-left transition-all',
-                          isSelected ? 'ring-2 ring-rule' : '',
+                          'group relative block w-full rounded-md border px-2.5 py-2 text-left transition-all hover:shadow-sm',
+                          isSelected ? 'ring-2 ring-brand-500/60 dark:ring-brand-400/60' : '',
                           isHighlighted ? 'ring-2 ring-cyan-500/60 dark:ring-cyan-400/60' : '',
                           isDimmed ? 'opacity-30' : '',
                           isUsed
-                            ? 'bg-accent-soft border-rule hover:bg-accent-soft'
-                            : 'bg-surface-raised border-rule hover:bg-surface-raised dark:hover:bg-accent-soft',
+                            ? 'bg-brand-500/10 border-brand-500/40 hover:bg-brand-500/20 dark:bg-brand-400/10 dark:border-brand-400/40 dark:hover:bg-brand-400/20'
+                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700',
                         ].join(' ')}
                         title={
                           coverageMode
@@ -421,19 +425,19 @@ export default function MitreMatrix(): JSX.Element {
                             aria-label={`coverage: ${COVERAGE_LABEL[cov]}`}
                           />
                         )}
-                        <div className="text-[10px] font-mono text-ink-2">{technique.id}</div>
-                        <div className="text-xs font-medium text-ink-1 leading-tight line-clamp-2 mt-0.5">
+                        <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">{technique.id}</div>
+                        <div className="text-[13px] sm:text-xs font-medium text-slate-800 dark:text-slate-200 leading-snug line-clamp-2 mt-0.5">
                           {technique.name}
                         </div>
                         {isUsed && (
-                          <div className="mt-1 text-[10px] font-mono text-accent font-semibold">
+                          <div className="mt-1 text-[10px] font-mono text-brand-700 dark:text-brand-300 font-semibold">
                             {actors.length === 1 && actors[0]
                               ? `Used by ${actors[0].name}`
                               : `Used by ${actors.length} actors`}
                           </div>
                         )}
                         {technique.subtechniques && technique.subtechniques.length > 0 && (
-                          <div className="mt-1 text-[10px] font-mono text-ink-3">
+                          <div className="mt-1 text-[10px] font-mono text-slate-400 dark:text-slate-500">
                             +{technique.subtechniques.length} sub-techniques
                           </div>
                         )}
@@ -447,13 +451,13 @@ export default function MitreMatrix(): JSX.Element {
         </div>
 
         {/* Legend */}
-        <div className="mt-8 flex flex-wrap gap-4 text-xs font-mono text-ink-2">
+        <div className="mt-8 flex flex-wrap gap-4 text-xs font-mono text-slate-500">
           <div className="flex items-center gap-2">
-            <span className="inline-block w-4 h-4 rounded border bg-surface-raised border-rule" />
+            <span className="inline-block w-4 h-4 rounded border bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700" />
             Technique (not actor-tracked)
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-block w-4 h-4 rounded border bg-accent-soft border-rule" />
+            <span className="inline-block w-4 h-4 rounded border bg-brand-500/10 border-brand-500/40" />
             Technique used by a tracked threat actor
           </div>
         </div>
@@ -464,7 +468,7 @@ export default function MitreMatrix(): JSX.Element {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-40 bg-slate-900/40 dark:bg-slate-950/60"
+            className="fixed inset-0 z-40 bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-sm"
             onClick={closeDrawer}
             aria-hidden="true"
           />
@@ -473,53 +477,58 @@ export default function MitreMatrix(): JSX.Element {
             role="dialog"
             aria-modal="true"
             aria-labelledby="mitre-detail-title"
-            className="fixed right-0 top-0 z-50 h-full w-full max-w-xl overflow-y-auto bg-surface-page border-l border-rule"
+            className="fixed right-0 top-0 z-50 h-full w-full max-w-xl overflow-y-auto bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl"
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 bg-surface-page border-b border-rule">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-4 bg-white/95 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 backdrop-blur">
               <div className="min-w-0">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-accent">{selectedId}</span>
-                <h2 id="mitre-detail-title" className="font-serif font-bold text-lg text-ink-1 truncate">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                  {selectedId}
+                </span>
+                <h2
+                  id="mitre-detail-title"
+                  className="font-display font-bold text-lg text-slate-900 dark:text-slate-100 truncate"
+                >
                   {detail?.technique?.name ?? (detailLoading ? 'Loading…' : selectedId)}
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={closeDrawer}
-                aria-label="close"
-                className="shrink-0 rounded p-1.5 text-ink-2 hover:text-ink-1 hover:bg-surface-raised dark:hover:bg-accent-soft transition-colors"
+                aria-label="Close technique details"
+                className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X size={18} aria-hidden="true" />
               </button>
             </div>
 
             <div className="px-6 py-5 space-y-6">
-              {detailLoading && <p className="font-mono text-sm text-ink-2">Fetching…</p>}
+              {detailLoading && <p className="font-mono text-sm text-slate-500">Fetching…</p>}
               {detailError && (
                 <p className="font-mono text-sm text-rose-600 dark:text-rose-400">error: {detailError}</p>
               )}
               {detail?.technique && (
                 <>
                   {detail.technique.tactic && (
-                    <div className="text-xs font-mono text-ink-2">
-                      Tactic: <span className="text-ink-1">{detail.technique.tactic}</span>
+                    <div className="text-xs font-mono text-slate-500">
+                      Tactic: <span className="text-slate-900 dark:text-slate-100">{detail.technique.tactic}</span>
                     </div>
                   )}
                   {detail.technique.description && (
                     <div>
-                      <h3 className="text-xs font-mono uppercase tracking-wider text-ink-2 mb-1.5">Description</h3>
-                      <p className="text-sm text-ink-1 leading-relaxed whitespace-pre-line">
+                      <h3 className="text-xs font-mono uppercase tracking-wider text-slate-500 mb-1.5">Description</h3>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
                         {detail.technique.description}
                       </p>
                     </div>
                   )}
                   {detail.technique.platforms?.length > 0 && (
                     <div>
-                      <h3 className="text-xs font-mono uppercase tracking-wider text-ink-2 mb-1.5">Platforms</h3>
+                      <h3 className="text-xs font-mono uppercase tracking-wider text-slate-500 mb-1.5">Platforms</h3>
                       <div className="flex flex-wrap gap-1.5">
                         {detail.technique.platforms.map((p) => (
                           <span
                             key={p}
-                            className="text-xs font-mono px-2 py-0.5 rounded bg-surface-raised border border-rule text-ink-1"
+                            className="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
                           >
                             {p}
                           </span>
@@ -529,12 +538,12 @@ export default function MitreMatrix(): JSX.Element {
                   )}
                   {detail.technique.dataSources?.length > 0 && (
                     <div>
-                      <h3 className="text-xs font-mono uppercase tracking-wider text-ink-2 mb-1.5">Data sources</h3>
+                      <h3 className="text-xs font-mono uppercase tracking-wider text-slate-500 mb-1.5">Data sources</h3>
                       <div className="flex flex-wrap gap-1.5">
                         {detail.technique.dataSources.map((d) => (
                           <span
                             key={d}
-                            className="text-xs font-mono px-2 py-0.5 rounded bg-surface-raised border border-rule text-ink-1"
+                            className="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
                           >
                             {d}
                           </span>
@@ -544,8 +553,8 @@ export default function MitreMatrix(): JSX.Element {
                   )}
                   {detail.technique.detection && (
                     <div>
-                      <h3 className="text-xs font-mono uppercase tracking-wider text-ink-2 mb-1.5">Detection</h3>
-                      <p className="text-sm text-ink-1 leading-relaxed whitespace-pre-line">
+                      <h3 className="text-xs font-mono uppercase tracking-wider text-slate-500 mb-1.5">Detection</h3>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
                         {detail.technique.detection}
                       </p>
                     </div>
@@ -554,7 +563,7 @@ export default function MitreMatrix(): JSX.Element {
               )}
               {detail && detail.actors.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-mono uppercase tracking-wider text-ink-2 mb-2">
+                  <h3 className="text-xs font-mono uppercase tracking-wider text-slate-500 mb-2">
                     Tracked actors using this technique ({detail.actors.length})
                   </h3>
                   <div className="space-y-1.5">
@@ -562,11 +571,11 @@ export default function MitreMatrix(): JSX.Element {
                       <Link
                         key={a.id}
                         to={`/threatintel/actors/${a.id}`}
-                        className="block px-3 py-2 rounded border border-rule bg-surface-raised hover:border-rule transition-colors"
+                        className="block px-3 py-2 rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:border-brand-500/40 transition-colors"
                       >
-                        <div className="text-sm font-semibold text-ink-1">{a.name}</div>
+                        <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{a.name}</div>
                         {a.aliases.length > 0 && (
-                          <div className="text-xs font-mono text-ink-2 mt-0.5">
+                          <div className="text-xs font-mono text-slate-500 mt-0.5">
                             aka {a.aliases.slice(0, 4).join(', ')}
                           </div>
                         )}
@@ -577,14 +586,14 @@ export default function MitreMatrix(): JSX.Element {
               )}
               {detail && detail.relatedTechniques.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-mono uppercase tracking-wider text-ink-2 mb-2">Related techniques</h3>
+                  <h3 className="text-xs font-mono uppercase tracking-wider text-slate-500 mb-2">Related techniques</h3>
                   <div className="flex flex-wrap gap-1.5">
                     {detail.relatedTechniques.map((rid) => (
                       <button
                         key={rid}
                         type="button"
                         onClick={() => openTechnique(rid)}
-                        className="text-xs font-mono px-2 py-1 rounded bg-surface-raised border border-rule text-accent hover:border-rule transition-colors"
+                        className="text-xs font-mono px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-600 dark:text-brand-400 hover:border-brand-500/40 transition-colors"
                       >
                         {rid}
                       </button>
@@ -597,7 +606,7 @@ export default function MitreMatrix(): JSX.Element {
                   href={detail.technique.mitreUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded border border-rule bg-surface-raised text-ink-1 hover:border-rule hover:text-accent transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:border-brand-500/40 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
                 >
                   Open on attack.mitre.org <ExternalLink size={12} />
                 </a>

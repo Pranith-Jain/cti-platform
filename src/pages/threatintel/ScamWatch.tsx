@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { BackLink } from '../../components/BackLink';
 import { ArrowLeft, ExternalLink, RefreshCw, AlertTriangle, Loader2, Search } from 'lucide-react';
 import { fetchAggregatedFeed, formatRelativeTime, type AggregatedFeedItem } from '../../services/rssService';
 import { rssFeeds } from '../../data/rssFeeds';
@@ -53,6 +54,13 @@ const SECTIONS: { id: string; label: string; blurb: string; feedIds: string[] }[
     feedIds: ['gnews-job-scam', 'reddit-jobscams'],
   },
   {
+    id: 'india',
+    label: 'India',
+    blurb:
+      'India-specific fraud — digital-arrest, UPI / payment fraud, predatory loan apps, plus I4C / 1930-helpline enforcement.',
+    feedIds: ['gnews-india-scam', 'gnews-india-cybercrime'],
+  },
+  {
     id: 'impersonation',
     label: 'Impersonation & social engineering',
     blurb: 'Tech-support, IRS, Microsoft, SIM-swap, vishing — anyone-but-them on the phone.',
@@ -88,7 +96,7 @@ export default function ScamWatch(): JSX.Element {
     setItems([]);
     try {
       const data = await fetchAggregatedFeed(ALL_FEED_IDS, { limit: 220, perSource: 25 });
-      if (!data) throw new Error('Aggregator returned no data');
+      if (!data) throw new Error('no aggregator-eligible feeds configured');
       setItems(data.items);
       setFeedsReturned(data.feeds_returned);
     } catch (e) {
@@ -140,31 +148,31 @@ export default function ScamWatch(): JSX.Element {
   }, [items, urlToSection]);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-12 text-ink-1">
-      <Link
+    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
+      <BackLink
         to="/threatintel"
-        className="inline-flex items-center gap-2 text-sm text-ink-2 hover:text-accent mb-8 font-mono"
+        className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 mb-8 font-mono"
       >
-        <ArrowLeft size={14} /> /threatintel
-      </Link>
+        <ArrowLeft size={14} /> back
+      </BackLink>
 
-      <div>
-        <h1 className="text-4xl font-serif font-bold mb-2 inline-flex items-center gap-3">
-          <AlertTriangle size={28} className="text-accent" /> Scam Watch
+      <div className="animate-fade-in-up">
+        <h1 className="text-3xl sm:text-4xl font-display font-bold mb-2 inline-flex items-center gap-3">
+          <AlertTriangle size={28} className="text-brand-600 dark:text-brand-400" /> Scam Watch
         </h1>
-        <p className="text-ink-2 mb-2 max-w-2xl">
+        <p className="text-slate-600 dark:text-slate-400 mb-2 max-w-2xl">
           Live aggregator of digital-scam activity — official advisories, deepfake incidents, first-person victim
           reports, and mainstream coverage. {ALL_FEED_IDS.length} sources fetched server-side, deduped, sorted by
           publication time.
         </p>
-        <p className="text-xs text-ink-3 font-mono mb-8">
+        <p className="text-xs text-slate-500 dark:text-slate-500 font-mono mb-8">
           Reddit feeds are real victim reports — context-rich but anecdotal. FTC + FBI IC3 are the authoritative source
           for U.S. fraud trends. Pairs with{' '}
-          <Link to="/threatintel/darkweb" className="text-accent hover:underline">
+          <Link to="/threatintel/darkweb" className="text-brand-600 dark:text-brand-400 hover:underline">
             Dark Web Watch
           </Link>{' '}
           (ransomware activity + breach disclosures) and{' '}
-          <Link to="/dfir/dlp-scan" className="text-accent hover:underline">
+          <Link to="/dfir/dlp-scan" className="text-brand-600 dark:text-brand-400 hover:underline">
             Sensitive Data Detector
           </Link>
           .
@@ -172,21 +180,21 @@ export default function ScamWatch(): JSX.Element {
       </div>
 
       {/* Filters */}
-      <section className="mb-6 rounded-lg border border-rule bg-surface-page p-5 space-y-3">
+      <section className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <Search size={14} className="text-accent" aria-hidden="true" />
+          <Search size={14} className="text-brand-600 dark:text-brand-400" aria-hidden="true" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search title or description — e.g. pig butchering, voice clone, romance"
-            className="flex-1 px-3 py-2 bg-surface-raised border border-rule rounded font-mono text-sm focus:outline-none focus:border-accent"
+            className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded font-mono text-sm focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
             aria-label="Search Scam Watch"
           />
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="text-xs font-mono text-ink-3 hover:text-rose-600 dark:hover:text-rose-400"
+              className="text-xs font-mono text-slate-500 hover:text-rose-600 dark:hover:text-rose-400"
             >
               clear
             </button>
@@ -198,8 +206,8 @@ export default function ScamWatch(): JSX.Element {
             onClick={() => setActiveSection('all')}
             className={`text-xs font-mono px-2 py-1 rounded border transition-colors ${
               activeSection === 'all'
-                ? 'border-accent bg-accent-soft text-accent'
-                : 'border-rule text-ink-2 hover:border-accent'
+                ? 'border-brand-500/60 bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-500/40'
             }`}
           >
             All <span className="opacity-60">· {sectionCounts.all ?? 0}</span>
@@ -210,8 +218,8 @@ export default function ScamWatch(): JSX.Element {
               onClick={() => setActiveSection(sec.id)}
               className={`text-xs font-mono px-2 py-1 rounded border transition-colors ${
                 activeSection === sec.id
-                  ? 'border-accent bg-accent-soft text-accent'
-                  : 'border-rule text-ink-2 hover:border-accent'
+                  ? 'border-brand-500/60 bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                  : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-brand-500/40'
               }`}
             >
               {sec.label} <span className="opacity-60">· {sectionCounts[sec.id] ?? 0}</span>
@@ -220,7 +228,7 @@ export default function ScamWatch(): JSX.Element {
           <button
             onClick={() => void load()}
             disabled={loading}
-            className="ml-auto text-xs font-mono px-2 py-1 rounded border border-rule hover:border-accent inline-flex items-center gap-1.5 disabled:opacity-50"
+            className="ml-auto text-xs font-mono px-2 py-1 rounded border border-slate-300 dark:border-slate-700 hover:border-brand-500/40 inline-flex items-center gap-1.5 disabled:opacity-50"
           >
             {loading ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
             {loading ? 'fetching' : 'refresh'}
@@ -228,8 +236,10 @@ export default function ScamWatch(): JSX.Element {
         </div>
 
         {activeSection !== 'all' && (
-          <p className="text-[11px] font-mono text-ink-3">
-            <span className="text-ink-1">{SECTIONS.find((s) => s.id === activeSection)?.label}:</span>{' '}
+          <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500">
+            <span className="text-slate-700 dark:text-slate-300">
+              {SECTIONS.find((s) => s.id === activeSection)?.label}:
+            </span>{' '}
             {SECTIONS.find((s) => s.id === activeSection)?.blurb}
           </p>
         )}
@@ -242,12 +252,12 @@ export default function ScamWatch(): JSX.Element {
       )}
 
       {!loading && !error && items.length === 0 && (
-        <div className="rounded-lg border border-dashed border-rule p-8 text-center text-sm font-mono text-ink-3">
+        <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center text-sm font-mono text-slate-500 dark:text-slate-500">
           No items returned from the aggregator. Try refresh; the upstream feeds may be temporarily slow.
         </div>
       )}
 
-      <p className="text-[11px] font-mono text-ink-3 mb-3">
+      <p className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-3">
         Showing {annotated.length} of {items.length} · {feedsReturned} of {ALL_FEED_IDS.length} feeds returned data
       </p>
 
@@ -255,14 +265,14 @@ export default function ScamWatch(): JSX.Element {
         {annotated.slice(0, 200).map(({ item, section }) => (
           <li
             key={item.link ?? `${item.title}-${item.pubDate}`}
-            className="rounded border border-rule bg-surface-page p-3"
+            className="rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3"
           >
             <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
               <a
                 href={item.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-serif font-semibold text-sm text-ink-1 hover:text-accent inline-flex items-center gap-1"
+                className="font-display font-semibold text-sm text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 inline-flex items-center gap-1"
               >
                 {item.title || '(untitled)'} <ExternalLink size={11} />
               </a>
@@ -272,12 +282,12 @@ export default function ScamWatch(): JSX.Element {
                 {section}
               </span>
             </div>
-            <div className="text-[11px] font-mono text-ink-3 mb-1">
+            <div className="text-[11px] font-mono text-slate-500 dark:text-slate-500 mb-1">
               <span>{item.source || 'feed'}</span>
               {item.pubDate && <> · {formatRelativeTime(item.pubDate)}</>}
             </div>
             {item.description && (
-              <p className="text-[12px] font-mono text-ink-2 leading-relaxed line-clamp-3">
+              <p className="text-[12px] font-mono text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3">
                 {stripHtml(item.description)}
               </p>
             )}
@@ -286,7 +296,7 @@ export default function ScamWatch(): JSX.Element {
       </ul>
 
       {annotated.length > 200 && (
-        <p className="mt-4 text-[11px] font-mono text-ink-3">
+        <p className="mt-4 text-[11px] font-mono text-slate-500 dark:text-slate-500">
           Showing 200 most-recent items. Tighten the search or filter to narrow.
         </p>
       )}
@@ -313,7 +323,7 @@ function sectionStyle(section: string): string {
     case 'news':
       return 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300';
     default:
-      return 'border-rule text-ink-3';
+      return 'border-slate-300 dark:border-slate-700 text-slate-500';
   }
 }
 

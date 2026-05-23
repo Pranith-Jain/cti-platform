@@ -1,5 +1,7 @@
 import type { Context } from 'hono';
 import type { Env } from '../env';
+import { fetchResilient } from '../lib/fetch-resilient';
+import { buildMtiRansomwareRss, MTI_RANSOMWARE_FEED_PATH } from './mti-ransomware-rss';
 
 /**
  * Server-side feed aggregator. Cuts client-side network calls from N (one per
@@ -18,10 +20,16 @@ import type { Env } from '../env';
  */
 
 const MAX_FEEDS = 50;
-const DEFAULT_LIMIT = 30;
-const MAX_LIMIT = 100;
-const DEFAULT_PER_SOURCE = 3;
-const MAX_PER_SOURCE = 10;
+/** Default page-size when caller doesn't pass ?limit=. Bumped 30 → 100 so
+ *  the threat-pulse / threat-feeds pages surface a representative week
+ *  rather than just a day's churn. */
+const DEFAULT_LIMIT = 100;
+/** Hard ceiling for ?limit=. Raised 100 → 500 to support the 7-day window. */
+const MAX_LIMIT = 500;
+const DEFAULT_PER_SOURCE = 5;
+/** Per-source cap. Raised 10 → 25 in step with MAX_LIMIT so no single
+ *  high-volume RSS dominates the merged response. */
+const MAX_PER_SOURCE = 25;
 const FETCH_TIMEOUT_MS = 5000;
 const CACHE_TTL_SECONDS = 300; // 5 minutes — matches per-feed proxy cache
 
@@ -137,6 +145,22 @@ const ALLOWED_HOSTS = new Set([
   'troyhunt.com',
   'www.idtheftcenter.org',
   'idtheftcenter.org',
+  // Feed expansion 2026-05-18 (kept in sync with feeds.ts)
+  'cyble.com',
+  'www.cyble.com',
+  'socradar.io',
+  'www.socradar.io',
+  'blog.bushidotoken.net',
+  'www.rapid7.com',
+  'rapid7.com',
+  'blogs.jpcert.or.jp',
+  'www.ncsc.gov.uk',
+  'asec.ahnlab.com',
+  'huggingface.co',
+  'the-decoder.com',
+  'importai.substack.com',
+  // Same-origin synthesised feeds (e.g. MyThreatIntel ransomware → RSS)
+  'pranithjain.qzz.io',
 ]);
 
 interface AggregatedItem {
@@ -216,19 +240,36 @@ function parseFeedBody(body: string, sourceUrl: string, host: string, perSource:
 
 async function fetchOne(url: string, perSource: number): Promise<AggregatedItem[]> {
   const parsed = new URL(url);
+  // Same-origin synthesised feeds: resolve IN-PROCESS. A Worker HTTP-fetching
+  // its own hostname is unreliable (the earlier symptom: feed returned 0 via
+  // the aggregator while the standalone endpoint served 10 items).
+  if (parsed.pathname === MTI_RANSOMWARE_FEED_PATH) {
+    try {
+      const { xml } = await buildMtiRansomwareRss();
+      return parseFeedBody(xml, url, parsed.hostname, perSource);
+    } catch {
+      return [];
+    }
+  }
   if (!ALLOWED_HOSTS.has(parsed.hostname.toLowerCase())) return [];
   try {
-    const res = await fetch(url, {
-      redirect: 'follow',
-      headers: {
-        'user-agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) pranithjain-rss/1.0 Safari/537.36',
-        accept: 'application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.5',
-        'accept-language': 'en-US,en;q=0.9',
-      },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      cf: { cacheTtl: CACHE_TTL_SECONDS, cacheEverything: true },
-    });
+    // Retry transient 429/5xx — several upstreams (hnrss.org, ycombinator,
+    // some vendor blogs) rate-limit the shared Worker IP; one miss used to
+    // silently drop the whole feed for the visit.
+    const res = await fetchResilient(
+      url,
+      {
+        redirect: 'follow',
+        headers: {
+          'user-agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) pranithjain-rss/1.0 Safari/537.36',
+          accept: 'application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.5',
+          'accept-language': 'en-US,en;q=0.9',
+        },
+        cf: { cacheTtl: CACHE_TTL_SECONDS, cacheEverything: true },
+      } as RequestInit,
+      { attempts: 3, timeoutMs: FETCH_TIMEOUT_MS }
+    );
     if (res.status === 429) {
       // Surface to wrangler tail so ops see which upstreams are pushing
       // back. Per-source degradation is acceptable here — the aggregator
@@ -276,13 +317,20 @@ export async function aggregateFeeds(
     const db = new Date(b.pubDate).getTime() || 0;
     return db - da;
   });
+  // 7d cutoff. Items with no parseable pubDate are kept (some feeds strip
+  // dates — better to surface them than to silently drop them).
+  const cutoffMs = Date.now() - 7 * 86_400_000;
+  const recentItems = allItems.filter((it) => {
+    const t = new Date(it.pubDate).getTime();
+    return !Number.isFinite(t) || t === 0 || t >= cutoffMs;
+  });
 
   return {
     generated_at: new Date().toISOString(),
-    total_items: allItems.length,
+    total_items: recentItems.length,
     feeds_attempted: cleanUrls.length,
     feeds_returned: feedsReturned,
-    items: allItems.slice(0, cappedLimit),
+    items: recentItems.slice(0, cappedLimit),
   };
 }
 
@@ -337,13 +385,20 @@ export async function feedsAggregateHandler(c: Context<{ Bindings: Env }>) {
     const db = new Date(b.pubDate).getTime() || 0;
     return db - da;
   });
+  // 7d cutoff. Items with no parseable pubDate are kept (some feeds strip
+  // dates — better to surface them than to silently drop them).
+  const cutoffMs = Date.now() - 7 * 86_400_000;
+  const recentItems = allItems.filter((it) => {
+    const t = new Date(it.pubDate).getTime();
+    return !Number.isFinite(t) || t === 0 || t >= cutoffMs;
+  });
 
   const body: AggregateResponse = {
     generated_at: new Date().toISOString(),
-    total_items: allItems.length,
+    total_items: recentItems.length,
     feeds_attempted: urls.length,
     feeds_returned: feedsReturned,
-    items: allItems.slice(0, limit),
+    items: recentItems.slice(0, limit),
   };
   const json = JSON.stringify(body);
   const response = new Response(json, {

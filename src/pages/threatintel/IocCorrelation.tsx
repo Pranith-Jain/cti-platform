@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Download, GitBranchPlus, Loader2, RefreshCw, Search, Sparkles, Copy, Check } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { BackLink } from '../../components/BackLink';
+import { ArrowLeft, Download, GitBranchPlus, RefreshCw, Search, Sparkles, Copy, Check } from 'lucide-react';
 import { useLastVisit, isNewSince } from '../../hooks';
+import { DataState } from '../../components/DataState';
 
 type IocKind = 'ip' | 'url' | 'domain' | 'hash';
 
@@ -107,7 +109,7 @@ function CopyBtn({ value }: { value: string }) {
       type="button"
       onClick={click}
       aria-label="copy indicator"
-      className="text-slate-400 hover:text-brand-500 transition-colors shrink-0"
+      className="inline-flex items-center justify-center min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 text-slate-400 hover:text-brand-500 transition-colors shrink-0"
     >
       {done ? <Check size={12} /> : <Copy size={12} />}
     </button>
@@ -170,21 +172,46 @@ function IocRow({ ioc }: { ioc: CorrelatedIoc }) {
 }
 
 export default function IocCorrelation(): JSX.Element {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<CorrelationResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [kindFilter, setKindFilter] = useState<Set<IocKind>>(new Set());
-  const [freshFilter, setFreshFilter] = useState<Set<Freshness>>(new Set());
-  const [newOnly, setNewOnly] = useState(false);
+  const [query, setQuery] = useState(searchParams.get('q') ?? '');
+  const [kindFilter, setKindFilter] = useState<Set<IocKind>>(
+    () => new Set((searchParams.get('kind')?.split(',').filter(Boolean) ?? []) as IocKind[])
+  );
+  const [freshFilter, setFreshFilter] = useState<Set<Freshness>>(
+    () => new Set((searchParams.get('fresh')?.split(',').filter(Boolean) ?? []) as Freshness[])
+  );
+  const [newOnly, setNewOnly] = useState(searchParams.get('new') === '1');
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Keep filter state in the URL so a curated view is shareable.
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const out = new URLSearchParams(prev);
+        if (query.trim()) out.set('q', query.trim());
+        else out.delete('q');
+        if (kindFilter.size > 0) out.set('kind', [...kindFilter].join(','));
+        else out.delete('kind');
+        if (freshFilter.size > 0) out.set('fresh', [...freshFilter].join(','));
+        else out.delete('fresh');
+        if (newOnly) out.set('new', '1');
+        else out.delete('new');
+        return out;
+      },
+      { replace: true }
+    );
+  }, [query, kindFilter, freshFilter, newOnly, setSearchParams]);
   const { previous: lastVisit, markVisited } = useLastVisit('ioc-correlation');
 
   useEffect(() => {
     let cancelled = false;
+    const ctrl = new AbortController();
     setLoading(true);
     setError(null);
-    fetch('/api/v1/ioc-correlation')
+    fetch('/api/v1/ioc-correlation', { signal: ctrl.signal })
       .then((r) => {
         if (!r.ok) throw new Error(`upstream ${r.status}`);
         return r.json() as Promise<CorrelationResponse>;
@@ -192,14 +219,16 @@ export default function IocCorrelation(): JSX.Element {
       .then((d) => {
         if (!cancelled) setData(d);
       })
-      .catch((e: Error) => {
-        if (!cancelled) setError(e.message);
+      .catch((e: { name?: string; message?: string }) => {
+        if (cancelled || e.name === 'AbortError') return;
+        setError(e.message ?? 'failed');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
+      ctrl.abort();
     };
   }, [refreshKey]);
 
@@ -258,18 +287,18 @@ export default function IocCorrelation(): JSX.Element {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
-      <Link
+      <BackLink
         to="/threatintel"
         className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 mb-8 font-mono"
       >
-        <ArrowLeft size={14} /> /threatintel
-      </Link>
+        <ArrowLeft size={14} /> back
+      </BackLink>
 
       <div className="animate-fade-in-up">
-        <h1 className="text-4xl font-display font-bold mb-2 inline-flex items-center gap-3">
+        <h1 className="text-3xl sm:text-4xl font-display font-bold mb-2 inline-flex items-center gap-3">
           <GitBranchPlus size={28} className="text-brand-600 dark:text-brand-400" /> Cross-source IOC correlation
         </h1>
-        <p className="text-slate-600 dark:text-slate-400 font-mono mb-2 max-w-3xl">
+        <p className="text-slate-600 dark:text-slate-400 mb-2 max-w-3xl leading-relaxed">
           Indicators that appear in 2+ independent IOC feeds. A single feed can carry false positives; consensus across
           independent sources is what analysts trust. Higher source-count = higher confidence the indicator is currently
           malicious.
@@ -301,6 +330,49 @@ export default function IocCorrelation(): JSX.Element {
         </section>
       )}
 
+      {/* Feed-health row — was buried at the bottom as a comma-separated
+          run-on. If 5 feeds are offline the user had no way to know the
+          corpus was degraded. Now: explicit per-feed dot + count + the
+          aggregate "N of M online". */}
+      {data && (
+        <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 mb-4">
+          <div className="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
+            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">
+              Feed health
+            </h3>
+            <span className="text-[11px] font-mono text-slate-500 tabular-nums">
+              {data.sources.filter((s) => s.ok).length} of {data.sources.length} feeds online ·{' '}
+              {data.totals.indicators_scanned.toLocaleString()} indicators scanned
+            </span>
+          </div>
+          <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+            {data.sources
+              .slice()
+              .sort((a, b) => Number(b.ok) - Number(a.ok) || b.count - a.count)
+              .map((s) => (
+                <li
+                  key={s.id}
+                  className={`flex items-center gap-2 text-[11px] font-mono px-2 py-1 rounded border ${
+                    s.ok
+                      ? 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950'
+                      : 'border-rose-400/40 bg-rose-500/5 text-rose-700 dark:text-rose-300'
+                  }`}
+                  title={s.ok ? `${s.id}: ${s.count} indicators` : `${s.id}: offline`}
+                >
+                  <span
+                    className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${
+                      s.ok ? 'bg-emerald-500 dark:bg-emerald-400' : 'bg-rose-500 dark:bg-rose-400'
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span className="truncate flex-1">{s.id}</span>
+                  <span className="tabular-nums opacity-70">{s.ok ? s.count.toLocaleString() : 'off'}</span>
+                </li>
+              ))}
+          </ul>
+        </section>
+      )}
+
       <section className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 mb-4">
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
@@ -328,14 +400,15 @@ export default function IocCorrelation(): JSX.Element {
               <Sparkles size={12} /> {newCount} new
             </button>
           )}
-          <a
-            href="/api/v1/ioc-correlation/stix.json"
-            download
-            className="inline-flex items-center gap-1.5 text-xs font-mono px-3 py-2 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:border-emerald-500/60"
-            title="Download STIX 2.1 bundle. Drops straight into MISP, OpenCTI, or a SIEM."
+          <button
+            type="button"
+            onClick={() => downloadFilteredCsv(filtered)}
+            disabled={filtered.length === 0}
+            className="inline-flex items-center gap-1.5 text-xs font-mono px-3 py-2 rounded border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-brand-500/40 disabled:opacity-40"
+            title="Download the currently filtered IOCs as CSV. Pasteable straight into a firewall blocklist."
           >
-            <Download size={12} /> STIX 2.1
-          </a>
+            <Download size={12} /> CSV
+          </button>
           <button
             type="button"
             onClick={() => setRefreshKey((k) => k + 1)}
@@ -413,31 +486,24 @@ export default function IocCorrelation(): JSX.Element {
         )}
       </section>
 
-      {loading && (
-        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 flex items-center gap-3 font-mono text-sm text-slate-500">
-          <Loader2 size={16} className="animate-spin" /> correlating across IOC feeds…
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-lg border border-rose-500/40 bg-rose-500/5 p-4 font-mono text-sm text-rose-600 dark:text-rose-300">
-          Failed to load: {error}
-        </div>
-      )}
-
-      <ul className="space-y-2">
-        {filtered.map((it) => (
-          <IocRow key={`${it.kind}:${it.value}`} ioc={it} />
-        ))}
-      </ul>
-
-      {!loading && !error && filtered.length === 0 && (
-        <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center text-sm font-mono text-slate-500">
-          {query || kindFilter.size > 0
+      <DataState
+        loading={loading}
+        error={error}
+        empty={filtered.length === 0}
+        emptyLabel={
+          query || kindFilter.size > 0
             ? 'No correlated indicators match the current filter.'
-            : 'No indicators currently appear in 2+ feeds. Either upstream feeds are degraded, or there is no current overlap.'}
-        </div>
-      )}
+            : 'No indicators currently appear in 2+ feeds. Either upstream feeds are degraded, or there is no current overlap.'
+        }
+        onRetry={() => setRefreshKey((k) => k + 1)}
+        rows={8}
+      >
+        <ul className="space-y-2">
+          {filtered.map((it) => (
+            <IocRow key={`${it.kind}:${it.value}`} ioc={it} />
+          ))}
+        </ul>
+      </DataState>
 
       {data && (
         <section className="mt-6 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4">
@@ -459,11 +525,51 @@ export default function IocCorrelation(): JSX.Element {
               before action.
             </li>
           </ul>
-          <p className="text-[11px] font-mono text-slate-500 mt-3">
-            Feeds queried this snapshot: {data.sources.map((s) => `${s.id}${s.ok ? '' : ' (offline)'}`).join(', ')}.
-          </p>
+          {/* Feeds-queried run-on line removed 2026-05-14 — replaced by
+              the dedicated "Feed health" panel above which shows per-feed
+              status as a visual grid instead of comma-separated text. */}
         </section>
       )}
     </div>
   );
+}
+
+/**
+ * CSV serialiser. Quotes any field that contains a comma, quote, or newline
+ * and escapes inner quotes by doubling per RFC 4180. Works for the IOC
+ * value/context fields which can contain commas (CIDR ranges) and quotes.
+ */
+function csvCell(s: string | number | undefined): string {
+  if (s === undefined || s === null) return '';
+  const v = String(s);
+  if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
+  return v;
+}
+
+function downloadFilteredCsv(rows: CorrelatedIoc[]): void {
+  if (rows.length === 0) return;
+  const header = ['value', 'kind', 'source_count', 'sources', 'last_seen', 'context'];
+  const lines = [header.join(',')];
+  for (const r of rows) {
+    lines.push(
+      [
+        csvCell(r.value),
+        csvCell(r.kind),
+        csvCell(r.source_count),
+        csvCell(r.sources.join('; ')),
+        csvCell(r.last_seen ?? ''),
+        csvCell(r.context ?? ''),
+      ].join(',')
+    );
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  a.download = `ioc-correlation-${ts}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

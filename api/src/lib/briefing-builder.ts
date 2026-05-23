@@ -1,20 +1,76 @@
 /**
  * Threat briefing builder.
  *
- * Aggregates CISA KEV + NVD + abuse.ch + OpenPhish over a time window, categorises
- * findings, and produces a structured briefing object. Stored in KV under
- *   briefing:daily:YYYY-MM-DD
- *   briefing:weekly:YYYY-Www
+ * Aggregates CISA KEV + NVD + abuse.ch over a time window, categorises
+ * findings, and produces a structured briefing object. Stored in D1 under
+ * the `briefings` table.
  *
  * Narrative is templated — no LLM. Source data already contains the descriptions;
  * we format and group, we don't invent.
  */
 
+import type { D1Database } from '@cloudflare/workers-types';
 import { FEED_SOURCES, UNCAPPED, buildSummary, type IocEntry, type SourceId } from './ioc-feed-parsers';
+import { fetchResilient } from './fetch-resilient';
+import type { Env } from '../env';
+import { fetchMtiSource, type MtiRansomwareClaim, type MtiCveRecord } from './mythreatintel-api';
 
 const NVD_UA = 'Mozilla/5.0 (compatible; pranithjain-dfir/1.0; +https://pranithjain.qzz.io)';
 const NVD_API = 'https://services.nvd.nist.gov/rest/json/cves/2.0';
+
+/**
+ * NVD request headers. An optional API key (NVD_API_KEY Worker secret) raises
+ * the anonymous rate limit ~10x (5→50 req/30s) — the durable fix for the
+ * shared-Worker-IP throttling that produced empty briefings. Sent via the
+ * `apiKey` header per NVD docs.
+ */
+function nvdHeaders(apiKey?: string): Record<string, string> {
+  const h: Record<string, string> = { 'user-agent': NVD_UA, accept: 'application/json' };
+  if (apiKey) h.apiKey = apiKey;
+  return h;
+}
 const KEV_FEED = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json';
+
+/**
+ * Last-good source cache. CISA KEV / NVD are reachable from the Cloudflare
+ * edge but flaky from the shared egress IP — a single slow/blocked cron fire
+ * (NVD+KEV both miss in the same run) produced an EMPTY briefing for the day
+ * with nothing to fall back to. This write-through cache keeps the most
+ * recent successful KEV/NVD payload for 14 days: any one success (cron,
+ * hourly catch-up, or manual build) keeps every subsequent briefing
+ * populated with real data through a two-week run of transient blocks,
+ * instead of degrading to a blank "both unreachable" briefing.
+ *
+ * Cache API (caches.default) is used deliberately — it needs no env binding
+ * threaded through buildBriefing, and Cloudflare keeps it warm as long as
+ * it's refreshed (which every cron run does on success).
+ */
+const LASTGOOD_TTL_SEC = 60 * 60 * 24 * 14;
+function lastGoodCache(): Cache {
+  return (caches as unknown as { default: Cache }).default;
+}
+/**
+ * Run `live()`. On success, persist the result as last-good and return it.
+ * On failure, return the cached last-good if present; otherwise re-throw so
+ * the caller's degrade path still fires when there has never been a success.
+ */
+async function withLastGood<T>(cacheKey: string, live: () => Promise<T>): Promise<T> {
+  const cache = lastGoodCache();
+  try {
+    const v = await live();
+    await cache.put(
+      cacheKey,
+      new Response(JSON.stringify(v), {
+        headers: { 'content-type': 'application/json', 'cache-control': `max-age=${LASTGOOD_TTL_SEC}` },
+      })
+    );
+    return v;
+  } catch (err) {
+    const hit = await cache.match(cacheKey);
+    if (hit) return (await hit.json()) as T;
+    throw err;
+  }
+}
 
 // ---- types --------------------------------------------------------------
 
@@ -88,6 +144,13 @@ export interface Briefing {
   iocs: BriefingIocBuckets;
   mitre_techniques: string[];
   sources: string[];
+  /**
+   * True when BOTH primary finding sources (CISA KEV + NVD) were unreachable
+   * at build time. The briefing is persisted anyway (so the page is never
+   * blank) but honestly labelled as incomplete — and the hourly catch-up
+   * keeps rebuilding it until upstreams recover and a real one replaces it.
+   */
+  degraded?: boolean;
 }
 
 interface KevEntry {
@@ -437,14 +500,33 @@ function startOfIsoWeek(d: Date): Date {
   return dt;
 }
 
+/**
+ * The slug `buildBriefing('weekly', anchor)` will produce — i.e. the
+ * just-completed ISO week. Exported so the hourly catch-up can self-heal a
+ * missing/degraded weekly the same way it does the daily (the weekly cron
+ * only fires Mondays, so without this a failed weekly was stuck for 7 days).
+ */
+export function expectedWeeklySlug(anchor: Date = new Date()): string {
+  const start = new Date(startOfIsoWeek(anchor).getTime() - 7 * 86400_000);
+  return `weekly-${isoYearWeek(start)}`;
+}
+
 // ---- fetchers -----------------------------------------------------------
 
 async function fetchKev(): Promise<KevEntry[]> {
-  const res = await fetch(KEV_FEED, {
-    headers: { 'user-agent': NVD_UA, accept: 'application/json' },
-    signal: AbortSignal.timeout(20_000),
-    cf: { cacheTtlByStatus: { '200-299': 1800, '400-599': 0 }, cacheEverything: true },
-  } as RequestInit);
+  // KEV is a reliable static CISA file, but a single transient timeout/5xx
+  // from the shared Worker IP used to drop it entirely — and if NVD also
+  // hiccupped the same run, the briefing degraded. Retry (no signal in init
+  // so fetchResilient owns the per-attempt 20s timeout; passing a caller
+  // signal would break retries once it aborts).
+  const res = await fetchResilient(
+    KEV_FEED,
+    {
+      headers: { 'user-agent': NVD_UA, accept: 'application/json' },
+      cf: { cacheTtlByStatus: { '200-299': 1800, '400-599': 0 }, cacheEverything: true },
+    } as RequestInit,
+    { attempts: 3, timeoutMs: 20_000 }
+  );
   if (!res.ok) throw new Error(`KEV fetch failed: ${res.status}`);
   const doc = (await res.json()) as KevDoc;
   return doc.vulnerabilities ?? [];
@@ -458,46 +540,123 @@ async function fetchKev(): Promise<KevEntry[]> {
  * page. We page until exhausted, with a hard cap so a runaway pagination
  * loop can't blow the briefing budget.
  */
-async function fetchNvdRecent(start: Date, end: Date): Promise<NvdCve[]> {
+/**
+ * NVD anonymous access is aggressively throttled (and the shared Cloudflare
+ * egress IP gets 403/503 bursts). A swallowed failure here used to surface as
+ * a briefing that falsely says "no high/critical CVEs published". So: retry
+ * each page with backoff, and if the FIRST page never succeeds, THROW — the
+ * caller distinguishes "NVD genuinely empty" (resolved []) from "NVD
+ * unreachable" (rejected) and refuses to persist a false all-clear.
+ */
+async function fetchNvdRecent(start: Date, end: Date, apiKey?: string): Promise<NvdCve[]> {
   const fmt = (d: Date) => d.toISOString().replace(/Z$/, '+00:00');
   const out: NvdCve[] = [];
   const PAGE = 2000;
   const HARD_CAP = 4000; // 2 pages — enough headroom for any 7-day window
   let startIndex = 0;
+  let anyPageOk = false;
   for (let i = 0; i < 4 && out.length < HARD_CAP; i++) {
     const url =
       `${NVD_API}?pubStartDate=${encodeURIComponent(fmt(start))}` +
       `&pubEndDate=${encodeURIComponent(fmt(end))}` +
       `&resultsPerPage=${PAGE}&startIndex=${startIndex}`;
-    try {
-      const res = await fetch(url, {
-        headers: { 'user-agent': NVD_UA, accept: 'application/json' },
-        signal: AbortSignal.timeout(20_000),
-        cf: { cacheTtlByStatus: { '200-299': 1800, '400-599': 0 }, cacheEverything: true },
-      } as RequestInit);
-      if (!res.ok) break;
-      const json = (await res.json()) as NvdResponse & { totalResults?: number };
-      const batch = json.vulnerabilities ?? [];
-      for (const v of batch) if (v.cve) out.push(v.cve);
-      if (batch.length < PAGE) break;
-      startIndex += PAGE;
-    } catch {
-      break;
+    let pageOk = false;
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 1500 * attempt + Math.random() * 800));
+      try {
+        const res = await fetch(url, {
+          headers: nvdHeaders(apiKey),
+          signal: AbortSignal.timeout(20_000),
+          cf: { cacheTtlByStatus: { '200-299': 1800, '400-599': 0 }, cacheEverything: true },
+        } as RequestInit);
+        if (!res.ok) {
+          lastErr = new Error(`NVD ${res.status}`);
+          // 4xx other than 429 won't fix on retry; 429/5xx might.
+          if (res.status !== 429 && res.status < 500) break;
+          continue;
+        }
+        const json = (await res.json()) as NvdResponse & { totalResults?: number };
+        const batch = json.vulnerabilities ?? [];
+        for (const v of batch) if (v.cve) out.push(v.cve);
+        pageOk = true;
+        anyPageOk = true;
+        if (batch.length < PAGE) return out;
+        startIndex += PAGE;
+        break;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    if (!pageOk) {
+      if (!anyPageOk) throw lastErr instanceof Error ? lastErr : new Error('NVD unreachable');
+      break; // a later page failed but we have earlier data — return partial
     }
   }
   return out;
 }
 
-async function fetchNvdByIds(cveIds: string[]): Promise<Map<string, NvdCve>> {
+/**
+ * NVD fallback via CIRCL cve-search. services.nvd.nist.gov throttles/blocks
+ * the shared Worker egress IP; cve.circl.lu does not, and its `api/last`
+ * items embed the full CVE 5.1 record (containers.cna.metrics) so this is a
+ * NON-lossy fallback — real CVSS, not just the OSV vector. Used only when
+ * the NVD paging path returns nothing.
+ */
+async function fetchCirclRecent(start: Date, end: Date): Promise<NvdCve[]> {
+  // Size the window: ~weekly windows need a deeper pull than daily ones.
+  const days = Math.ceil((end.getTime() - start.getTime()) / 86400_000);
+  const limit = Math.min(2000, Math.max(300, days * 220));
+  const res = await fetchResilient(
+    `https://cve.circl.lu/api/last/${limit}`,
+    { headers: { 'user-agent': NVD_UA, accept: 'application/json' } } as RequestInit,
+    { attempts: 2, timeoutMs: 15_000 }
+  );
+  if (!res.ok) throw new Error(`CIRCL last ${res.status}`);
+  const items = (await res.json()) as Record<string, unknown>[];
+  const out: NvdCve[] = [];
+  for (const it of Array.isArray(items) ? items : []) {
+    const aliases = Array.isArray(it.aliases) ? (it.aliases as string[]) : [];
+    const cveId =
+      aliases.find((a) => /^CVE-\d{4}-\d+$/.test(a)) ??
+      (typeof it.id === 'string' && /^CVE-/.test(it.id) ? it.id : null);
+    if (!cveId) continue;
+    const ds = (it.database_specific ?? {}) as { nvd_published_at?: string; cwe_ids?: string[] };
+    const pub = new Date(String(ds.nvd_published_at ?? it.published ?? ''));
+    if (Number.isNaN(pub.getTime()) || pub < start || pub >= end) continue;
+    // CVSS from the embedded CVE 5.1 cna metrics (real base score).
+    const cna = ((it.containers as Record<string, unknown>)?.cna ?? {}) as Record<string, unknown>;
+    let baseScore: number | undefined;
+    let baseSeverity: string | undefined;
+    for (const m of (cna.metrics as Record<string, unknown>[]) ?? []) {
+      const v = (m.cvssV3_1 ?? m.cvssV3_0) as { baseScore?: number; baseSeverity?: string } | undefined;
+      if (v?.baseScore != null) {
+        baseScore = v.baseScore;
+        baseSeverity = v.baseSeverity;
+        break;
+      }
+    }
+    if (baseScore == null) continue; // briefing only surfaces CVSS-scored CVEs
+    out.push({
+      id: cveId,
+      descriptions: [{ lang: 'en', value: String(it.details ?? '') }],
+      metrics: { cvssMetricV31: [{ cvssData: { baseScore, ...(baseSeverity ? { baseSeverity } : {}) } }] },
+      weaknesses: (ds.cwe_ids ?? []).map((c) => ({ description: [{ lang: 'en', value: c }] })),
+    });
+  }
+  return out;
+}
+
+async function fetchNvdByIds(cveIds: string[], apiKey?: string): Promise<Map<string, NvdCve>> {
   // NVD doesn't support bulk by-ID; query one at a time but cache aggressively.
-  // Limit: 5 req per 30s anonymous. Cap at 30 lookups per briefing to stay under budget.
+  // Limit: 5 req per 30s anonymous (≈50 with an API key). Cap at 30 lookups.
   const out = new Map<string, NvdCve>();
   const ids = cveIds.slice(0, 30);
   for (const id of ids) {
     try {
       const url = `${NVD_API}?cveId=${encodeURIComponent(id)}`;
       const res = await fetch(url, {
-        headers: { 'user-agent': NVD_UA, accept: 'application/json' },
+        headers: nvdHeaders(apiKey),
         signal: AbortSignal.timeout(8000),
         cf: { cacheTtlByStatus: { '200-299': 86400, '400-599': 0 }, cacheEverything: true },
       } as RequestInit);
@@ -552,6 +711,126 @@ function withinRange(timestamp: string | undefined, startMs: number, endMs: numb
   const t = Date.parse(timestamp);
   if (Number.isNaN(t)) return false;
   return t >= startMs && t < endMs;
+}
+
+/**
+ * Common corporate suffixes that should NOT participate in dedupe. Anchored
+ * at the end of the (lowercased, single-spaced) string and stripped before
+ * the alphanumeric collapse. Sorted longest-first so e.g. "co., inc." gets
+ * stripped as a unit rather than just "inc.".
+ */
+const VICTIM_CORPORATE_SUFFIXES = [
+  's.a. de c.v.',
+  'pte. ltd.',
+  'pte ltd',
+  'co., inc.',
+  'co., ltd.',
+  'co. ltd.',
+  ', inc.',
+  ', llc.',
+  ', llc',
+  ', ltd.',
+  ', ltd',
+  ', s.a.',
+  ', s.r.l.',
+  ' inc.',
+  ' inc',
+  ' llc',
+  ' ltd.',
+  ' ltd',
+  ' gmbh',
+  ' corp.',
+  ' corp',
+  ' s.a.',
+  ' s.r.l.',
+  ' srl',
+  ' sas',
+  ' sa',
+];
+
+/** Trailing descriptors the upstream feed appends to some claims, e.g.
+ *  "Bni.co.id bank of indonesia free data." — these are not part of the
+ *  victim's identity and should not anchor the dedupe key. */
+const VICTIM_TRAILING_DESCRIPTORS = [
+  'free data',
+  'leaked data',
+  'data leak',
+  'data dump',
+  'all data',
+  'full database',
+  'database leak',
+];
+
+function stripVictimNoise(lower: string): string {
+  let s = lower.replace(/\s+/g, ' ').trim();
+  // Two passes so a descriptor + corporate suffix nested together
+  // (e.g. "acme corp. all data") gets fully unwrapped.
+  for (let pass = 0; pass < 2; pass += 1) {
+    for (const desc of VICTIM_TRAILING_DESCRIPTORS) {
+      // Whole-word at end, allowing trailing punctuation.
+      const escaped = desc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`(^|\\s)${escaped}[\\s.,;:!?]*$`);
+      s = s.replace(re, '').trim();
+    }
+    for (const suffix of VICTIM_CORPORATE_SUFFIXES) {
+      if (s.endsWith(suffix)) {
+        s = s.slice(0, -suffix.length).trim();
+      }
+    }
+    s = s.replace(/[.,;:!?\s]+$/, '');
+  }
+  return s;
+}
+
+/**
+ * Normalize a victim name into a stable dedupe key. Handles:
+ *   - HTML entities ("Vernon &amp; Ginsburg" matches "Vernon & Ginsburg";
+ *     "Sid Harvey&#39;s" matches "Sid Harvey's")
+ *   - Casing + whitespace ("ROTO Immobilien" → "rotoimmobilien")
+ *   - Corporate suffixes ("Apex Maritime Co., Inc." matches "Apex Maritime")
+ *   - Trailing descriptors ("Bni.co.id … free data." → "bnicoidbankofindonesia")
+ *   - Residual punctuation collapsed last
+ * Exported for test coverage.
+ */
+export function normalizeVictimKey(raw: string): string {
+  const decoded = raw
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'");
+  const stripped = stripVictimNoise(decoded.toLowerCase());
+  return stripped.replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Normalize a gang name into one or more canonical dedupe keys.
+ *
+ * Real-world MyThreatIntel data shows the same operator under multiple
+ * presentations: `"eraleign (apt73)"` and `"Apt73"` are the same gang;
+ * `"the gentlemen"` and `"Thegentlemen"` are the same; `"brain cipher"`
+ * and `"Braincipher"` are the same. To catch all of them, we extract
+ * BOTH the outer name AND any parenthetical alias as separate keys; the
+ * caller checks all (gang, victim) permutations against the seen set.
+ */
+export function canonicalGangKeys(raw: string): string[] {
+  const lower = raw.toLowerCase().trim();
+  if (!lower) return [];
+  const keys = new Set<string>();
+  // Outer name with parenthetical content removed.
+  const outer = lower
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const outerKey = outer.replace(/[^a-z0-9]/g, '');
+  if (outerKey) keys.add(outerKey);
+  // Every parenthetical group as its own key — typically the "formerly known
+  // as" alias the feed annotates the new name with.
+  for (const m of lower.matchAll(/\(([^)]+)\)/g)) {
+    const inner = m[1]!.replace(/[^a-z0-9]/g, '');
+    if (inner) keys.add(inner);
+  }
+  return [...keys];
 }
 
 function findingFromNvd(nvd: NvdCve): BriefingFinding {
@@ -738,7 +1017,7 @@ function buildExecutiveSummary(args: {
           : `${iocSources.slice(0, -1).join(', ')}, and ${iocSources[iocSources.length - 1]}`;
     const sampledTotal = iocs.urls.length + iocs.domains.length + iocs.ipv4s.length + iocs.hashes.length;
     parts.push(
-      `Active threat indicators ${iocPerSource ? 'per source' : 'across'} ${breakdown} — total ${iocsRawTotal.toLocaleString()} entries; this briefing samples the top ${sampledTotal} (${sampledBits.join(', ')}, capped at 30 per type).`
+      `Active threat indicators ${iocPerSource ? 'per source' : 'across'} ${breakdown} — ${iocsRawTotal.toLocaleString()} unique after cross-source dedup; this briefing samples the top ${sampledTotal} (${sampledBits.join(', ')}, capped at 30 per type).`
     );
   }
 
@@ -750,12 +1029,29 @@ function buildExecutiveSummary(args: {
 }
 
 function buildStats(findings: BriefingFinding[], sections: BriefingSection[], iocsTotal: number): BriefingStats {
+  // `findings` is the CVE-derived findings array (KEV + NVD + MTI CVE).
+  // The rendered briefing has MORE findings than that: the MTI
+  // ransomware section is pushed in separately and never enters the
+  // `findings` array, so counting `findings.length` for the top-line
+  // total mislabeled the briefing. May-20-2026: stats reported 92
+  // findings while sections actually carried 106 (92 CVE + 14 ransomware
+  // claims). Sum from the actual sections instead so the top-line
+  // matches what the body renders.
+  const totalFindings = sections.reduce((n, s) => n + (s.findings?.length ?? 0), 0);
   return {
-    findings: findings.length,
+    // True total — every finding that appears in any rendered section.
+    findings: totalFindings,
     sections: sections.length,
+    // CVE-only count stays anchored to the CVE-derived array. The CVE
+    // sections that get bucketed in buildSections all draw from this
+    // same array, so the number is honest about the CVE subset.
     cves: findings.length,
     kevs: findings.filter((f) => f.source === 'CISA KEV').length,
     iocs: iocsTotal,
+    // Severity rollup covers the CVE findings only because the MTI
+    // ransomware findings are all assigned severity='high' boilerplate;
+    // including them would inflate the high count in a way that misleads
+    // a reader who expects severity to mean CVSS-derived severity.
     critical: findings.filter((f) => f.severity === 'critical').length,
     high: findings.filter((f) => f.severity === 'high').length,
     medium: findings.filter((f) => f.severity === 'medium').length,
@@ -765,7 +1061,11 @@ function buildStats(findings: BriefingFinding[], sections: BriefingSection[], io
 
 // ---- main entry points --------------------------------------------------
 
-export async function buildBriefing(type: BriefingType, anchor: Date = new Date()): Promise<Briefing> {
+export async function buildBriefing(
+  type: BriefingType,
+  anchor: Date = new Date(),
+  opts: { nvdApiKey?: string; env?: Env } = {}
+): Promise<Briefing> {
   // Compute window
   let rangeStart: Date;
   let rangeEnd: Date;
@@ -807,15 +1107,62 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
   // current-state list with no per-IP "first seen" — they inflated IOC counts on quiet
   // KEV days and made daily briefings look richer than they were. Feodo Tracker
   // (2026-05-12) was removed for the same reason: upstream publication had stopped.
-  const [kev, urlhaus, malwarebazaar, threatfox, openphish, tweetfeed, nvdRecent] = await Promise.all([
-    fetchKev().catch(() => [] as KevEntry[]),
-    fetchAbuseFeed('urlhaus').catch(() => [] as IocEntry[]),
-    fetchAbuseFeed('malwarebazaar').catch(() => [] as IocEntry[]),
-    fetchAbuseFeed('threatfox').catch(() => [] as IocEntry[]),
-    fetchAbuseFeed('openphish').catch(() => [] as IocEntry[]),
-    fetchAbuseFeed('tweetfeed').catch(() => [] as IocEntry[]),
-    fetchNvdRecent(rangeStart, rangeEnd).catch(() => [] as NvdCve[]),
-  ]);
+  // OpenPhish (2026-05-13) was removed because parseOpenPhish emits no per-entry
+  // timestamps — every entry was silently dropped by matchTimestamp, so the fetch
+  // was wasted latency that never contributed to a single briefing.
+  const wrap = <T>(p: Promise<T>, fallback: T) =>
+    p.then((v) => ({ ok: true, v })).catch(() => ({ ok: false, v: fallback }));
+  const mtiEnv = opts.env;
+  const [kevR, urlhaus, malwarebazaar, threatfox, tweetfeed, nvdR, mtiRansomwareItems, mtiCveItems] = await Promise.all(
+    [
+      // KEV is the full catalog (window filtering happens below) — one key.
+      // NVD is window-specific, so the cache key carries the range; the hourly
+      // catch-up rebuilds the same slug/window and reuses any prior success.
+      wrap(withLastGood('https://briefing-lastgood.internal/kev', fetchKev), [] as KevEntry[]),
+      fetchAbuseFeed('urlhaus').catch(() => [] as IocEntry[]),
+      fetchAbuseFeed('malwarebazaar').catch(() => [] as IocEntry[]),
+      fetchAbuseFeed('threatfox').catch(() => [] as IocEntry[]),
+      fetchAbuseFeed('tweetfeed').catch(() => [] as IocEntry[]),
+      wrap(
+        withLastGood(`https://briefing-lastgood.internal/nvd?s=${startMs}&e=${endMs}`, async () => {
+          // NVD first; on throw OR empty, fall back to CIRCL exactly ONCE
+          // (the old .then/.catch chain could call CIRCL twice). If CIRCL
+          // also throws it propagates to withLastGood, which backstops with
+          // the 14-day last-good cache (or rethrows → honest degrade).
+          try {
+            const r = await fetchNvdRecent(rangeStart, rangeEnd, opts.nvdApiKey);
+            if (r.length > 0) return r;
+          } catch {
+            /* NVD unreachable — fall through to CIRCL */
+          }
+          return fetchCirclRecent(rangeStart, rangeEnd);
+        }),
+        [] as NvdCve[]
+      ),
+      // MyThreatIntel — ransomware victim claims (own briefing section) and
+      // CVE alerts (merged into findings). Token-gated; absent → [].
+      mtiEnv
+        ? fetchMtiSource(mtiEnv, 'ransomware', { limit: 300 })
+            .then((r) => (r.ok ? (r.items as MtiRansomwareClaim[]) : []))
+            .catch(() => [] as MtiRansomwareClaim[])
+        : Promise.resolve([] as MtiRansomwareClaim[]),
+      mtiEnv
+        ? fetchMtiSource(mtiEnv, 'cve', { limit: 200 })
+            .then((r) => (r.ok ? (r.items as MtiCveRecord[]) : []))
+            .catch(() => [] as MtiCveRecord[])
+        : Promise.resolve([] as MtiCveRecord[]),
+    ]
+  );
+  // If BOTH primary finding sources are unreachable, this isn't a quiet day,
+  // it's an outage. Earlier this threw and persisted NOTHING — but a
+  // sustained NVD/KEV block then meant "no briefing at all" for the day
+  // (worse UX, and the hourly catch-up could never make progress). Instead:
+  // persist a clearly-degraded briefing (truthful summary, never a false
+  // "all clear"), and let the hourly catch-up keep rebuilding it until
+  // upstreams recover and a real briefing overwrites it.
+  const degraded = !kevR.ok && !nvdR.ok;
+  const kev = kevR.v;
+  const nvdRecent = nvdR.v;
 
   // Findings: KEV-added-in-window first (these are the high-signal items —
   // CISA only adds a CVE to KEV when active exploitation is observed), then
@@ -824,14 +1171,47 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
   // on KEV-quiet days while still keeping the bar high — we don't surface
   // every newly-published CVE, only the ones that matter.
   const kevWindow = kev.filter((k) => withinRange(k.dateAdded, startMs, endMs));
-  const nvdMap = await fetchNvdByIds(kevWindow.map((k) => k.cveID));
+  const nvdMap = await fetchNvdByIds(
+    kevWindow.map((k) => k.cveID),
+    opts.nvdApiKey
+  );
   const kevFindings = kevWindow.map((k) => findingFromKev(k, nvdMap.get(k.cveID)));
   const kevIds = new Set(kevFindings.map((f) => f.id));
   const nvdFindings = nvdRecent
     .filter((c) => !kevIds.has(c.id))
     .map(findingFromNvd)
     .filter((f) => f.severity === 'critical' || f.severity === 'high');
-  const findings = [...kevFindings, ...nvdFindings];
+  // MyThreatIntel CVE alerts published in-window, not already covered by
+  // KEV/NVD, held to the same critical|high bar as the NVD additions.
+  const existingCveIds = new Set([...kevFindings, ...nvdFindings].map((f) => f.id.toUpperCase()));
+  const mtiCveFindings: BriefingFinding[] = [];
+  for (const m of mtiCveItems) {
+    const id = m.cve?.trim().toUpperCase();
+    if (!id || existingCveIds.has(id)) continue;
+    const pub = m.published?.trim();
+    if (!pub || !withinRange(pub.replace(' ', 'T'), startMs, endMs)) continue;
+    const score = m.score != null && m.score !== '' ? Number.parseFloat(String(m.score)) : NaN;
+    const sevText = String(m.severity ?? '').toLowerCase();
+    const severity: Severity = Number.isFinite(score)
+      ? severityFromCvss(score)
+      : sevText === 'critical' || sevText === 'high' || sevText === 'medium' || sevText === 'low'
+        ? (sevText as Severity)
+        : 'unknown';
+    if (severity !== 'critical' && severity !== 'high') continue;
+    existingCveIds.add(id);
+    const desc = m.description?.trim() || id;
+    mtiCveFindings.push({
+      id,
+      title: desc.length > 90 ? `${id}: ${desc.slice(0, 87)}…` : `${id}: ${desc}`,
+      description: desc,
+      severity,
+      ...(Number.isFinite(score) ? { cvss: score } : {}),
+      source: 'MyThreatIntel',
+      source_url: m.url || 'https://mythreatintel.com/',
+      mitre_techniques: [],
+    });
+  }
+  const findings = [...kevFindings, ...nvdFindings, ...mtiCveFindings];
 
   // Per-source counts for transparent reporting — match-in-window only.
   // Helps a future reader verify "URLhaus 4,712; ThreatFox 215; …" instead
@@ -842,28 +1222,32 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
   const urlhausMatched = urlhaus.filter(matchTimestamp);
   const malwarebazaarMatched = malwarebazaar.filter(matchTimestamp);
   const threatfoxMatched = threatfox.filter(matchTimestamp);
-  const openphishMatched = openphish.filter(matchTimestamp);
   const tweetfeedMatched = tweetfeed.filter(matchTimestamp);
   if (urlhausMatched.length > 0) iocPerSource['URLhaus'] = urlhausMatched.length;
   if (malwarebazaarMatched.length > 0) iocPerSource['MalwareBazaar'] = malwarebazaarMatched.length;
   if (threatfoxMatched.length > 0) iocPerSource['ThreatFox'] = threatfoxMatched.length;
-  if (openphishMatched.length > 0) iocPerSource['OpenPhish'] = openphishMatched.length;
   if (tweetfeedMatched.length > 0) iocPerSource['TweetFeed'] = tweetfeedMatched.length;
 
   // Windowed feeds only — every entry carries a per-IOC timestamp inside the
   // briefing window. Snapshot blocklists were removed in the live-only refactor.
-  const allIocs = [
-    ...urlhausMatched,
-    ...malwarebazaarMatched,
-    ...threatfoxMatched,
-    ...openphishMatched,
-    ...tweetfeedMatched,
-  ];
+  // Cross-source dedup: the same indicator (e.g. an IP in ThreatFox AND
+  // TweetFeed, or a URL in URLhaus AND ThreatFox) must count ONCE. The old
+  // code concatenated the four feeds raw, so the headline "IOCs" stat was
+  // inflated by the cross-source overlap. Keep first occurrence — feeds are
+  // concatenated in source-priority order (URLhaus → MB → ThreatFox →
+  // TweetFeed). Per-source counts above stay raw (accurate per feed).
+  const seenIoc = new Set<string>();
+  const allIocs = [...urlhausMatched, ...malwarebazaarMatched, ...threatfoxMatched, ...tweetfeedMatched].filter((e) => {
+    const k = `${e.type}|${e.value.trim().toLowerCase()}`;
+    if (seenIoc.has(k)) return false;
+    seenIoc.add(k);
+    return true;
+  });
 
-  // Pre-cap total — what's actually visible upstream in this window. The
-  // served `iocs` payload below is then capped per-bucket so the briefing
-  // JSON stays small, but the summary string reports the real volume so
-  // readers don't mistake the cap for the count.
+  // Unique indicators in this window after cross-source dedup. The served
+  // `iocs` payload below is then capped per-bucket so the briefing JSON
+  // stays small, but the summary reports this real unique volume so readers
+  // don't mistake the cap for the count.
   const iocsRawTotal = allIocs.length;
   const iocs = bucketIocs(allIocs);
 
@@ -874,20 +1258,71 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
   if (urlhausMatched.length > 0) iocSources.push('URLhaus');
   if (malwarebazaarMatched.length > 0) iocSources.push('MalwareBazaar');
   if (threatfoxMatched.length > 0) iocSources.push('ThreatFox');
-  if (openphishMatched.length > 0) iocSources.push('OpenPhish');
   if (tweetfeedMatched.length > 0) iocSources.push('TweetFeed');
 
   const sections = buildSections(findings);
+
+  // MyThreatIntel ransomware victim claims → a dedicated section (kept out
+  // of `findings` so the CVE-oriented stats stay clean). In-window only.
+  //
+  // Dedupe was naively `${gang.toLowerCase()}|${victim.toLowerCase()}`. That
+  // missed real-world variants the upstream feed surfaces side-by-side:
+  //   - aliased gang names: "eraleign (apt73)" vs "Apt73"
+  //   - spacing/casing: "the gentlemen" vs "Thegentlemen", "brain cipher" vs "Braincipher"
+  //   - HTML-entity victims: "Vernon &amp; Ginsburg" vs "Vernon & Ginsburg"
+  // The dedupe key is now the cross-product of normalized gang-aliases and
+  // the normalized victim. A claim is dropped when ANY (gang, victim)
+  // permutation has already been seen.
+  const mtiRansomwareFindings: BriefingFinding[] = [];
+  const seenMtiVictim = new Set<string>();
+  for (const r of mtiRansomwareItems) {
+    const victim = r.victim?.trim();
+    const gang = r.gang?.trim();
+    const date = r.date?.trim();
+    if (!victim || !gang || !date) continue;
+    if (!withinRange(date.replace(' ', 'T'), startMs, endMs)) continue;
+    const victimKey = normalizeVictimKey(victim);
+    const gangKeys = canonicalGangKeys(gang);
+    if (!victimKey || gangKeys.length === 0) continue;
+    const candidateKeys = gangKeys.map((g) => `${g}|${victimKey}`);
+    if (candidateKeys.some((k) => seenMtiVictim.has(k))) continue;
+    for (const k of candidateKeys) seenMtiVictim.add(k);
+    // Stable id derived from the FIRST canonical permutation so the same
+    // dedup-equivalent claim always shares an id across rebuilds.
+    const idKey = candidateKeys[0]!;
+    const desc = r.description?.trim();
+    mtiRansomwareFindings.push({
+      id: `mti-rw-${idKey}`,
+      title: `${victim} — claimed by ${gang}`,
+      description: desc && desc.length > 280 ? `${desc.slice(0, 277)}…` : desc || `${victim} listed by ${gang}.`,
+      severity: 'high',
+      source: 'MyThreatIntel',
+      source_url: 'https://mythreatintel.com/',
+      mitre_techniques: [],
+    });
+  }
+  if (mtiRansomwareFindings.length > 0) {
+    sections.push({
+      id: 'mti-ransomware',
+      title: 'Ransomware victim claims (MyThreatIntel)',
+      count: mtiRansomwareFindings.length,
+      blurb: 'Victim claims observed on the MyThreatIntel CTI feed within this window.',
+      findings: mtiRansomwareFindings.slice(0, 60),
+    });
+  }
+
   const stats = buildStats(findings, sections, iocsRawTotal);
-  const executive_summary = buildExecutiveSummary({
-    type,
-    range_label: rangeLabel,
-    findings,
-    iocs,
-    iocsRawTotal,
-    iocSources,
-    iocPerSource,
-  });
+  const executive_summary = degraded
+    ? `This ${type} briefing is incomplete: both CISA KEV and NVD were unreachable from the edge at build time (${rangeLabel}). This is an upstream-availability gap, NOT an all-clear — do not read the absence of findings as "no new vulnerabilities". The briefing rebuilds automatically every hour and will be replaced as soon as the feeds respond.`
+    : buildExecutiveSummary({
+        type,
+        range_label: rangeLabel,
+        findings,
+        iocs,
+        iocsRawTotal,
+        iocSources,
+        iocPerSource,
+      });
 
   const techniqueSet = new Set<string>();
   for (const f of findings) for (const t of f.mitre_techniques) techniqueSet.add(t);
@@ -895,6 +1330,7 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
   const sources: string[] = [];
   if (findings.some((f) => f.source === 'CISA KEV')) sources.push('CISA KEV');
   if (findings.length > 0) sources.push('NVD');
+  if (mtiCveFindings.length > 0 || mtiRansomwareFindings.length > 0) sources.push('MyThreatIntel');
   sources.push(...iocSources);
 
   return {
@@ -912,6 +1348,7 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
     iocs,
     mitre_techniques: Array.from(techniqueSet).sort(),
     sources,
+    ...(degraded ? { degraded: true } : {}),
   };
 }
 
@@ -925,104 +1362,126 @@ export async function buildBriefing(type: BriefingType, anchor: Date = new Date(
  * decision. Edge-cached upstream responses (Cache API) have their own
  * shorter TTLs and are unaffected by this constant.
  */
-export const BRIEFING_TTL_SECONDS = 30 * 86400;
 export const BRIEFING_MAX_AGE_DAYS = 30;
 
+function safeJsonParse<T>(raw: string | null | undefined, fallback: T): T {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function writeBriefing(
-  kv: KVNamespace,
+  db: D1Database,
   briefing: Briefing,
   options?: { skipIfExists?: boolean }
 ): Promise<{ written: boolean; reason?: string }> {
   if (options?.skipIfExists) {
-    const existing = await kv.get(`briefing:${briefing.slug}`);
-    if (existing) {
-      return { written: false, reason: 'already_exists' };
+    const existing = await db.prepare('SELECT 1 FROM briefings WHERE slug = ?').bind(briefing.slug).first();
+    if (existing) return { written: false, reason: 'already_exists' };
+  }
+
+  // Don't clobber a good briefing with an empty one. The daily cron rebuilds
+  // a slug from live KEV/NVD/abuse.ch; if those feeds are quiet or time out
+  // at build time the result is 0 findings / 0 IOCs. INSERT OR REPLACE would
+  // overwrite the previously-rich briefing for that slug with the empty
+  // rebuild — which is exactly how daily-2026-05-16 lost its 29 findings.
+  // An empty briefing is only persisted when no row exists yet (a genuinely
+  // quiet day still gets a placeholder), never as a downgrade.
+  const isEmpty = briefing.stats.findings === 0 && briefing.stats.iocs === 0;
+  if (isEmpty) {
+    const prior = await db
+      .prepare('SELECT stats_json FROM briefings WHERE slug = ?')
+      .bind(briefing.slug)
+      .first<{ stats_json: string }>();
+    if (prior) {
+      const ps = safeJsonParse<Partial<BriefingStats>>(prior.stats_json, {});
+      if ((ps.findings ?? 0) > 0 || (ps.iocs ?? 0) > 0) {
+        return { written: false, reason: 'kept_richer_existing' };
+      }
     }
   }
-  await kv.put(`briefing:${briefing.slug}`, JSON.stringify(briefing), {
-    expirationTtl: BRIEFING_TTL_SECONDS,
-    metadata: {
-      type: briefing.type,
-      title: briefing.title,
-      date: briefing.date,
-      // range_end is the last day the briefing covers (inclusive). For dailies
-      // it equals `date`; for weeklies it's the Sunday of the week. Sorting by
-      // range_end gives a coherent newest-first ordering across both types.
-      range_end: briefing.range_end,
-      date_range: briefing.date_range,
-      stats: briefing.stats,
-      sources: briefing.sources,
-    },
-  });
+
+  await db
+    .prepare(
+      `INSERT OR REPLACE INTO briefings (slug, type, title, date, date_range, range_start, range_end, stats_json, sources_json, body)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      briefing.slug,
+      briefing.type,
+      briefing.title,
+      briefing.date,
+      briefing.date_range,
+      briefing.range_start,
+      briefing.range_end,
+      JSON.stringify(briefing.stats),
+      JSON.stringify(briefing.sources),
+      JSON.stringify(briefing)
+    )
+    .run();
   return { written: true };
 }
 
-/**
- * Delete briefings whose `date` metadata is older than `maxAgeDays`.
- * Belt-and-braces alongside KV's expirationTtl: handles entries that pre-date
- * the TTL change (which lack expiration) and any other stragglers. Default
- * matches BRIEFING_MAX_AGE_DAYS (30); the admin handler can override but the
- * default and the TTL must stay aligned.
- */
 export async function sweepOldBriefings(
-  kv: KVNamespace,
+  db: D1Database,
   maxAgeDays = BRIEFING_MAX_AGE_DAYS,
   now: Date = new Date()
 ): Promise<{ deleted: string[]; kept: number }> {
-  const cutoffMs = now.getTime() - maxAgeDays * 86400_000;
-  const list = await kv.list({ prefix: 'briefing:', limit: 1000 });
-  const deleted: string[] = [];
-  let kept = 0;
-  for (const k of list.keys) {
-    const meta = k.metadata as { date?: string } | undefined;
-    const dateStr = meta?.date;
-    if (!dateStr) {
-      // No date metadata — be conservative, keep it.
-      kept += 1;
-      continue;
-    }
-    const t = Date.parse(`${dateStr}T00:00:00Z`);
-    if (Number.isNaN(t)) {
-      kept += 1;
-      continue;
-    }
-    if (t < cutoffMs) {
-      await kv.delete(k.name);
-      deleted.push(k.name.replace(/^briefing:/, ''));
-    } else {
-      kept += 1;
-    }
+  const cutoff = new Date(now.getTime() - maxAgeDays * 86400_000).toISOString().slice(0, 10);
+  const toDelete = await db.prepare('SELECT slug FROM briefings WHERE date < ?').bind(cutoff).all<{ slug: string }>();
+  const deleted = (toDelete.results ?? []).map((r) => r.slug);
+  if (deleted.length > 0) {
+    await db.prepare('DELETE FROM briefings WHERE date < ?').bind(cutoff).run();
   }
-  return { deleted, kept };
+  const remaining = await db.prepare('SELECT COUNT(*) as count FROM briefings').first<{ count: number }>();
+  return { deleted, kept: (remaining as { count: number } | null)?.count ?? 0 };
 }
 
 export async function listBriefings(
-  kv: KVNamespace,
+  db: D1Database,
   filter?: { type?: BriefingType; limit?: number }
-): Promise<Array<{ slug: string; metadata: unknown }>> {
+): Promise<Array<{ slug: string; metadata: Record<string, unknown> }>> {
   const limit = filter?.limit ?? 50;
-  const list = await kv.list({ prefix: 'briefing:', limit: 200 });
-  const items = list.keys
-    .map((k) => ({ slug: k.name.replace(/^briefing:/, ''), metadata: k.metadata }))
-    .filter((k) => {
-      if (!filter?.type) return true;
-      return k.slug.startsWith(filter.type);
-    })
-    .slice()
-    .sort((a, b) => {
-      // Sort by range_end (newest first) so weeklies and dailies interleave
-      // by the actual end-of-period rather than weekly's Monday-as-date.
-      const am = a.metadata as { range_end?: string; date?: string } | undefined;
-      const bm = b.metadata as { range_end?: string; date?: string } | undefined;
-      const aKey = am?.range_end ?? am?.date ?? '';
-      const bKey = bm?.range_end ?? bm?.date ?? '';
-      return bKey.localeCompare(aKey);
-    })
-    .slice(0, limit);
-  return items;
+  let query = 'SELECT slug, type, title, date, date_range, range_end, stats_json, sources_json FROM briefings';
+  const params: unknown[] = [];
+  if (filter?.type) {
+    query += ' WHERE type = ?';
+    params.push(filter.type);
+  }
+  query += ' ORDER BY range_end DESC LIMIT ?';
+  params.push(limit);
+  const result = await db
+    .prepare(query)
+    .bind(...params)
+    .all<{
+      slug: string;
+      type: string;
+      title: string;
+      date: string;
+      date_range: string;
+      range_end: string;
+      stats_json: string;
+      sources_json: string;
+    }>();
+  return (result.results ?? []).map((row) => ({
+    slug: row.slug,
+    metadata: {
+      type: row.type,
+      title: row.title,
+      date: row.date,
+      range_end: row.range_end,
+      date_range: row.date_range,
+      stats: safeJsonParse(row.stats_json, {}),
+      sources: safeJsonParse(row.sources_json, []),
+    },
+  }));
 }
 
-export async function readBriefing(kv: KVNamespace, slug: string): Promise<Briefing | null> {
-  const body = await kv.get(`briefing:${slug}`, 'json');
-  return (body as Briefing | null) ?? null;
+export async function readBriefing(db: D1Database, slug: string): Promise<Briefing | null> {
+  const row = await db.prepare('SELECT body FROM briefings WHERE slug = ?').bind(slug).first<{ body: string }>();
+  if (!row) return null;
+  return safeJsonParse((row as { body: string }).body, null);
 }

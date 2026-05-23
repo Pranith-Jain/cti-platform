@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { BackLink } from '../../components/BackLink';
 import { ArrowLeft, AtSign, Cloud, ExternalLink, Loader2, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { useLastVisit, isNewSince } from '../../hooks';
 
@@ -128,18 +129,18 @@ export default function XFirehose(): JSX.Element {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
-      <Link
+      <BackLink
         to="/threatintel"
         className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 mb-8 font-mono"
       >
-        <ArrowLeft size={14} /> /threatintel
-      </Link>
+        <ArrowLeft size={14} /> back
+      </BackLink>
 
       <div className="animate-fade-in-up">
-        <h1 className="text-4xl font-display font-bold mb-2 inline-flex items-center gap-3">
+        <h1 className="text-3xl sm:text-4xl font-display font-bold mb-2 inline-flex items-center gap-3">
           <Cloud size={28} className="text-brand-600 dark:text-brand-400" /> Cybersec social firehose
         </h1>
-        <p className="text-slate-600 dark:text-slate-400 font-mono mb-2 max-w-3xl">
+        <p className="text-slate-600 dark:text-slate-400 mb-2 max-w-3xl leading-relaxed">
           Curated stream from cybersec researchers and vendor labs on <strong>Bluesky</strong> and{' '}
           <strong>Mastodon (infosec.exchange)</strong>. X killed its free read API in 2023 and the available Nitter
           mirrors are unreliable, so most of these accounts have a mirror on Bluesky or Mastodon. Both expose proper
@@ -158,7 +159,7 @@ export default function XFirehose(): JSX.Element {
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Filter by tweet text or handle…"
+              placeholder="Filter by post text or handle…"
               className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded font-mono text-sm focus:outline-none focus:border-brand-500 dark:focus:border-brand-400"
               aria-label="Filter X posts"
             />
@@ -229,7 +230,7 @@ export default function XFirehose(): JSX.Element {
 
       {data && (
         <p className="text-[11px] font-mono text-slate-500 mb-4">
-          Showing {filtered.length} of {data.items.length} tweets · snapshot{' '}
+          Showing {filtered.length} of {data.items.length} posts · snapshot{' '}
           <span className="text-slate-700 dark:text-slate-300">{shortRel(data.generated_at)}</span>
           {data.warnings.length > 0 && (
             <span className="text-amber-600 dark:text-amber-400 ml-2">· {data.warnings.length} handle warnings</span>
@@ -239,7 +240,7 @@ export default function XFirehose(): JSX.Element {
 
       {loading && (
         <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 flex items-center gap-3 font-mono text-sm text-slate-500">
-          <Loader2 size={16} className="animate-spin" /> loading via Nitter mirrors…
+          <Loader2 size={16} className="animate-spin" /> loading Bluesky and Mastodon feeds…
         </div>
       )}
 

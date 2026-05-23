@@ -8,68 +8,76 @@ export default function ActorDetail(): JSX.Element {
 
   if (!actor) {
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-8 py-20 text-ink-1">
+      <div className="max-w-3xl mx-auto px-4 sm:px-8 py-20 text-slate-900 dark:text-slate-100">
         <Link
           to="/threatintel/actors"
-          className="inline-flex items-center gap-2 text-sm text-ink-2 hover:text-accent mb-8 font-mono"
+          className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:text-brand-400 mb-8 font-mono"
         >
-          <ArrowLeft size={14} /> /threatintel/actors
+          <ArrowLeft size={14} /> back
         </Link>
-        <h1 className="font-serif font-bold text-3xl">Actor not found</h1>
+        <h1 className="font-display font-bold text-3xl">Actor not found</h1>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-8 py-12 text-ink-1">
+    <div className="max-w-4xl mx-auto px-4 sm:px-8 py-12 text-slate-900 dark:text-slate-100">
       <Link
         to="/threatintel/actors"
-        className="inline-flex items-center gap-2 text-sm text-ink-2 hover:text-accent mb-8 font-mono"
+        className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:text-brand-400 mb-8 font-mono"
       >
-        <ArrowLeft size={14} /> /threatintel/actors
+        <ArrowLeft size={14} /> back
       </Link>
 
-      <div className="mb-8">
-        <h1 className="text-5xl font-serif font-bold mb-3">{actor.name}</h1>
+      <div className="animate-fade-in-up mb-8">
+        <h1 className="text-5xl font-display font-bold mb-3">{actor.name}</h1>
         {actor.aliases.length > 0 && (
-          <p className="text-base font-mono text-ink-2 mb-4">aka {actor.aliases.join(', ')}</p>
+          <p className="text-base font-mono text-slate-600 dark:text-slate-400 mb-4">aka {actor.aliases.join(', ')}</p>
         )}
         <div className="flex flex-wrap gap-2">
           <span
             className={`text-xs font-mono px-2 py-1 rounded border ${
               actor.status === 'active'
                 ? 'bg-emerald-500/15 dark:bg-emerald-400/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40'
-                : 'bg-surface-raised text-ink-2 border-rule'
+                : 'bg-slate-200 dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-700'
             }`}
           >
             {actor.status}
           </span>
-          <span className="text-xs font-mono px-2 py-1 rounded border bg-accent-soft text-accent border-rule">
+          <span className="text-xs font-mono px-2 py-1 rounded border bg-brand-500/15 dark:bg-brand-400/15 text-brand-600 dark:text-brand-400 border-brand-500/40">
             {actor.sophistication}
           </span>
           {actor.country && (
-            <span className="text-xs font-mono px-2 py-1 rounded border border-rule text-ink-2">{actor.country}</span>
+            <span className="text-xs font-mono px-2 py-1 rounded border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+              {actor.country}
+            </span>
           )}
         </div>
       </div>
 
-      <section className="mb-8 border border-rule bg-surface-page p-6">
-        <p className="text-base text-ink-2 leading-relaxed whitespace-pre-line">{actor.description}</p>
+      <section className="mb-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
+        <p className="text-base text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line">
+          {actor.description}
+        </p>
       </section>
 
       <div className="grid sm:grid-cols-2 gap-6 mb-8">
-        <section className="border border-rule bg-surface-page p-6">
-          <h2 className="font-serif font-bold text-lg mb-3">Motivation</h2>
-          <p className="font-mono text-sm text-ink-1">{actor.motivation}</p>
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
+          <h2 className="font-display font-bold text-lg mb-3">Motivation</h2>
+          <p className="font-mono text-sm text-slate-900 dark:text-slate-100">{actor.motivation}</p>
           {actor.active_since && (
-            <p className="mt-2 font-mono text-xs text-ink-2">active since: {actor.active_since}</p>
+            <p className="mt-2 font-mono text-xs text-slate-600 dark:text-slate-400">
+              active since: {actor.active_since}
+            </p>
           )}
-          {actor.last_activity && <p className="font-mono text-xs text-ink-2">last activity: {actor.last_activity}</p>}
+          {actor.last_activity && (
+            <p className="font-mono text-xs text-slate-600 dark:text-slate-400">last activity: {actor.last_activity}</p>
+          )}
         </section>
 
-        <section className="border border-rule bg-surface-page p-6">
-          <h2 className="font-serif font-bold text-lg mb-3">Targets</h2>
-          <ul className="space-y-1 text-sm font-mono text-ink-2">
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
+          <h2 className="font-display font-bold text-lg mb-3">Targets</h2>
+          <ul className="space-y-1 text-sm font-mono text-slate-600 dark:text-slate-400">
             {actor.targets.map((t) => (
               <li key={t}>· {t}</li>
             ))}
@@ -77,26 +85,26 @@ export default function ActorDetail(): JSX.Element {
         </section>
       </div>
 
-      <section className="mb-8 border border-rule bg-surface-page p-6">
-        <h2 className="font-serif font-bold text-lg mb-3">Malware &amp; Tools</h2>
+      <section className="mb-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
+        <h2 className="font-display font-bold text-lg mb-3">Malware &amp; Tools</h2>
         {actor.malware.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {actor.malware.map((m) => (
               <span
                 key={m}
-                className="text-xs font-mono px-2 py-1 rounded bg-surface-raised text-ink-1 border border-rule"
+                className="text-xs font-mono px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800"
               >
                 {m}
               </span>
             ))}
           </div>
         ) : (
-          <p className="text-sm font-mono text-ink-2">No specific malware attributed.</p>
+          <p className="text-sm font-mono text-slate-500">No specific malware attributed.</p>
         )}
       </section>
 
-      <section className="mb-8 border border-rule bg-surface-page p-6">
-        <h2 className="font-serif font-bold text-lg mb-3">MITRE ATT&amp;CK Techniques</h2>
+      <section className="mb-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
+        <h2 className="font-display font-bold text-lg mb-3">MITRE ATT&amp;CK Techniques</h2>
         <div className="flex flex-wrap gap-2">
           {actor.techniques.map((t) => (
             <a
@@ -104,7 +112,7 @@ export default function ActorDetail(): JSX.Element {
               href={`https://attack.mitre.org/techniques/${t.replace('.', '/')}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs font-mono px-2 py-1 rounded bg-surface-raised text-accent border border-rule hover:border-rule"
+              className="text-xs font-mono px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-brand-600 dark:text-brand-400 border border-slate-200 dark:border-slate-800 hover:border-brand-500/40"
             >
               {t}
             </a>
@@ -113,8 +121,8 @@ export default function ActorDetail(): JSX.Element {
       </section>
 
       {actor.references && actor.references.length > 0 && (
-        <section className="border border-rule bg-surface-page p-6">
-          <h2 className="font-serif font-bold text-lg mb-3">References</h2>
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
+          <h2 className="font-display font-bold text-lg mb-3">References</h2>
           <ul className="space-y-2">
             {actor.references.map((r) => (
               <li key={r}>
@@ -122,7 +130,7 @@ export default function ActorDetail(): JSX.Element {
                   href={r}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm font-mono text-accent hover:underline inline-flex items-center gap-1"
+                  className="text-sm font-mono text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-1"
                 >
                   {r} <ExternalLink size={10} />
                 </a>
