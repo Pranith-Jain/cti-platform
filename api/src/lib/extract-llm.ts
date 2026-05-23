@@ -31,7 +31,7 @@ import type { ExtractedEntities } from './extract';
 import { ACTOR_ALIASES } from '../data/threat-actor-aliases';
 import { MALWARE_DICT } from '../data/malware-dict';
 import { ATTACK_ID_INDEX } from '../data/attack-id-index';
-import { runCompletion as defaultRunCompletion } from '../case-study/generation/ai-client';
+import { runCompletion as defaultRunCompletion } from './ai-client';
 
 export interface LlmEntities {
   sectors: { name: string }[];
