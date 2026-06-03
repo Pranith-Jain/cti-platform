@@ -36,6 +36,11 @@ const ScamWatchPage = lazy(() => import('./pages/threatintel/ScamWatch'));
 const TechAiNewsPage = lazy(() => import('./pages/threatintel/TechAiNews'));
 const TelegramWatchPage = lazy(() => import('./pages/threatintel/TelegramWatch'));
 const ThreatFeedsPage = lazy(() => import('./pages/threatintel/ThreatFeeds'));
+const CryptoScamFeedPage = lazy(() => import('./pages/threatintel/CryptoScamFeed'));
+const ActorUsernamesPage = lazy(() => import('./pages/threatintel/ActorUsernames'));
+const PhishingWordlistsPage = lazy(() => import('./pages/threatintel/PhishingWordlists'));
+const ProjectDiscoveryPage = lazy(() => import('./pages/threatintel/ProjectDiscovery'));
+const RansomPaymentsPage = lazy(() => import('./pages/threatintel/RansomPayments'));
 
 function SectionLoader() {
   return (
@@ -396,6 +401,56 @@ export function AppContent() {
           <ErrorBoundary>
             <Suspense fallback={<SectionLoader />}>
               <ThreatFeedsPage />
+            </Suspense>
+          </ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/crypto-scams"
+        element={
+          <ErrorBoundary>
+            <Suspense fallback={<SectionLoader />}>
+              <CryptoScamFeedPage />
+            </Suspense>
+          </ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/actor-usernames"
+        element={
+          <ErrorBoundary>
+            <Suspense fallback={<SectionLoader />}>
+              <ActorUsernamesPage />
+            </Suspense>
+          </ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/phishing-wordlists"
+        element={
+          <ErrorBoundary>
+            <Suspense fallback={<SectionLoader />}>
+              <PhishingWordlistsPage />
+            </Suspense>
+          </ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/projectdiscovery"
+        element={
+          <ErrorBoundary>
+            <Suspense fallback={<SectionLoader />}>
+              <ProjectDiscoveryPage />
+            </Suspense>
+          </ErrorBoundary>
+        }
+      />
+      <Route
+        path="/threatintel/ransom-payments"
+        element={
+          <ErrorBoundary>
+            <Suspense fallback={<SectionLoader />}>
+              <RansomPaymentsPage />
             </Suspense>
           </ErrorBoundary>
         }

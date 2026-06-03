@@ -35,4 +35,9 @@ export interface Env {
    *  consumers (live-iocs, ransomware-recent) fall back to the existing
    *  t.me/s/mythreatintel scraper so nothing that works today breaks. */
   MYTHREATINTEL_API_TOKEN?: string;
+  /** ProjectDiscovery Cloud (PDCP) free API key (set via
+   *  `wrangler secret put PDCP_API_KEY`). Optional — only the Chaos subdomain
+   *  recon tab needs it; the Credentials and CVE-catalog tabs work without a
+   *  key, and /api/v1/pd/subdomains degrades to 503 when unset. */
+  PDCP_API_KEY?: string;
 }

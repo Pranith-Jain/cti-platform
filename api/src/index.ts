@@ -58,6 +58,16 @@ import {
   intelBundleByIdHandler,
   intelBundleAdminHandler,
 } from './routes/intel-bundle';
+import { cryptoScamFeedHandler } from './routes/crypto-scam-feed';
+import { actorUsernamesHandler, actorUsernamesStatsHandler } from './routes/actor-usernames';
+import { phishingWordlistsHandler } from './routes/phishing-wordlists';
+import {
+  pdLeaksHandler,
+  pdSubdomainsHandler,
+  pdCvesHandler,
+  pdCveDetailHandler,
+} from './routes/projectdiscovery-intel';
+import { ransomwhereHandler } from './routes/ransomwhere';
 import { rateLimit } from './lib/ratelimit';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -119,6 +129,15 @@ app.get('/api/v1/briefings/:slug', getBriefingHandler);
 app.get('/api/v1/external-resources', listExternalResourcesHandler);
 app.post('/api/v1/external-resources', createExternalResourceHandler);
 app.delete('/api/v1/external-resources/:id', deleteExternalResourceHandler);
+app.get('/api/v1/pd/leaks', pdLeaksHandler);
+app.get('/api/v1/pd/subdomains', pdSubdomainsHandler);
+app.get('/api/v1/pd/cves', pdCvesHandler);
+app.get('/api/v1/pd/cve-detail', pdCveDetailHandler);
+app.get('/api/v1/ransomwhere', ransomwhereHandler);
+app.get('/api/v1/crypto-scam-feed', cryptoScamFeedHandler);
+app.get('/api/v1/actor-usernames', actorUsernamesHandler);
+app.get('/api/v1/actor-usernames/stats', actorUsernamesStatsHandler);
+app.get('/api/v1/phishing-wordlists', phishingWordlistsHandler);
 app.notFound((c) => c.json({ error: 'not_found' }, 404));
 
 export default app;
